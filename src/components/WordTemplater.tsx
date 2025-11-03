@@ -1,12 +1,14 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload, FileText, Download } from "lucide-react";
+import { Upload, FileText, Download, List } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const WordTemplater = () => {
+  const navigate = useNavigate();
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
@@ -55,6 +57,14 @@ const WordTemplater = () => {
 
   return (
     <div className="space-y-6">
+      {/* Quick Actions */}
+      <div className="flex justify-end">
+        <Button onClick={() => navigate("/documents")} variant="outline" className="gap-2">
+          <List className="h-4 w-4" />
+          Zobacz dokumenty OCR
+        </Button>
+      </div>
+
       {/* Upload Section */}
       <Card className="p-6 border-2 border-dashed hover:border-primary/50 transition-colors">
         <div className="space-y-4">
