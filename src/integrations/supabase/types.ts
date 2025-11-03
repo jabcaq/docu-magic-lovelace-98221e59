@@ -14,7 +14,167 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      document_runs: {
+        Row: {
+          created_at: string
+          document_id: string
+          id: string
+          run_index: number
+          tag: string | null
+          text: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          document_id: string
+          id?: string
+          run_index: number
+          tag?: string | null
+          text: string
+          type?: string
+        }
+        Update: {
+          created_at?: string
+          document_id?: string
+          id?: string
+          run_index?: number
+          tag?: string | null
+          text?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_runs_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      documents: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          status: string
+          storage_path: string
+          template_id: string | null
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          status?: string
+          storage_path: string
+          template_id?: string | null
+          type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          status?: string
+          storage_path?: string
+          template_id?: string | null
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_template"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      manual_overrides: {
+        Row: {
+          corrected_value: string
+          created_at: string
+          document_id: string
+          field_id: string
+          id: string
+          original_value: string
+          user_id: string
+        }
+        Insert: {
+          corrected_value: string
+          created_at?: string
+          document_id: string
+          field_id: string
+          id?: string
+          original_value: string
+          user_id: string
+        }
+        Update: {
+          corrected_value?: string
+          created_at?: string
+          document_id?: string
+          field_id?: string
+          id?: string
+          original_value?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manual_overrides_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      templates: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          original_document_id: string | null
+          storage_path: string
+          tag_metadata: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          original_document_id?: string | null
+          storage_path: string
+          tag_metadata?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          original_document_id?: string | null
+          storage_path?: string
+          tag_metadata?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "templates_original_document_id_fkey"
+            columns: ["original_document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

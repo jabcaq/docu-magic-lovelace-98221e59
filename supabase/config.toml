@@ -1,1 +1,10 @@
 project_id = "ebvcextapzrkzpowrxto"
+
+[functions.upload-document]
+verify_jwt = true
+
+[functions.extract-runs]
+verify_jwt = true
+
+[functions.create-template]
+verify_jwt = true

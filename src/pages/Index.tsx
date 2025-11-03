@@ -33,7 +33,7 @@ const Index = () => {
             <Button 
               size="lg" 
               className="gap-2 text-lg px-8"
-              onClick={() => navigate("/dashboard")}
+              onClick={() => navigate("/auth")}
             >
               Get Started
               <ArrowRight className="h-5 w-5" />

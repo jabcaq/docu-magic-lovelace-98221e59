@@ -4,8 +4,10 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Upload, FileText, Download, List } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ExtractedRun {
   id: string;
@@ -17,63 +19,163 @@ interface ExtractedRun {
 const WordTemplater = () => {
   const navigate = useNavigate();
   const [file, setFile] = useState<File | null>(null);
+  const [documentId, setDocumentId] = useState<string | null>(null);
+  const [textContent, setTextContent] = useState<string>("");
+  const [isUploading, setIsUploading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [extractedRuns, setExtractedRuns] = useState<ExtractedRun[]>([]);
+  const [templateName, setTemplateName] = useState("");
   const { toast } = useToast();
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      if (selectedFile.name.endsWith(".docx")) {
-        setFile(selectedFile);
-        toast({
-          title: "File uploaded",
-          description: `${selectedFile.name} is ready for processing`,
-        });
-      } else {
-        toast({
-          title: "Invalid file type",
-          description: "Please upload a .docx file",
-          variant: "destructive",
-        });
+    if (!selectedFile) return;
+
+    if (!selectedFile.name.endsWith(".docx")) {
+      toast({
+        title: "Nieprawidłowy typ pliku",
+        description: "Proszę przesłać plik .docx",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setFile(selectedFile);
+    setIsUploading(true);
+    setExtractedRuns([]);
+    setDocumentId(null);
+
+    try {
+      // Get session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error("Brak sesji użytkownika");
       }
+
+      // Upload document
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("name", selectedFile.name);
+      formData.append("type", "Dokument Word");
+
+      const response = await supabase.functions.invoke("upload-document", {
+        body: formData,
+      });
+
+      if (response.error) {
+        throw response.error;
+      }
+
+      const { document } = response.data;
+      setDocumentId(document.id);
+
+      toast({
+        title: "Plik przesłany",
+        description: `${selectedFile.name} jest gotowy do przetworzenia`,
+      });
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast({
+        title: "Błąd przesyłania",
+        description: error instanceof Error ? error.message : "Nie udało się przesłać pliku",
+        variant: "destructive",
+      });
+      setFile(null);
+    } finally {
+      setIsUploading(false);
     }
   };
 
   const handleExtractRuns = async () => {
-    if (!file) return;
+    if (!documentId || !textContent.trim()) {
+      toast({
+        title: "Brak danych",
+        description: "Proszę wpisać treść dokumentu do przetworzenia",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setIsProcessing(true);
     try {
-      // TODO: Implement API call to extract runs endpoint
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate processing
+      const { data, error } = await supabase.functions.invoke("extract-runs", {
+        body: {
+          documentId,
+          textContent,
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      const { runs } = data;
       
-      // Mock extracted runs for demonstration
-      const mockRuns: ExtractedRun[] = [
-        { id: "1", text: "Umowa najmu lokalu mieszkalnego", tag: "", type: "text" },
-        { id: "2", text: "Jan Kowalski", tag: "{{NajemcaNazwisko}}", type: "placeholder" },
-        { id: "3", text: "zamieszkały w ", tag: "", type: "text" },
-        { id: "4", text: "Warszawa, ul. Kwiatowa 15", tag: "{{NajemcaAdres}}", type: "placeholder" },
-        { id: "5", text: ", legitymujący się dowodem osobistym nr ", tag: "", type: "text" },
-        { id: "6", text: "ABC123456", tag: "{{NajemcaDowod}}", type: "placeholder" },
-        { id: "7", text: " oraz PESEL ", tag: "", type: "text" },
-        { id: "8", text: "85010112345", tag: "{{NajemcaPESEL}}", type: "placeholder" },
-        { id: "9", text: ", zwany dalej Najemcą, wynajmuje lokal o powierzchni ", tag: "", type: "text" },
-        { id: "10", text: "45 m²", tag: "{{LokalPowierzchnia}}", type: "placeholder" },
-        { id: "11", text: " znajdujący się pod adresem ", tag: "", type: "text" },
-        { id: "12", text: "Warszawa, ul. Słoneczna 10/15", tag: "{{LokalAdres}}", type: "placeholder" },
-      ];
+      // Convert to frontend format
+      const formattedRuns: ExtractedRun[] = runs.map((run: any) => ({
+        id: `${run.index || Math.random()}`,
+        text: run.text,
+        tag: run.tag || "",
+        type: run.tag ? "placeholder" : "text",
+      }));
       
-      setExtractedRuns(mockRuns);
+      setExtractedRuns(formattedRuns);
       
       toast({
         title: "Sukces!",
-        description: `Wyekstrahowano ${mockRuns.length} fragmentów tekstu. Możesz teraz edytować tagi.`,
+        description: `Wyekstrahowano ${formattedRuns.length} fragmentów, AI zatagowało ${formattedRuns.filter(r => r.tag).length} jako placeholdery`,
       });
     } catch (error) {
+      console.error("Extract error:", error);
       toast({
         title: "Błąd",
-        description: "Nie udało się przetworzyć dokumentu",
+        description: error instanceof Error ? error.message : "Nie udało się przetworzyć dokumentu",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleSaveTemplate = async () => {
+    if (!documentId) {
+      toast({
+        title: "Błąd",
+        description: "Brak ID dokumentu",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("create-template", {
+        body: {
+          documentId,
+          templateName: templateName || undefined,
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "Szablon utworzony!",
+        description: `Szablon "${data.template.name}" został zapisany z ${data.template.tagCount} tagami`,
+      });
+
+      // Reset form
+      setFile(null);
+      setDocumentId(null);
+      setTextContent("");
+      setExtractedRuns([]);
+      setTemplateName("");
+    } catch (error) {
+      console.error("Save template error:", error);
+      toast({
+        title: "Błąd",
+        description: error instanceof Error ? error.message : "Nie udało się zapisać szablonu",
         variant: "destructive",
       });
     } finally {
@@ -115,14 +217,18 @@ const WordTemplater = () => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="file-upload">Select File</Label>
+            <Label htmlFor="file-upload">Wybierz plik</Label>
             <Input
               id="file-upload"
               type="file"
               accept=".docx"
               onChange={handleFileChange}
               className="cursor-pointer"
+              disabled={isUploading}
             />
+            {isUploading && (
+              <p className="text-sm text-muted-foreground">Przesyłanie pliku...</p>
+            )}
           </div>
 
           {file && (
@@ -139,23 +245,35 @@ const WordTemplater = () => {
         </div>
       </Card>
 
-      {/* Actions Section */}
-      {file && (
+      {/* Text Input Section */}
+      {file && !extractedRuns.length && (
         <Card className="p-6 space-y-4">
-          <h3 className="text-lg font-semibold">Actions</h3>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Button
-              onClick={handleExtractRuns}
-              disabled={isProcessing}
-              className="w-full"
-            >
-              {isProcessing ? "Processing..." : "Extract Runs"}
-            </Button>
-            <Button variant="outline" disabled className="w-full gap-2">
-              <Download className="h-4 w-4" />
-              Find & Replace
-            </Button>
+          <div>
+            <h3 className="text-lg font-semibold mb-2">Treść dokumentu</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Wklej lub wpisz treść dokumentu Word, którą chcesz przetworzyć
+            </p>
           </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="text-content">Tekst dokumentu</Label>
+            <Textarea
+              id="text-content"
+              value={textContent}
+              onChange={(e) => setTextContent(e.target.value)}
+              placeholder="Wklej tutaj treść dokumentu..."
+              className="min-h-[300px] font-mono text-sm"
+            />
+          </div>
+
+          <Button
+            onClick={handleExtractRuns}
+            disabled={isProcessing || !textContent.trim()}
+            className="w-full"
+            size="lg"
+          >
+            {isProcessing ? "Przetwarzanie z AI..." : "Wyekstrahuj i zataguj fragmenty"}
+          </Button>
         </Card>
       )}
 
@@ -209,15 +327,29 @@ const WordTemplater = () => {
             ))}
           </div>
 
-          <div className="mt-6 pt-4 border-t">
-            <div className="flex items-center justify-between text-sm">
-              <div className="text-muted-foreground">
+          <div className="mt-6 pt-4 border-t space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="template-name">Nazwa szablonu (opcjonalnie)</Label>
+              <Input
+                id="template-name"
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                placeholder="np. Szablon Umowy Najmu v1"
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-muted-foreground">
                 <span className="font-medium text-accent">
                   {extractedRuns.filter(r => r.type === "placeholder").length}
                 </span>
                 {" "}placeholderów z {extractedRuns.length} fragmentów
               </div>
-              <Button className="gap-2">
+              <Button 
+                onClick={handleSaveTemplate}
+                disabled={isProcessing}
+                className="gap-2"
+              >
                 <Download className="h-4 w-4" />
                 Zapisz szablon
               </Button>
