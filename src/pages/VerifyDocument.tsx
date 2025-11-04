@@ -274,7 +274,7 @@ const VerifyDocument = () => {
   }
 
   return (
-    <div className="min-h-screen w-screen flex flex-col bg-gradient-to-br from-background via-background to-accent/5 overflow-x-hidden">
+    <div className="min-h-screen w-full max-w-[2560px] mx-auto flex flex-col bg-gradient-to-br from-background via-background to-accent/5 overflow-x-hidden">
       {/* Header */}
       <header className="border-b bg-card/50 backdrop-blur-sm shrink-0 sticky top-0 z-50">
         <div className="w-full pl-0 pr-3 py-3">
