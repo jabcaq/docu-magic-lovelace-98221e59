@@ -242,7 +242,7 @@ const VerifyDocument = () => {
       {/* Header */}
       <header className="border-b bg-card/50 backdrop-blur-sm shrink-0 sticky top-0 z-50">
         <div className="w-full px-2 sm:px-4 lg:px-6 py-3">
-          <div className="flex items-center justify-between max-w-[2000px] mx-auto gap-2">
+          <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
               <Button
                 variant="ghost"
@@ -278,7 +278,7 @@ const VerifyDocument = () => {
       {/* Info Bar */}
       <div className="border-b bg-card/30 backdrop-blur-sm shrink-0">
         <div className="w-full px-2 sm:px-4 lg:px-6 py-3">
-          <div className="max-w-[2000px] mx-auto">
+          <div className="w-full">
             <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:gap-4 lg:gap-6 items-start sm:items-center">
               {document.template && (
                 <div className="flex items-center gap-2">
@@ -304,11 +304,11 @@ const VerifyDocument = () => {
       </div>
 
       {/* Two Column Layout */}
-      <main className="w-full px-2 sm:px-4 lg:px-6 py-4 sm:py-6 max-w-[2000px] mx-auto flex-1">
-        <div className="grid grid-cols-1 lg:grid-cols-[1.2fr,0.8fr] gap-4 sm:gap-6 lg:gap-8 xl:gap-12 h-full">
+      <main className="w-full px-2 sm:px-4 lg:px-6 py-4 sm:py-6 flex-1">
+        <div className="grid grid-cols-1 lg:grid-cols-[1.2fr,0.8fr] gap-3 sm:gap-4 lg:gap-6 h-full">
           {/* Left Column - Document Preview */}
           <div className="flex flex-col min-h-[400px] lg:min-h-0 lg:h-full">
-            <Card className="p-4 sm:p-6 flex flex-col h-full overflow-hidden">
+            <Card className="p-3 sm:p-4 flex flex-col h-full overflow-hidden">
               <div className="flex items-center gap-2 mb-4 shrink-0 flex-wrap">
                 <Eye className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                 <h2 className="font-semibold text-base sm:text-lg">Podgląd dokumentu</h2>
@@ -328,7 +328,7 @@ const VerifyDocument = () => {
 
           {/* Right Column - Editable Fields */}
           <div className="flex flex-col min-h-[400px] lg:min-h-0 lg:h-full">
-            <Card className="p-4 sm:p-6 flex flex-col h-full overflow-hidden">
+            <Card className="p-3 sm:p-4 flex flex-col h-full overflow-hidden">
               <div className="flex items-center gap-2 mb-4 shrink-0">
                 <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                 <h2 className="font-semibold text-base sm:text-lg">Weryfikacja pól</h2>
