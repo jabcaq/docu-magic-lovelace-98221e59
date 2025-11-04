@@ -1,22 +1,31 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2 } from "lucide-react";
+import TextSelectionPopup from "./TextSelectionPopup";
 
 interface DocumentPreviewEnhancedProps {
   documentId: string;
   highlightedFieldId?: string;
   onTagHover?: (fieldId: string | null) => void;
+  onAddNewField?: (selectedText: string, tagName: string) => void;
 }
 
 const DocumentPreviewEnhanced = ({
   documentId,
   highlightedFieldId,
   onTagHover,
+  onAddNewField,
 }: DocumentPreviewEnhancedProps) => {
   const [html, setHtml] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [selectionPopup, setSelectionPopup] = useState<{
+    visible: boolean;
+    position: { x: number; y: number };
+    selectedText: string;
+  } | null>(null);
 
   useEffect(() => {
     const fetchRenderedDocument = async () => {
@@ -93,6 +102,67 @@ const DocumentPreviewEnhanced = ({
     };
   }, [highlightedFieldId]);
 
+  // Handle text selection
+  useEffect(() => {
+    if (!contentRef.current || !onAddNewField) return;
+
+    const handleMouseUp = () => {
+      const selection = window.getSelection();
+      const selectedText = selection?.toString().trim();
+
+      if (!selectedText || selectedText.length < 2) {
+        setSelectionPopup(null);
+        return;
+      }
+
+      // Check if selection is within a non-tagged text element
+      const range = selection?.getRangeAt(0);
+      const container = range?.commonAncestorContainer;
+      
+      // Find the closest paragraph or text node
+      let element = container?.nodeType === 3 ? container.parentElement : container as HTMLElement;
+      
+      // Check if we're not inside a .doc-variable
+      if (element?.closest('.doc-variable')) {
+        setSelectionPopup(null);
+        return;
+      }
+
+      // Get selection position
+      const rect = range?.getBoundingClientRect();
+      if (rect) {
+        setSelectionPopup({
+          visible: true,
+          position: {
+            x: rect.left + window.scrollX,
+            y: rect.bottom + window.scrollY + 10,
+          },
+          selectedText,
+        });
+      }
+    };
+
+    const content = contentRef.current;
+    content.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      content.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [html, onAddNewField]);
+
+  const handleConfirmSelection = (tagName: string) => {
+    if (selectionPopup && onAddNewField) {
+      onAddNewField(selectionPopup.selectedText, tagName);
+    }
+    setSelectionPopup(null);
+    window.getSelection()?.removeAllRanges();
+  };
+
+  const handleCancelSelection = () => {
+    setSelectionPopup(null);
+    window.getSelection()?.removeAllRanges();
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-[700px]">
@@ -111,6 +181,15 @@ const DocumentPreviewEnhanced = ({
 
   return (
     <>
+      {selectionPopup && (
+        <TextSelectionPopup
+          position={selectionPopup.position}
+          selectedText={selectionPopup.selectedText}
+          onConfirm={handleConfirmSelection}
+          onCancel={handleCancelSelection}
+        />
+      )}
+      
       <style>{`
         .tag-highlighted {
           animation: pulse-highlight 1s ease-in-out;
@@ -140,6 +219,7 @@ const DocumentPreviewEnhanced = ({
       <ScrollArea className="h-[500px] sm:h-[600px] lg:h-[calc(100vh-320px)] w-full border rounded-lg bg-white dark:bg-gray-900 p-4 sm:p-6 lg:p-8">
         {html ? (
           <div
+            ref={contentRef}
             dangerouslySetInnerHTML={{ __html: html }}
             className="document-preview-content prose prose-base max-w-none [&_.doc-variable]:inline [&_.doc-tag-badge]:inline-block"
           />

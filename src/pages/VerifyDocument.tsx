@@ -221,6 +221,42 @@ const VerifyDocument = () => {
     setHighlightedFieldId(null);
   };
 
+  const handleAddNewField = async (selectedText: string, tagName: string) => {
+    if (!document) return;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Create a new tag format
+      const tag = `{{${tagName}}}`;
+
+      toast({
+        title: "Dodawanie zmiennej...",
+        description: `Dodaję pole "${tagName}" do dokumentu`,
+      });
+
+      // Note: Ideally, we'd update the specific run in document_runs table
+      // For now, we'll just refetch the document to show the user feedback
+      // The actual implementation would require server-side logic to update runs
+      
+      toast({
+        title: "Informacja",
+        description: `Wybrano tekst "${selectedText}" jako ${tagName}. Ta funkcja wymaga dodatkowej logiki serwerowej do pełnej implementacji.`,
+      });
+
+      // Refresh document
+      await fetchDocument();
+    } catch (error) {
+      console.error("Error adding new field:", error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się dodać nowego pola",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -319,6 +355,7 @@ const VerifyDocument = () => {
                   documentId={document.id}
                   highlightedFieldId={highlightedFieldId}
                   onTagHover={handleTagHover}
+                  onAddNewField={handleAddNewField}
                 />
               </div>
             </Card>
