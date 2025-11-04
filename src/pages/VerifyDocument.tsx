@@ -238,10 +238,10 @@ const VerifyDocument = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5">
+    <div className="h-screen flex flex-col bg-gradient-to-br from-background via-background to-accent/5 overflow-hidden">
       {/* Header */}
-      <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="w-full px-8 py-4">
+      <header className="border-b bg-card/50 backdrop-blur-sm shrink-0">
+        <div className="w-full px-8 py-3">
           <div className="flex items-center justify-between max-w-[2000px] mx-auto">
             <div className="flex items-center gap-4">
               <Button
@@ -273,8 +273,8 @@ const VerifyDocument = () => {
       </header>
 
       {/* Info Bar */}
-      <div className="border-b bg-card/30 backdrop-blur-sm">
-        <div className="w-full px-8 py-4">
+      <div className="border-b bg-card/30 backdrop-blur-sm shrink-0">
+        <div className="w-full px-8 py-3">
           <div className="max-w-[2000px] mx-auto">
             <div className="flex flex-wrap gap-6 items-center">
               {document.template && (
@@ -301,35 +301,40 @@ const VerifyDocument = () => {
       </div>
 
       {/* Two Column Layout */}
-      <main className="w-full px-8 py-8 max-w-[2000px] mx-auto">
-        <div className="grid lg:grid-cols-[1.3fr,0.7fr] gap-12 xl:gap-16">
+      <main className="w-full px-8 py-6 max-w-[2000px] mx-auto">
+        <div className="grid lg:grid-cols-[1fr,0.5fr] gap-8 xl:gap-12 h-[calc(100vh-220px)]">
           {/* Left Column - Document Preview */}
-          <div className="space-y-4">
-            <Card className="p-6">
-              <div className="flex items-center gap-2 mb-6">
+          <div className="flex flex-col h-full">
+            <Card className="p-6 flex flex-col h-full overflow-hidden">
+              <div className="flex items-center gap-2 mb-4 shrink-0">
                 <Eye className="h-5 w-5 text-primary" />
                 <h2 className="font-semibold text-lg">Podgląd dokumentu</h2>
                 <Badge variant="outline" className="ml-auto text-xs">
                   Kliknij tag aby przejść do edycji
                 </Badge>
               </div>
-              <DocumentPreviewEnhanced 
-                documentId={document.id}
-                highlightedFieldId={highlightedFieldId}
-                onTagHover={handleTagHover}
-              />
+              <div className="flex-1 overflow-hidden">
+                <DocumentPreviewEnhanced 
+                  documentId={document.id}
+                  highlightedFieldId={highlightedFieldId}
+                  onTagHover={handleTagHover}
+                />
+              </div>
             </Card>
           </div>
 
           {/* Right Column - Editable Fields */}
-          <div className="space-y-4">
-            <Card className="p-6 sticky top-24">
-              <div className="flex items-center gap-2 mb-6">
+          <div className="flex flex-col h-full">
+            <Card className="p-6 flex flex-col h-full overflow-hidden">
+              <div className="flex items-center gap-2 mb-4 shrink-0">
                 <FileText className="h-5 w-5 text-primary" />
                 <h2 className="font-semibold text-lg">Weryfikacja pól</h2>
+                <Badge variant="secondary" className="ml-auto text-xs">
+                  {completedFields}/{document.fields.length}
+                </Badge>
               </div>
 
-              <div className="space-y-4 max-h-[calc(100vh-280px)] overflow-y-auto pr-2">
+              <div className="flex-1 overflow-y-auto space-y-4 pr-2">
                 {document.fields.map((field, index) => (
                   <DocumentFieldEditor
                     key={field.id}

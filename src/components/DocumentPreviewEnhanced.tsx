@@ -137,7 +137,7 @@ const DocumentPreviewEnhanced = ({
           transform: scale(1.01);
         }
       `}</style>
-      <ScrollArea className="h-[700px] w-full border rounded-lg bg-white dark:bg-gray-900 p-8">
+      <ScrollArea className="h-[calc(100vh-320px)] w-full border rounded-lg bg-white dark:bg-gray-900 p-8">
         {html ? (
           <div
             dangerouslySetInnerHTML={{ __html: html }}
