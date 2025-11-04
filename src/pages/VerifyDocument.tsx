@@ -238,35 +238,38 @@ const VerifyDocument = () => {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gradient-to-br from-background via-background to-accent/5 overflow-hidden">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-background via-background to-accent/5">
       {/* Header */}
-      <header className="border-b bg-card/50 backdrop-blur-sm shrink-0">
-        <div className="w-full px-8 py-3">
-          <div className="flex items-center justify-between max-w-[2000px] mx-auto">
-            <div className="flex items-center gap-4">
+      <header className="border-b bg-card/50 backdrop-blur-sm shrink-0 sticky top-0 z-50">
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-3">
+          <div className="flex items-center justify-between max-w-[2000px] mx-auto gap-2">
+            <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
               <Button
                 variant="ghost"
                 size="icon"
+                className="shrink-0"
                 onClick={() => navigate("/documents")}
               >
-                <ArrowLeft className="h-5 w-5" />
+                <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
               </Button>
-              <div>
-                <h1 className="text-xl font-bold">{document.name}</h1>
-                <p className="text-xs text-muted-foreground">{document.type}</p>
+              <div className="min-w-0 flex-1">
+                <h1 className="text-base sm:text-lg lg:text-xl font-bold truncate">{document.name}</h1>
+                <p className="text-xs text-muted-foreground truncate">{document.type}</p>
               </div>
             </div>
             <Button 
               onClick={handleSave} 
-              className="gap-2"
+              className="gap-2 shrink-0"
               disabled={isSaving}
+              size="sm"
             >
               {isSaving ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <Save className="h-4 w-4" />
               )}
-              Zapisz zmiany
+              <span className="hidden sm:inline">Zapisz zmiany</span>
+              <span className="sm:hidden">Zapisz</span>
             </Button>
           </div>
         </div>
@@ -274,22 +277,22 @@ const VerifyDocument = () => {
 
       {/* Info Bar */}
       <div className="border-b bg-card/30 backdrop-blur-sm shrink-0">
-        <div className="w-full px-8 py-3">
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-3">
           <div className="max-w-[2000px] mx-auto">
-            <div className="flex flex-wrap gap-6 items-center">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:gap-4 lg:gap-6 items-start sm:items-center">
               {document.template && (
                 <div className="flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Szablon:</span>
-                  <Badge variant="secondary">{document.template}</Badge>
+                  <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="text-xs sm:text-sm text-muted-foreground">Szablon:</span>
+                  <Badge variant="secondary" className="text-xs">{document.template}</Badge>
                 </div>
               )}
-              <div className="flex items-center gap-2">
-                <Link2 className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Oryginalny Word:</span>
-                <span className="text-sm font-medium">{document.originalWord}</span>
+              <div className="flex items-center gap-2 min-w-0">
+                <Link2 className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="text-xs sm:text-sm text-muted-foreground">Word:</span>
+                <span className="text-xs sm:text-sm font-medium truncate">{document.originalWord}</span>
               </div>
-              <div className="flex-1 min-w-[300px] max-w-md">
+              <div className="w-full sm:flex-1 sm:min-w-[250px] sm:max-w-md">
                 <VerificationProgress 
                   totalFields={document.fields.length}
                   completedFields={completedFields}
@@ -301,15 +304,15 @@ const VerifyDocument = () => {
       </div>
 
       {/* Two Column Layout */}
-      <main className="w-full px-8 py-6 max-w-[2000px] mx-auto">
-        <div className="grid lg:grid-cols-[1fr,0.5fr] gap-8 xl:gap-12 h-[calc(100vh-220px)]">
+      <main className="w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-6 max-w-[2000px] mx-auto flex-1">
+        <div className="grid grid-cols-1 lg:grid-cols-[1.2fr,0.8fr] gap-4 sm:gap-6 lg:gap-8 xl:gap-12 h-full">
           {/* Left Column - Document Preview */}
-          <div className="flex flex-col h-full">
-            <Card className="p-6 flex flex-col h-full overflow-hidden">
-              <div className="flex items-center gap-2 mb-4 shrink-0">
-                <Eye className="h-5 w-5 text-primary" />
-                <h2 className="font-semibold text-lg">Podgląd dokumentu</h2>
-                <Badge variant="outline" className="ml-auto text-xs">
+          <div className="flex flex-col min-h-[400px] lg:min-h-0 lg:h-full">
+            <Card className="p-4 sm:p-6 flex flex-col h-full overflow-hidden">
+              <div className="flex items-center gap-2 mb-4 shrink-0 flex-wrap">
+                <Eye className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                <h2 className="font-semibold text-base sm:text-lg">Podgląd dokumentu</h2>
+                <Badge variant="outline" className="text-xs hidden sm:inline-flex">
                   Kliknij tag aby przejść do edycji
                 </Badge>
               </div>
@@ -324,17 +327,17 @@ const VerifyDocument = () => {
           </div>
 
           {/* Right Column - Editable Fields */}
-          <div className="flex flex-col h-full">
-            <Card className="p-6 flex flex-col h-full overflow-hidden">
+          <div className="flex flex-col min-h-[400px] lg:min-h-0 lg:h-full">
+            <Card className="p-4 sm:p-6 flex flex-col h-full overflow-hidden">
               <div className="flex items-center gap-2 mb-4 shrink-0">
-                <FileText className="h-5 w-5 text-primary" />
-                <h2 className="font-semibold text-lg">Weryfikacja pól</h2>
+                <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                <h2 className="font-semibold text-base sm:text-lg">Weryfikacja pól</h2>
                 <Badge variant="secondary" className="ml-auto text-xs">
                   {completedFields}/{document.fields.length}
                 </Badge>
               </div>
 
-              <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+              <div className="flex-1 overflow-y-auto space-y-3 sm:space-y-4 pr-2">
                 {document.fields.map((field, index) => (
                   <DocumentFieldEditor
                     key={field.id}
