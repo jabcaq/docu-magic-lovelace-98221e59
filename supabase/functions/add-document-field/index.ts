@@ -1,10 +1,67 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
+import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Helper function to safely find and replace text in HTML content only (not in tags)
+function safeReplaceInHTML(html: string, searchText: string, replacement: string): string {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  
+  if (!doc || !doc.body) {
+    throw new Error("Could not parse HTML");
+  }
+
+  let found = false;
+
+  // Recursively process text nodes
+  function processNode(node: any): void {
+    if (node.nodeType === 3) { // Text node
+      const text = node.textContent;
+      if (text && text.includes(searchText)) {
+        // Create a temporary div to parse the replacement HTML
+        const tempDiv = doc!.createElement('div');
+        tempDiv.innerHTML = text.replace(searchText, replacement);
+        
+        // Replace the text node with the new content
+        const parent = node.parentNode;
+        while (tempDiv.firstChild) {
+          parent.insertBefore(tempDiv.firstChild, node);
+        }
+        parent.removeChild(node);
+        found = true;
+        return;
+      }
+    }
+    
+    // Skip style and script tags
+    if (node.nodeType === 1 && (node.tagName === 'STYLE' || node.tagName === 'SCRIPT')) {
+      return;
+    }
+    
+    // Process child nodes
+    if (node.childNodes) {
+      // Create array copy since we might modify the tree
+      const children = Array.from(node.childNodes);
+      for (const child of children) {
+        processNode(child);
+        if (found) return; // Stop after first replacement
+      }
+    }
+  }
+
+  processNode(doc.body);
+
+  if (!found) {
+    throw new Error(`Could not find text "${searchText}" in document content`);
+  }
+
+  return doc.body.innerHTML;
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -55,17 +112,7 @@ serve(async (req) => {
     }
 
     // Normalize whitespace in selected text
-    const normalizedSelection = selectedText.trim().replace(/\s+/g, ' ');
-    
-    // Find the text in HTML (outside of existing tags)
-    // Use regex to find text that's not already wrapped in doc-variable
-    const escapedText = normalizedSelection.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(`(?<!<span[^>]*>)${escapedText}(?![^<]*<\\/span>)`, 'i');
-    
-    if (!regex.test(html)) {
-      console.error("Could not find text in HTML:", normalizedSelection);
-      throw new Error(`Could not find text "${selectedText}" in document. Make sure it's not already tagged.`);
-    }
+    const normalizedSelection = selectedText.trim();
 
     // Generate unique field ID
     const fieldId = crypto.randomUUID();
@@ -74,7 +121,13 @@ serve(async (req) => {
     // Wrap the selected text in a span with field ID
     const replacement = `<span class="doc-variable" data-field-id="${fieldId}" data-tag="${tag}">${normalizedSelection}<span class="doc-tag-badge">${tag}</span></span>`;
     
-    html = html.replace(regex, replacement);
+    // Use safe replacement function
+    try {
+      html = safeReplaceInHTML(html, normalizedSelection, replacement);
+    } catch (error) {
+      console.error("Safe replace error:", error);
+      throw new Error(`Could not find text "${selectedText}" in visible document content. It may already be tagged or located in a non-editable area.`);
+    }
 
     // Update document HTML
     const { error: updateError } = await supabase
