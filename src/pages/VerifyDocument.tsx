@@ -5,9 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Save, FileText, Image as ImageIcon, Link2 } from "lucide-react";
+import { ArrowLeft, Save, FileText, Image as ImageIcon, Link2, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import MagnifyingGlass from "@/components/MagnifyingGlass";
+import { supabase } from "@/integrations/supabase/client";
 
 interface DocumentField {
   id: string;
@@ -20,48 +21,117 @@ interface DocumentData {
   id: string;
   name: string;
   type: string;
-  template: string;
+  template: string | null;
   originalWord: string;
   imageUrl: string;
   fields: DocumentField[];
 }
 
-const mockDocument: DocumentData = {
-  id: "1",
-  name: "Umowa najmu - Kowalski",
-  type: "Umowa najmu",
-  template: "Szablon Umowy Najmu v2",
-  originalWord: "umowa_najmu_master.docx",
-  imageUrl: "https://images.unsplash.com/photo-1554224311-beee460ae6fb?w=800",
-  fields: [
-    { id: "1", label: "Imię i nazwisko najemcy", value: "Jan Kowalski", tag: "{{NajemcaNazwisko}}" },
-    { id: "2", label: "PESEL", value: "85010112345", tag: "{{NajemcaPESEL}}" },
-    { id: "3", label: "Adres", value: "ul. Kwiatowa 15, Warszawa", tag: "{{NajemcaAdres}}" },
-    { id: "4", label: "Data rozpoczęcia", value: "2025-12-01", tag: "{{DataRozpoczecia}}" },
-    { id: "5", label: "Czynsz miesięczny", value: "2500 PLN", tag: "{{CzynszKwota}}" },
-    { id: "6", label: "Kaucja", value: "5000 PLN", tag: "{{KaucjaKwota}}" },
-    { id: "7", label: "Numer lokalu", value: "15", tag: "{{LokalNumer}}" },
-    { id: "8", label: "Powierzchnia", value: "45 m²", tag: "{{LokalPowierzchnia}}" },
-  ],
-};
-
 const VerifyDocument = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [document, setDocument] = useState<DocumentData>(mockDocument);
+  const [document, setDocument] = useState<DocumentData | null>(null);
   const [editedFields, setEditedFields] = useState<Record<string, string>>({});
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Initialize edited fields with current values
-    const initialFields: Record<string, string> = {};
-    document.fields.forEach((field) => {
-      initialFields[field.id] = field.value;
-    });
-    setEditedFields(initialFields);
-  }, [document.fields]);
+    fetchDocument();
+  }, [id]);
+
+  useEffect(() => {
+    if (document) {
+      // Initialize edited fields with current values
+      const initialFields: Record<string, string> = {};
+      document.fields.forEach((field) => {
+        initialFields[field.id] = field.value;
+      });
+      setEditedFields(initialFields);
+    }
+  }, [document]);
+
+  const fetchDocument = async () => {
+    if (!id) return;
+
+    try {
+      setIsLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        navigate("/auth");
+        return;
+      }
+
+      // Fetch document
+      const { data: docData, error: docError } = await supabase
+        .from("documents")
+        .select("*")
+        .eq("id", id)
+        .eq("user_id", user.id)
+        .single();
+
+      if (docError) throw docError;
+
+      // Fetch template name if exists
+      let templateName = null;
+      if (docData.template_id) {
+        const { data: templateData } = await supabase
+          .from("templates")
+          .select("name")
+          .eq("id", docData.template_id)
+          .single();
+        
+        templateName = templateData?.name || null;
+      }
+
+      // Fetch document runs (tagged segments)
+      const { data: runsData, error: runsError } = await supabase
+        .from("document_runs")
+        .select("*")
+        .eq("document_id", id)
+        .order("run_index", { ascending: true });
+
+      if (runsError) throw runsError;
+
+      // Get document file URL from storage
+      const { data: urlData } = supabase.storage
+        .from("documents")
+        .getPublicUrl(docData.storage_path);
+
+      // Convert runs to fields
+      const fields: DocumentField[] = runsData
+        ?.filter(run => run.tag) // Only tagged runs
+        .map((run, index) => ({
+          id: run.id,
+          label: run.tag?.replace(/[{}]/g, '') || `Pole ${index + 1}`,
+          value: run.text,
+          tag: run.tag || '',
+        })) || [];
+
+      setDocument({
+        id: docData.id,
+        name: docData.name,
+        type: docData.type,
+        template: templateName,
+        originalWord: docData.name,
+        imageUrl: urlData.publicUrl,
+        fields,
+      });
+
+    } catch (error) {
+      console.error("Error fetching document:", error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się pobrać dokumentu",
+        variant: "destructive",
+      });
+      navigate("/documents");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleFieldChange = (fieldId: string, value: string) => {
     setEditedFields((prev) => ({
@@ -71,17 +141,43 @@ const VerifyDocument = () => {
   };
 
   const handleSave = async () => {
+    if (!document) return;
+
     try {
-      // TODO: Implement save to backend with manual_overrides tracking
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Save manual overrides for changed fields
+      const changedFields = document.fields.filter(
+        field => editedFields[field.id] !== field.value
+      );
+
+      for (const field of changedFields) {
+        await supabase
+          .from("manual_overrides")
+          .insert({
+            document_id: document.id,
+            user_id: user.id,
+            field_id: field.id,
+            original_value: field.value,
+            corrected_value: editedFields[field.id],
+          });
+      }
+
+      // Update document status to verified
+      await supabase
+        .from("documents")
+        .update({ status: "verified" })
+        .eq("id", document.id);
 
       toast({
         title: "Zapisano zmiany",
-        description: "Dokument został zaktualizowany i zapisany do bazy danych",
+        description: `Zaktualizowano ${changedFields.length} pól i zapisano do bazy danych`,
       });
 
       navigate("/documents");
     } catch (error) {
+      console.error("Save error:", error);
       toast({
         title: "Błąd",
         description: "Nie udało się zapisać zmian",
@@ -91,6 +187,8 @@ const VerifyDocument = () => {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent, currentFieldId: string) => {
+    if (!document) return;
+    
     if (e.key === "Tab" && !e.shiftKey) {
       e.preventDefault();
       const fieldIds = document.fields.map((f) => f.id);
@@ -100,6 +198,22 @@ const VerifyDocument = () => {
       inputRefs.current[nextFieldId]?.focus();
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!document) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p>Nie znaleziono dokumentu</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5">
@@ -132,11 +246,13 @@ const VerifyDocument = () => {
       <div className="border-b bg-card/30 backdrop-blur-sm">
         <div className="container mx-auto px-6 py-3">
           <div className="flex flex-wrap gap-4 text-sm">
-            <div className="flex items-center gap-2">
-              <FileText className="h-4 w-4 text-muted-foreground" />
-              <span className="text-muted-foreground">Szablon:</span>
-              <Badge variant="secondary">{document.template}</Badge>
-            </div>
+            {document.template && (
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">Szablon:</span>
+                <Badge variant="secondary">{document.template}</Badge>
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <Link2 className="h-4 w-4 text-muted-foreground" />
               <span className="text-muted-foreground">Oryginalny Word:</span>
