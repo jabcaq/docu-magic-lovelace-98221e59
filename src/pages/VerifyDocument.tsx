@@ -238,7 +238,7 @@ const VerifyDocument = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-background via-background to-accent/5">
+    <div className="min-h-screen w-screen flex flex-col bg-gradient-to-br from-background via-background to-accent/5 overflow-x-hidden">
       {/* Header */}
       <header className="border-b bg-card/50 backdrop-blur-sm shrink-0 sticky top-0 z-50">
         <div className="w-full px-3 py-3">
@@ -302,8 +302,8 @@ const VerifyDocument = () => {
       </div>
 
       {/* Two Column Layout */}
-      <main className="w-full px-3 py-3 flex-1">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr,400px] gap-3 h-full">
+      <main className="w-full flex-1 overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr,400px] gap-3 h-full px-3 py-3">
           {/* Left Column - Document Preview */}
           <div className="flex flex-col min-h-[400px] lg:min-h-0 lg:h-full">
             <Card className="p-3 sm:p-4 flex flex-col h-full overflow-hidden">
