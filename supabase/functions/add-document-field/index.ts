@@ -58,17 +58,52 @@ serve(async (req) => {
 
     if (runsError) throw runsError;
 
-    // Find the run that contains the selected text
-    const matchingRun = runs?.find(run => 
-      run.text && run.text.includes(selectedText.trim())
-    );
+    console.log("Total runs found:", runs?.length);
+    console.log("First 5 runs:", runs?.slice(0, 5).map(r => ({ 
+      id: r.id.substring(0, 8), 
+      text: r.text?.substring(0, 60), 
+      hasTag: !!r.tag,
+      type: r.type
+    })));
+
+    // Normalize whitespace in selected text for comparison
+    const normalizedSelection = selectedText.trim().replace(/\s+/g, ' ');
+    
+    // Find the run that contains the selected text (with flexible whitespace matching)
+    const matchingRun = runs?.find(run => {
+      if (!run.text) return false;
+      
+      // Normalize whitespace in run text for comparison
+      const normalizedRunText = run.text.trim().replace(/\s+/g, ' ');
+      
+      // Check if run text contains the selection
+      const contains = normalizedRunText.includes(normalizedSelection);
+      
+      // Also check if selection contains the run text (for smaller fragments)
+      const isContained = normalizedSelection.includes(normalizedRunText);
+      
+      return contains || isContained;
+    });
+
+    console.log("Searching for:", normalizedSelection);
+    console.log("Match found:", matchingRun ? {
+      id: matchingRun.id.substring(0, 8),
+      text: matchingRun.text?.substring(0, 100),
+      hasTag: !!matchingRun.tag
+    } : "NO MATCH");
 
     if (!matchingRun) {
-      console.error("Available runs:", runs?.map(r => ({ id: r.id, text: r.text?.substring(0, 50), hasTag: !!r.tag })));
-      throw new Error(`Could not find text "${selectedText}" in document`);
+      // Log all runs for debugging
+      console.error("Could not find match. All runs:");
+      runs?.forEach((run, idx) => {
+        console.error(`Run ${idx}:`, {
+          text: run.text?.substring(0, 100),
+          hasTag: !!run.tag,
+          type: run.type
+        });
+      });
+      throw new Error(`Could not find text "${selectedText}" in document. The text might be part of a larger segment or generated during rendering.`);
     }
-
-    console.log("Found matching run:", { id: matchingRun.id, text: matchingRun.text, currentTag: matchingRun.tag });
 
     // Check if this run already has a tag
     if (matchingRun.tag) {
