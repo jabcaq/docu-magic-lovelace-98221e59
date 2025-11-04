@@ -121,9 +121,8 @@ serve(async (req) => {
         body {
           font-family: 'Times New Roman', serif;
           line-height: 1.6;
-          padding: 20px;
-          max-width: 800px;
-          margin: 0 auto;
+          padding: 0;
+          width: 100%;
         }
         h1, h2, h3 {
           color: #1a1a1a;
