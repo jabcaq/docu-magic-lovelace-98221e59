@@ -38,7 +38,7 @@ const VerifyDocument = () => {
   const [isSaving, setIsSaving] = useState(false);
 
   // Fetch document data using React Query
-  const { data: document, isLoading, error } = useQuery({
+  const { data: document, isLoading, error, refetch } = useQuery({
     queryKey: ['document', documentId],
     queryFn: async () => {
       if (!documentId) throw new Error("No document ID provided");
@@ -219,10 +219,53 @@ const VerifyDocument = () => {
   const handleAddNewField = async (selectedText: string, tagName: string) => {
     if (!document) return;
 
-    toast({
-      title: "Informacja",
-      description: `Funkcja dodawania nowych zmiennych wymaga implementacji edge function`,
-    });
+    try {
+      toast({
+        title: "Dodawanie zmiennej...",
+        description: `Dodaję pole "${tagName}"`,
+      });
+
+      const { data, error } = await supabase.functions.invoke("add-document-field", {
+        body: { 
+          documentId: document.id, 
+          selectedText, 
+          tagName 
+        },
+      });
+
+      if (error) throw error;
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      // Refetch document to get updated fields
+      await refetch();
+
+      // Highlight the newly added field
+      setHighlightedFieldId(data.fieldId);
+      setFocusedFieldId(data.fieldId);
+
+      // Scroll to the new field in the editor
+      setTimeout(() => {
+        const fieldElement = window.document.querySelector(`[data-field-id="${data.fieldId}"]`);
+        if (fieldElement) {
+          fieldElement.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 500);
+
+      toast({
+        title: "Sukces",
+        description: `Dodano pole "${tagName}" do dokumentu`,
+      });
+    } catch (error) {
+      console.error("Error adding new field:", error);
+      toast({
+        title: "Błąd",
+        description: error instanceof Error ? error.message : "Nie udało się dodać nowego pola",
+        variant: "destructive",
+      });
+    }
   };
 
   if (isLoading) {
