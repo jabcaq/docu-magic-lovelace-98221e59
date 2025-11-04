@@ -39,7 +39,10 @@ const VerifyDocument = () => {
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    fetchDocument();
+    // Only fetch if id is valid (not undefined and not the literal ":id" string)
+    if (id && id !== ":id" && id.length > 10) {
+      fetchDocument();
+    }
   }, [id]);
 
   useEffect(() => {
