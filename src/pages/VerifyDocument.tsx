@@ -291,7 +291,7 @@ const VerifyDocument = () => {
                 <span className="text-xs sm:text-sm text-muted-foreground">Word:</span>
                 <span className="text-xs sm:text-sm font-medium truncate">{document.originalWord}</span>
               </div>
-              <div className="w-full sm:flex-1 sm:min-w-[250px] sm:max-w-md">
+              <div className="w-full sm:flex-1 sm:min-w-[250px]">
                 <VerificationProgress 
                   totalFields={document.fields.length}
                   completedFields={completedFields}
