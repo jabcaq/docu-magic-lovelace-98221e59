@@ -57,6 +57,7 @@ export type Database = {
       }
       documents: {
         Row: {
+          auto_analyze: boolean | null
           created_at: string
           html_content: string | null
           id: string
@@ -69,6 +70,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          auto_analyze?: boolean | null
           created_at?: string
           html_content?: string | null
           id?: string
@@ -81,6 +83,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          auto_analyze?: boolean | null
           created_at?: string
           html_content?: string | null
           id?: string

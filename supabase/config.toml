@@ -17,3 +17,9 @@ verify_jwt = true
 
 [functions.download-document]
 verify_jwt = true
+
+[functions.api-upload-document]
+verify_jwt = false
+
+[functions.analyze-document-fields]
+verify_jwt = true
