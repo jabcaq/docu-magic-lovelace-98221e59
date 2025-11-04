@@ -5,9 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Save, FileText, Image as ImageIcon, Link2, Loader2 } from "lucide-react";
+import { ArrowLeft, Save, FileText, Eye, Link2, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import MagnifyingGlass from "@/components/MagnifyingGlass";
+import DocumentPreview from "@/components/DocumentPreview";
 import { supabase } from "@/integrations/supabase/client";
 
 interface DocumentField {
@@ -17,14 +17,22 @@ interface DocumentField {
   tag: string;
 }
 
+interface DocumentRun {
+  id: string;
+  text: string;
+  tag: string | null;
+  type: string;
+  run_index: number;
+}
+
 interface DocumentData {
   id: string;
   name: string;
   type: string;
   template: string | null;
   originalWord: string;
-  imageUrl: string;
   fields: DocumentField[];
+  runs: DocumentRun[];
 }
 
 const VerifyDocument = () => {
@@ -34,7 +42,6 @@ const VerifyDocument = () => {
   const [document, setDocument] = useState<DocumentData | null>(null);
   const [editedFields, setEditedFields] = useState<Record<string, string>>({});
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
-  const [imageLoaded, setImageLoaded] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -95,12 +102,7 @@ const VerifyDocument = () => {
 
       if (runsError) throw runsError;
 
-      // Get document file URL from storage
-      const { data: urlData } = supabase.storage
-        .from("documents")
-        .getPublicUrl(docData.storage_path);
-
-      // Convert runs to fields
+      // Convert runs to fields (only tagged ones for editing)
       const fields: DocumentField[] = runsData
         ?.filter(run => run.tag) // Only tagged runs
         .map((run, index) => ({
@@ -110,14 +112,23 @@ const VerifyDocument = () => {
           tag: run.tag || '',
         })) || [];
 
+      // All runs for preview
+      const allRuns: DocumentRun[] = runsData?.map(run => ({
+        id: run.id,
+        text: run.text,
+        tag: run.tag,
+        type: run.type,
+        run_index: run.run_index,
+      })) || [];
+
       setDocument({
         id: docData.id,
         name: docData.name,
         type: docData.type,
         template: templateName,
         originalWord: docData.name,
-        imageUrl: urlData.publicUrl,
         fields,
+        runs: allRuns,
       });
 
     } catch (error) {
@@ -265,17 +276,14 @@ const VerifyDocument = () => {
       {/* Two Column Layout */}
       <main className="container mx-auto px-6 py-8">
         <div className="grid lg:grid-cols-2 gap-8">
-          {/* Left Column - Image with Magnifying Glass */}
+          {/* Left Column - Document Preview */}
           <div className="space-y-4">
             <Card className="p-4">
               <div className="flex items-center gap-2 mb-4">
-                <ImageIcon className="h-5 w-5 text-primary" />
-                <h2 className="font-semibold">Obraz dokumentu</h2>
+                <Eye className="h-5 w-5 text-primary" />
+                <h2 className="font-semibold">Podgląd dokumentu z tagami</h2>
               </div>
-              <MagnifyingGlass
-                imageUrl={document.imageUrl}
-                onImageLoad={() => setImageLoaded(true)}
-              />
+              <DocumentPreview runs={document.runs} />
             </Card>
           </div>
 
