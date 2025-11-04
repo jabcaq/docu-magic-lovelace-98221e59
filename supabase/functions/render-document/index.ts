@@ -82,20 +82,36 @@ serve(async (req) => {
 
     let html = result.value;
 
-    // Highlight tagged text in the HTML
+    // Create a mapping of text fragments to their tags
+    const taggedFragments: Array<{ text: string; tag: string; tags: string }> = [];
+    
     runs?.forEach((run) => {
       if (run.tag && run.text) {
-        // Escape special regex characters in the text
-        const escapedText = run.text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        const regex = new RegExp(escapedText, "g");
-        
-        // Create tags array for display
         const tags = run.tag.split(',').map((t: string) => `{{${t.trim()}}}`).join(', ');
-        
-        // Replace text with highlighted version
-        const replacement = `<span class="doc-variable" data-tag="${run.tag}">${run.text}<span class="doc-tag-badge">${tags}</span></span>`;
-        html = html.replace(regex, replacement);
+        taggedFragments.push({
+          text: run.text,
+          tag: run.tag,
+          tags: tags
+        });
       }
+    });
+
+    // Sort by length (longest first) to avoid partial replacements
+    taggedFragments.sort((a, b) => b.text.length - a.text.length);
+
+    // Replace each tagged text with highlighted version
+    taggedFragments.forEach(({ text, tag, tags }) => {
+      // Create a more specific regex that matches whole words/phrases
+      const escapedText = text
+        .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+        .replace(/\s+/g, "\\s+"); // Allow flexible whitespace
+      
+      const regex = new RegExp(`(?<!<[^>]*)${escapedText}(?![^<]*>)`, "g");
+      
+      // Create highlighted replacement
+      const replacement = `<span class="doc-variable" data-tag="${tag}">${text}<span class="doc-tag-badge">${tags}</span></span>`;
+      
+      html = html.replace(regex, replacement);
     });
 
     // Add CSS styles for highlighting
@@ -120,22 +136,23 @@ serve(async (req) => {
         .doc-variable {
           background-color: #fef08a;
           border: 2px solid #facc15;
-          padding: 2px 6px;
+          padding: 2px 8px;
           border-radius: 4px;
-          position: relative;
-          display: inline-block;
+          display: inline;
           font-weight: 500;
+          white-space: pre-wrap;
         }
         .doc-tag-badge {
           display: inline-block;
           background-color: #3b82f6;
           color: white;
-          font-size: 10px;
-          padding: 2px 6px;
+          font-size: 9px;
+          padding: 2px 5px;
           border-radius: 3px;
-          margin-left: 6px;
-          font-family: monospace;
+          margin-left: 4px;
+          font-family: 'Courier New', monospace;
           font-weight: normal;
+          white-space: nowrap;
         }
         strong {
           font-weight: bold;
