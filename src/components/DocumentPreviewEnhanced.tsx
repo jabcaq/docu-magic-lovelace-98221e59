@@ -193,6 +193,13 @@ const DocumentPreviewEnhanced = ({
       )}
       
       <style>{`
+        .document-preview-content {
+          background: white;
+          padding: 40px 60px;
+          min-height: 100%;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
         .tag-highlighted {
           animation: pulse-highlight 1s ease-in-out;
           background-color: #60a5fa !important;
@@ -218,13 +225,15 @@ const DocumentPreviewEnhanced = ({
           transform: scale(1.01);
         }
       `}</style>
-      <ScrollArea className="h-[500px] sm:h-[600px] lg:h-[calc(100vh-320px)] w-full border rounded-lg bg-white dark:bg-gray-900 p-2">
+      <ScrollArea className="h-[500px] sm:h-[600px] lg:h-[calc(100vh-320px)] w-full border rounded-lg bg-gray-100 dark:bg-gray-800">
         {html ? (
-          <div
-            ref={contentRef}
-            dangerouslySetInnerHTML={{ __html: html }}
-            className="document-preview-content prose prose-base max-w-none [&_.doc-variable]:inline [&_.doc-tag-badge]:inline-block"
-          />
+          <div className="p-4 sm:p-8">
+            <div
+              ref={contentRef}
+              dangerouslySetInnerHTML={{ __html: html }}
+              className="document-preview-content max-w-[210mm] mx-auto [&_.doc-variable]:inline [&_.doc-tag-badge]:inline-block"
+            />
+          </div>
         ) : (
           <div className="flex items-center justify-center h-full text-muted-foreground">
             Brak zawartości do wyświetlenia
