@@ -11,3 +11,6 @@ verify_jwt = true
 
 [functions.render-document]
 verify_jwt = true
+
+[functions.word-extract-runs]
+verify_jwt = true
