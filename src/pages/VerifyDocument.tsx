@@ -241,7 +241,7 @@ const VerifyDocument = () => {
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-background via-background to-accent/5">
       {/* Header */}
       <header className="border-b bg-card/50 backdrop-blur-sm shrink-0 sticky top-0 z-50">
-        <div className="w-full px-4 sm:px-6 lg:px-8 py-3">
+        <div className="w-full px-2 sm:px-4 lg:px-6 py-3">
           <div className="flex items-center justify-between max-w-[2000px] mx-auto gap-2">
             <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
               <Button
@@ -277,7 +277,7 @@ const VerifyDocument = () => {
 
       {/* Info Bar */}
       <div className="border-b bg-card/30 backdrop-blur-sm shrink-0">
-        <div className="w-full px-4 sm:px-6 lg:px-8 py-3">
+        <div className="w-full px-2 sm:px-4 lg:px-6 py-3">
           <div className="max-w-[2000px] mx-auto">
             <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:gap-4 lg:gap-6 items-start sm:items-center">
               {document.template && (
@@ -304,7 +304,7 @@ const VerifyDocument = () => {
       </div>
 
       {/* Two Column Layout */}
-      <main className="w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-6 max-w-[2000px] mx-auto flex-1">
+      <main className="w-full px-2 sm:px-4 lg:px-6 py-4 sm:py-6 max-w-[2000px] mx-auto flex-1">
         <div className="grid grid-cols-1 lg:grid-cols-[1.2fr,0.8fr] gap-4 sm:gap-6 lg:gap-8 xl:gap-12 h-full">
           {/* Left Column - Document Preview */}
           <div className="flex flex-col min-h-[400px] lg:min-h-0 lg:h-full">
