@@ -241,8 +241,8 @@ const VerifyDocument = () => {
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-background via-background to-accent/5">
       {/* Header */}
       <header className="border-b bg-card/50 backdrop-blur-sm shrink-0 sticky top-0 z-50">
-        <div className="w-full px-2 sm:px-4 lg:px-6 py-3">
-          <div className="flex items-center justify-between gap-2">
+        <div className="w-full px-3 py-3">
+            <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
               <Button
                 variant="ghost"
@@ -277,9 +277,8 @@ const VerifyDocument = () => {
 
       {/* Info Bar */}
       <div className="border-b bg-card/30 backdrop-blur-sm shrink-0">
-        <div className="w-full px-2 sm:px-4 lg:px-6 py-3">
-          <div className="w-full">
-            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:gap-4 lg:gap-6 items-start sm:items-center">
+        <div className="w-full px-3 py-3">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:gap-4 lg:gap-6 items-start sm:items-center">
               {document.template && (
                 <div className="flex items-center gap-2">
                   <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -298,14 +297,13 @@ const VerifyDocument = () => {
                   completedFields={completedFields}
                 />
               </div>
-            </div>
           </div>
         </div>
       </div>
 
       {/* Two Column Layout */}
-      <main className="w-full px-2 sm:px-4 lg:px-6 py-4 sm:py-6 flex-1">
-        <div className="grid grid-cols-1 lg:grid-cols-[1.2fr,0.8fr] gap-3 sm:gap-4 lg:gap-6 h-full">
+      <main className="w-full px-3 py-3 flex-1">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr,400px] gap-3 h-full">
           {/* Left Column - Document Preview */}
           <div className="flex flex-col min-h-[400px] lg:min-h-0 lg:h-full">
             <Card className="p-3 sm:p-4 flex flex-col h-full overflow-hidden">
@@ -337,7 +335,7 @@ const VerifyDocument = () => {
                 </Badge>
               </div>
 
-              <div className="flex-1 overflow-y-auto space-y-3 sm:space-y-4 pr-2">
+              <div className="flex-1 overflow-y-auto space-y-2 pr-2">
                 {document.fields.map((field, index) => (
                   <DocumentFieldEditor
                     key={field.id}
