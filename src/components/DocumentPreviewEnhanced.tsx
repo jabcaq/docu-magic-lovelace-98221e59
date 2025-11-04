@@ -9,6 +9,7 @@ interface DocumentPreviewEnhancedProps {
   highlightedFieldId?: string;
   onTagHover?: (fieldId: string | null) => void;
   onAddNewField?: (selectedText: string, tagName: string) => void;
+  refreshKey?: number;
 }
 
 const DocumentPreviewEnhanced = ({
@@ -16,6 +17,7 @@ const DocumentPreviewEnhanced = ({
   highlightedFieldId,
   onTagHover,
   onAddNewField,
+  refreshKey = 0,
 }: DocumentPreviewEnhancedProps) => {
   const [html, setHtml] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
@@ -49,7 +51,7 @@ const DocumentPreviewEnhanced = ({
     if (documentId) {
       fetchRenderedDocument();
     }
-  }, [documentId]);
+  }, [documentId, refreshKey]);
 
   // Add interaction handlers to tagged elements
   useEffect(() => {

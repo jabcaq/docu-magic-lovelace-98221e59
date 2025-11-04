@@ -36,6 +36,7 @@ const VerifyDocument = () => {
   const [focusedFieldId, setFocusedFieldId] = useState<string | null>(null);
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
 
   // Fetch document data using React Query
   const { data: document, isLoading, error, refetch } = useQuery({
@@ -233,6 +234,9 @@ const VerifyDocument = () => {
       // Refetch document to get updated fields
       await refetch();
 
+      // Trigger preview refresh to show updated HTML with highlighted variable
+      setPreviewRefreshKey(prev => prev + 1);
+
       // Highlight the newly added field
       setHighlightedFieldId(data.fieldId);
       setFocusedFieldId(data.fieldId);
@@ -355,6 +359,7 @@ const VerifyDocument = () => {
                 highlightedFieldId={highlightedFieldId}
                 onTagHover={handleTagHover}
                 onAddNewField={handleAddNewField}
+                refreshKey={previewRefreshKey}
               />
             </div>
           </Card>
