@@ -242,10 +242,10 @@ const VerifyDocument = () => {
   }
 
   return (
-    <div className="min-h-screen w-full max-w-[2560px] mx-auto flex flex-col bg-gradient-to-br from-background via-background to-accent/5">
+    <div className="min-h-screen w-full flex flex-col bg-gradient-to-br from-background via-background to-accent/5">
       {/* Header */}
       <header className="border-b bg-card/50 backdrop-blur-sm shrink-0 sticky top-0 z-50">
-        <div className="w-full px-4 py-3">
+        <div className="w-full px-6 py-4">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-4 min-w-0 flex-1">
               <Button
@@ -279,7 +279,7 @@ const VerifyDocument = () => {
 
       {/* Info Bar */}
       <div className="border-b bg-card/30 backdrop-blur-sm shrink-0">
-        <div className="w-full px-4 py-3">
+        <div className="w-full px-6 py-3">
           <div className="flex flex-wrap gap-6 items-center">
             {document.template && (
               <div className="flex items-center gap-2">
@@ -304,7 +304,7 @@ const VerifyDocument = () => {
       </div>
 
       {/* Two Column Layout */}
-      <main className="flex-1 overflow-hidden p-4">
+      <main className="flex-1 overflow-hidden px-6 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-[1fr,400px] gap-4 h-full">
           {/* Left Column - Document Preview */}
           <Card className="p-4 flex flex-col overflow-hidden">
