@@ -74,7 +74,7 @@ serve(async (req) => {
     // Get document runs to know which text fragments are tagged
     const { data: runs, error: runsError } = await supabase
       .from("document_runs")
-      .select("text, tag, run_index")
+      .select("id, text, tag, run_index")
       .eq("document_id", documentId)
       .order("run_index", { ascending: true });
 
@@ -83,7 +83,7 @@ serve(async (req) => {
     let html = result.value;
 
     // Create a mapping of text fragments to their tags
-    const taggedFragments: Array<{ text: string; tag: string; tags: string }> = [];
+    const taggedFragments: Array<{ text: string; tag: string; tags: string; runId: string }> = [];
     
     runs?.forEach((run) => {
       if (run.tag && run.text) {
@@ -91,7 +91,8 @@ serve(async (req) => {
         taggedFragments.push({
           text: run.text,
           tag: run.tag,
-          tags: tags
+          tags: tags,
+          runId: run.id
         });
       }
     });
@@ -100,7 +101,7 @@ serve(async (req) => {
     taggedFragments.sort((a, b) => b.text.length - a.text.length);
 
     // Replace each tagged text with highlighted version
-    taggedFragments.forEach(({ text, tag, tags }) => {
+    taggedFragments.forEach(({ text, tag, tags, runId }) => {
       // Create a more specific regex that matches whole words/phrases
       const escapedText = text
         .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
@@ -108,8 +109,8 @@ serve(async (req) => {
       
       const regex = new RegExp(`(?<!<[^>]*)${escapedText}(?![^<]*>)`, "g");
       
-      // Create highlighted replacement
-      const replacement = `<span class="doc-variable" data-tag="${tag}">${text}<span class="doc-tag-badge">${tags}</span></span>`;
+      // Create highlighted replacement with field ID for interactivity
+      const replacement = `<span class="doc-variable" data-tag="${tag}" data-field-id="${runId}">${text}<span class="doc-tag-badge">${tags}</span></span>`;
       
       html = html.replace(regex, replacement);
     });
