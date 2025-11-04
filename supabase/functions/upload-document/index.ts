@@ -163,6 +163,29 @@ serve(async (req) => {
 
     console.log("Document created successfully:", document.id);
 
+    // Automatically analyze document with AI to suggest fields
+    try {
+      console.log("Starting AI analysis...");
+      const analysisResponse = await fetch(`${supabaseUrl}/functions/v1/analyze-document-fields`, {
+        method: "POST",
+        headers: {
+          "Authorization": authHeader,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ documentId: document.id }),
+      });
+
+      if (analysisResponse.ok) {
+        const analysisData = await analysisResponse.json();
+        console.log(`AI suggested and applied ${analysisData.appliedCount} fields`);
+      } else {
+        console.warn("AI analysis failed, but document was created successfully");
+      }
+    } catch (analysisError) {
+      console.warn("AI analysis error:", analysisError);
+      // Don't fail the upload if AI analysis fails
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
