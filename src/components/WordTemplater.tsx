@@ -25,6 +25,7 @@ const WordTemplater = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [extractedRuns, setExtractedRuns] = useState<ExtractedRun[]>([]);
   const [templateName, setTemplateName] = useState("");
+  const [processingTime, setProcessingTime] = useState(0);
   const { toast } = useToast();
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -94,6 +95,25 @@ const WordTemplater = () => {
 
   const performExtractRuns = async (docId: string, content: string) => {
     setIsProcessing(true);
+    setProcessingTime(0);
+
+    // Start timer
+    const startTime = Date.now();
+    const timer = setInterval(() => {
+      setProcessingTime(Math.floor((Date.now() - startTime) / 1000));
+    }, 1000);
+
+    // Set timeout (2 minutes)
+    const timeoutId = setTimeout(() => {
+      clearInterval(timer);
+      setIsProcessing(false);
+      toast({
+        title: "Przekroczono limit czasu",
+        description: "Przetwarzanie trwa zbyt długo. Spróbuj ponownie z mniejszym dokumentem.",
+        variant: "destructive",
+      });
+    }, 120000); // 2 minutes
+
     try {
       const { data, error } = await supabase.functions.invoke("extract-runs", {
         body: {
@@ -101,6 +121,9 @@ const WordTemplater = () => {
           textContent: content,
         },
       });
+
+      clearTimeout(timeoutId);
+      clearInterval(timer);
 
       if (error) {
         throw error;
@@ -120,9 +143,11 @@ const WordTemplater = () => {
       
       toast({
         title: "Sukces!",
-        description: `Wyekstrahowano ${formattedRuns.length} fragmentów, AI zatagowało ${formattedRuns.filter(r => r.tag).length} jako placeholdery`,
+        description: `Wyekstrahowano ${formattedRuns.length} fragmentów, AI zatagowało ${formattedRuns.filter(r => r.tag).length} jako placeholdery (${processingTime}s)`,
       });
     } catch (error) {
+      clearTimeout(timeoutId);
+      clearInterval(timer);
       console.error("Extract error:", error);
       toast({
         title: "Błąd",
@@ -130,6 +155,7 @@ const WordTemplater = () => {
         variant: "destructive",
       });
     } finally {
+      clearInterval(timer);
       setIsProcessing(false);
     }
   };
@@ -292,7 +318,22 @@ const WordTemplater = () => {
         <Card className="p-6">
           <div className="flex flex-col items-center justify-center py-8 space-y-4">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-            <p className="text-sm text-muted-foreground">Przetwarzanie dokumentu z AI...</p>
+            <div className="text-center space-y-2">
+              <p className="text-sm font-medium">Przetwarzanie dokumentu z AI...</p>
+              <p className="text-xs text-muted-foreground">
+                Czas przetwarzania: {processingTime}s
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {processingTime < 30 
+                  ? "Analizuję dokument..." 
+                  : processingTime < 60 
+                  ? "AI taguje fragmenty..." 
+                  : "Prawie gotowe..."}
+              </p>
+              <p className="text-xs text-muted-foreground italic mt-4">
+                Duże dokumenty mogą wymagać do 2 minut przetwarzania
+              </p>
+            </div>
           </div>
         </Card>
       )}
