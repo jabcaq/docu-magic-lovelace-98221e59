@@ -72,24 +72,22 @@ const VerifyDocument = () => {
         templateName = templateData?.name || null;
       }
 
-      // Fetch document runs (tagged segments)
-      const { data: runsData, error: runsError } = await supabase
-        .from("document_runs")
+      // Fetch document fields
+      const { data: fieldsData, error: fieldsError } = await supabase
+        .from("document_fields")
         .select("*")
         .eq("document_id", documentId)
-        .order("run_index", { ascending: true });
+        .order("position_in_html", { ascending: true });
 
-      if (runsError) throw runsError;
+      if (fieldsError) throw fieldsError;
 
-      // Convert runs to fields (only tagged ones for editing)
-      const fields: DocumentField[] = runsData
-        ?.filter(run => run.tag)
-        .map((run) => ({
-          id: run.id,
-          label: run.tag?.replace(/[{}]/g, '') || 'Pole',
-          value: run.text || '',
-          tag: run.tag || '',
-        })) || [];
+      // Convert fields to the format expected by the UI
+      const fields: DocumentField[] = fieldsData?.map((field) => ({
+        id: field.id,
+        label: field.field_name,
+        value: field.field_value,
+        tag: field.field_tag,
+      })) || [];
 
       // Initialize edited fields
       const initialEditedFields: Record<string, string> = {};
@@ -148,26 +146,19 @@ const VerifyDocument = () => {
         return;
       }
 
-      // Save manual overrides for changed fields
+      // Update changed field values in document_fields
       const changedFields = document.fields.filter(
         field => editedFields[field.id] !== field.value
       );
 
-      // Insert all overrides
-      if (changedFields.length > 0) {
-        const overrides = changedFields.map(field => ({
-          document_id: document.id,
-          user_id: user.id,
-          field_id: field.id,
-          original_value: field.value,
-          corrected_value: editedFields[field.id],
-        }));
+      // Update each changed field
+      for (const field of changedFields) {
+        const { error: updateError } = await supabase
+          .from("document_fields")
+          .update({ field_value: editedFields[field.id] })
+          .eq("id", field.id);
 
-        const { error: insertError } = await supabase
-          .from("manual_overrides")
-          .insert(overrides);
-
-        if (insertError) throw insertError;
+        if (updateError) throw updateError;
       }
 
       // Update document status to verified

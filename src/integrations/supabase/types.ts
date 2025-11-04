@@ -14,37 +14,40 @@ export type Database = {
   }
   public: {
     Tables: {
-      document_runs: {
+      document_fields: {
         Row: {
-          created_at: string
+          created_at: string | null
           document_id: string
+          field_name: string
+          field_tag: string
+          field_value: string
           id: string
-          run_index: number
-          tag: string | null
-          text: string
-          type: string
+          position_in_html: number
+          updated_at: string | null
         }
         Insert: {
-          created_at?: string
+          created_at?: string | null
           document_id: string
+          field_name: string
+          field_tag: string
+          field_value: string
           id?: string
-          run_index: number
-          tag?: string | null
-          text: string
-          type?: string
+          position_in_html: number
+          updated_at?: string | null
         }
         Update: {
-          created_at?: string
+          created_at?: string | null
           document_id?: string
+          field_name?: string
+          field_tag?: string
+          field_value?: string
           id?: string
-          run_index?: number
-          tag?: string | null
-          text?: string
-          type?: string
+          position_in_html?: number
+          updated_at?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "document_runs_document_id_fkey"
+            foreignKeyName: "document_fields_document_id_fkey"
             columns: ["document_id"]
             isOneToOne: false
             referencedRelation: "documents"
@@ -55,6 +58,7 @@ export type Database = {
       documents: {
         Row: {
           created_at: string
+          html_content: string | null
           id: string
           name: string
           status: string
@@ -66,6 +70,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          html_content?: string | null
           id?: string
           name: string
           status?: string
@@ -77,6 +82,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          html_content?: string | null
           id?: string
           name?: string
           status?: string
@@ -92,44 +98,6 @@ export type Database = {
             columns: ["template_id"]
             isOneToOne: false
             referencedRelation: "templates"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      manual_overrides: {
-        Row: {
-          corrected_value: string
-          created_at: string
-          document_id: string
-          field_id: string
-          id: string
-          original_value: string
-          user_id: string
-        }
-        Insert: {
-          corrected_value: string
-          created_at?: string
-          document_id: string
-          field_id: string
-          id?: string
-          original_value: string
-          user_id: string
-        }
-        Update: {
-          corrected_value?: string
-          created_at?: string
-          document_id?: string
-          field_id?: string
-          id?: string
-          original_value?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "manual_overrides_document_id_fkey"
-            columns: ["document_id"]
-            isOneToOne: false
-            referencedRelation: "documents"
             referencedColumns: ["id"]
           },
         ]

@@ -37,10 +37,10 @@ serve(async (req) => {
 
     console.log("Adding field:", { documentId, selectedText, tagName });
 
-    // Verify user owns the document
+    // Get document HTML
     const { data: document, error: docError } = await supabase
       .from("documents")
-      .select("id")
+      .select("html_content")
       .eq("id", documentId)
       .eq("user_id", user.id)
       .single();
@@ -49,85 +49,63 @@ serve(async (req) => {
       throw new Error("Document not found or access denied");
     }
 
-    // Find the run that contains this text
-    const { data: runs, error: runsError } = await supabase
-      .from("document_runs")
-      .select("*")
-      .eq("document_id", documentId)
-      .order("run_index", { ascending: true });
+    let html = document.html_content;
+    if (!html) {
+      throw new Error("Document has no HTML content");
+    }
 
-    if (runsError) throw runsError;
-
-    console.log("Total runs found:", runs?.length);
-    console.log("First 5 runs:", runs?.slice(0, 5).map(r => ({ 
-      id: r.id.substring(0, 8), 
-      text: r.text?.substring(0, 60), 
-      hasTag: !!r.tag,
-      type: r.type
-    })));
-
-    // Normalize whitespace in selected text for comparison
+    // Normalize whitespace in selected text
     const normalizedSelection = selectedText.trim().replace(/\s+/g, ' ');
     
-    // Find the run that contains the selected text (with flexible whitespace matching)
-    const matchingRun = runs?.find(run => {
-      if (!run.text) return false;
-      
-      // Normalize whitespace in run text for comparison
-      const normalizedRunText = run.text.trim().replace(/\s+/g, ' ');
-      
-      // Check if run text contains the selection
-      const contains = normalizedRunText.includes(normalizedSelection);
-      
-      // Also check if selection contains the run text (for smaller fragments)
-      const isContained = normalizedSelection.includes(normalizedRunText);
-      
-      return contains || isContained;
-    });
-
-    console.log("Searching for:", normalizedSelection);
-    console.log("Match found:", matchingRun ? {
-      id: matchingRun.id.substring(0, 8),
-      text: matchingRun.text?.substring(0, 100),
-      hasTag: !!matchingRun.tag
-    } : "NO MATCH");
-
-    if (!matchingRun) {
-      // Log all runs for debugging
-      console.error("Could not find match. All runs:");
-      runs?.forEach((run, idx) => {
-        console.error(`Run ${idx}:`, {
-          text: run.text?.substring(0, 100),
-          hasTag: !!run.tag,
-          type: run.type
-        });
-      });
-      throw new Error(`Could not find text "${selectedText}" in document. The text might be part of a larger segment or generated during rendering.`);
+    // Find the text in HTML (outside of existing tags)
+    // Use regex to find text that's not already wrapped in doc-variable
+    const escapedText = normalizedSelection.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(?<!<span[^>]*>)${escapedText}(?![^<]*<\\/span>)`, 'i');
+    
+    if (!regex.test(html)) {
+      console.error("Could not find text in HTML:", normalizedSelection);
+      throw new Error(`Could not find text "${selectedText}" in document. Make sure it's not already tagged.`);
     }
 
-    // Check if this run already has a tag
-    if (matchingRun.tag) {
-      throw new Error("This text segment already has a tag");
-    }
+    // Generate unique field ID
+    const fieldId = crypto.randomUUID();
+    const tag = `{{${tagName}}}`;
 
-    // Update the run with the new tag
-    const newTag = `{{${tagName}}}`;
+    // Wrap the selected text in a span with field ID
+    const replacement = `<span class="doc-variable" data-field-id="${fieldId}" data-tag="${tag}">${normalizedSelection}<span class="doc-tag-badge">${tag}</span></span>`;
+    
+    html = html.replace(regex, replacement);
+
+    // Update document HTML
     const { error: updateError } = await supabase
-      .from("document_runs")
-      .update({ tag: newTag })
-      .eq("id", matchingRun.id);
+      .from("documents")
+      .update({ html_content: html })
+      .eq("id", documentId);
 
     if (updateError) throw updateError;
 
-    console.log("Successfully added tag to run:", matchingRun.id);
+    // Create field record
+    const position = html.indexOf(replacement);
+    const { error: fieldError } = await supabase
+      .from("document_fields")
+      .insert({
+        document_id: documentId,
+        field_name: tagName,
+        field_value: selectedText,
+        field_tag: tag,
+        position_in_html: position,
+      });
 
-    // Return the updated run ID and tag
+    if (fieldError) throw fieldError;
+
+    console.log("Successfully added field:", fieldId);
+
     return new Response(
       JSON.stringify({ 
         success: true,
-        fieldId: matchingRun.id,
-        tag: newTag,
-        text: matchingRun.text
+        fieldId: fieldId,
+        tag: tag,
+        text: selectedText
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
