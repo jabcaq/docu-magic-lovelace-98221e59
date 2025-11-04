@@ -58,14 +58,17 @@ serve(async (req) => {
 
     if (runsError) throw runsError;
 
-    // Find the run that matches the selected text
+    // Find the run that contains the selected text
     const matchingRun = runs?.find(run => 
-      run.text && run.text.trim() === selectedText.trim()
+      run.text && run.text.includes(selectedText.trim())
     );
 
     if (!matchingRun) {
-      throw new Error("Could not find matching text in document");
+      console.error("Available runs:", runs?.map(r => ({ id: r.id, text: r.text?.substring(0, 50), hasTag: !!r.tag })));
+      throw new Error(`Could not find text "${selectedText}" in document`);
     }
+
+    console.log("Found matching run:", { id: matchingRun.id, text: matchingRun.text, currentTag: matchingRun.tag });
 
     // Check if this run already has a tag
     if (matchingRun.tag) {
