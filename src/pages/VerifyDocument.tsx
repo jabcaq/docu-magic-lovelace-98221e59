@@ -255,14 +255,14 @@ const VerifyDocument = () => {
       </div>
 
       {/* Two Column Layout */}
-      <main className="w-full px-6 py-8">
-        <div className="grid lg:grid-cols-2 gap-8">
+      <main className="w-full px-8 py-8 max-w-[2000px] mx-auto">
+        <div className="grid lg:grid-cols-[1.2fr,0.8fr] gap-12 xl:gap-16">
           {/* Left Column - Document Preview */}
           <div className="space-y-4">
-            <Card className="p-4">
-              <div className="flex items-center gap-2 mb-4">
+            <Card className="p-6">
+              <div className="flex items-center gap-2 mb-6">
                 <Eye className="h-5 w-5 text-primary" />
-                <h2 className="font-semibold">Podgląd dokumentu z tagami</h2>
+                <h2 className="font-semibold text-lg">Podgląd dokumentu z tagami</h2>
               </div>
               <DocumentPreview documentId={document.id} />
             </Card>
@@ -270,20 +270,19 @@ const VerifyDocument = () => {
 
           {/* Right Column - Editable Fields */}
           <div className="space-y-4">
-            <Card className="p-6">
-              <div className="flex items-center gap-2 mb-6">
+            <Card className="p-8 sticky top-24">
+              <div className="flex items-center gap-2 mb-8">
                 <FileText className="h-5 w-5 text-primary" />
-                <h2 className="font-semibold">Pola dokumentu</h2>
+                <h2 className="font-semibold text-lg">Pola dokumentu</h2>
               </div>
 
-              <div className="space-y-6">
-                {document.fields.map((field, index) => (
+              <div className="space-y-6 max-h-[calc(100vh-250px)] overflow-y-auto pr-2">{document.fields.map((field, index) => (
                   <div key={field.id} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor={field.id} className="font-medium">
+                    <div className="flex items-center justify-between gap-3">
+                      <Label htmlFor={field.id} className="font-medium text-sm">
                         {field.label}
                       </Label>
-                      <Badge variant="outline" className="text-xs font-mono">
+                      <Badge variant="outline" className="text-xs font-mono shrink-0">
                         {field.tag}
                       </Badge>
                     </div>

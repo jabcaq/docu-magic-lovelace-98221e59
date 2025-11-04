@@ -54,11 +54,11 @@ const DocumentPreview = ({ documentId }: DocumentPreviewProps) => {
   }
 
   return (
-    <ScrollArea className="h-[600px] w-full border rounded-lg bg-white dark:bg-gray-900 p-6">
+    <ScrollArea className="h-[700px] w-full border rounded-lg bg-white dark:bg-gray-900 p-8">
       {html ? (
         <div 
           dangerouslySetInnerHTML={{ __html: html }}
-          className="prose prose-sm max-w-none [&_.doc-variable]:inline [&_.doc-tag-badge]:inline-block"
+          className="prose prose-base max-w-none [&_.doc-variable]:inline [&_.doc-tag-badge]:inline-block"
         />
       ) : (
         <div className="flex items-center justify-center h-full text-muted-foreground">
