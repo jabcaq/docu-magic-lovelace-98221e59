@@ -241,7 +241,7 @@ const VerifyDocument = () => {
     <div className="min-h-screen w-screen flex flex-col bg-gradient-to-br from-background via-background to-accent/5 overflow-x-hidden">
       {/* Header */}
       <header className="border-b bg-card/50 backdrop-blur-sm shrink-0 sticky top-0 z-50">
-        <div className="w-full pl-2 pr-3 py-3">
+        <div className="w-full pl-0 pr-3 py-3">
             <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
               <Button
@@ -277,7 +277,7 @@ const VerifyDocument = () => {
 
       {/* Info Bar */}
       <div className="border-b bg-card/30 backdrop-blur-sm shrink-0">
-        <div className="w-full pl-2 pr-3 py-3">
+        <div className="w-full pl-0 pr-3 py-3">
           <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:gap-4 lg:gap-6 items-start sm:items-center">
               {document.template && (
                 <div className="flex items-center gap-2">
@@ -303,7 +303,7 @@ const VerifyDocument = () => {
 
       {/* Two Column Layout */}
       <main className="w-full flex-1 overflow-hidden">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr,400px] gap-3 h-full pl-2 pr-3 py-3">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr,400px] gap-3 h-full pl-0 pr-3 py-3">
           {/* Left Column - Document Preview */}
           <div className="flex flex-col min-h-[400px] lg:min-h-0 lg:h-full">
             <Card className="p-3 sm:p-4 flex flex-col h-full overflow-hidden">
