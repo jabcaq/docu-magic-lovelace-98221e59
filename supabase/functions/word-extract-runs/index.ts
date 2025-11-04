@@ -1,12 +1,9 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-serve(async (req) => {
-  // Handle CORS preflight requests
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -25,12 +22,7 @@ serve(async (req) => {
       );
     }
 
-    console.log('Extracting runs from text, length:', textContent.length);
-
-    // Extract runs from text
     const runs = extractRuns(textContent);
-
-    console.log('Successfully extracted runs:', runs.length);
 
     return new Response(
       JSON.stringify({ 
@@ -45,10 +37,10 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Error in word-extract-runs:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Internal server error';
     return new Response(
       JSON.stringify({ 
-        error: error.message || 'Internal server error',
+        error: errorMessage,
         success: false 
       }),
       { 
@@ -59,21 +51,15 @@ serve(async (req) => {
   }
 });
 
-/**
- * Extracts runs (paragraphs and sentences) from text content
- */
 function extractRuns(text: string): Array<{ text: string }> {
   const runs: Array<{ text: string }> = [];
-  
-  // Split by double newlines for paragraphs
   const paragraphs = text.split(/\n\n+/);
   
   for (const paragraph of paragraphs) {
-    const trimmedParagraph = paragraph.trim();
-    if (!trimmedParagraph) continue;
+    const trimmed = paragraph.trim();
+    if (!trimmed) continue;
     
-    // Split paragraph into sentences
-    const sentences = trimmedParagraph.split(/(?<=[.!?])\s+/);
+    const sentences = trimmed.split(/(?<=[.!?])\s+/);
     
     for (const sentence of sentences) {
       const trimmedSentence = sentence.trim();
