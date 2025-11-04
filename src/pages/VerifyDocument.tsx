@@ -211,7 +211,7 @@ const VerifyDocument = () => {
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5">
       {/* Header */}
       <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-6 py-4">
+        <div className="w-full px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Button
@@ -236,7 +236,7 @@ const VerifyDocument = () => {
 
       {/* Info Bar */}
       <div className="border-b bg-card/30 backdrop-blur-sm">
-        <div className="container mx-auto px-6 py-3">
+        <div className="w-full px-6 py-3">
           <div className="flex flex-wrap gap-4 text-sm">
             {document.template && (
               <div className="flex items-center gap-2">
@@ -255,7 +255,7 @@ const VerifyDocument = () => {
       </div>
 
       {/* Two Column Layout */}
-      <main className="container mx-auto px-6 py-8">
+      <main className="w-full px-6 py-8">
         <div className="grid lg:grid-cols-2 gap-8">
           {/* Left Column - Document Preview */}
           <div className="space-y-4">
