@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Search, Calendar, Filter } from "lucide-react";
+import { FileText, Search, Calendar, Filter, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 type DocumentStatus = "pending" | "verified" | "rejected";
 
@@ -15,50 +17,17 @@ interface Document {
   type: string;
   date: string;
   status: DocumentStatus;
-  template: string;
-  thumbnail?: string;
+  template: string | null;
 }
-
-const mockDocuments: Document[] = [
-  {
-    id: "1",
-    name: "Umowa najmu - Kowalski",
-    type: "Umowa najmu",
-    date: "2025-11-03",
-    status: "pending",
-    template: "Szablon Umowy Najmu v2",
-  },
-  {
-    id: "2",
-    name: "Faktura VAT 2025/01/123",
-    type: "Faktura",
-    date: "2025-11-02",
-    status: "verified",
-    template: "Szablon Faktury",
-  },
-  {
-    id: "3",
-    name: "Wniosek urlopowy - Nowak",
-    type: "Wniosek",
-    date: "2025-11-01",
-    status: "pending",
-    template: "Szablon Wniosku",
-  },
-  {
-    id: "4",
-    name: "Protokół spotkania",
-    type: "Protokół",
-    date: "2025-10-31",
-    status: "verified",
-    template: "Szablon Protokołu",
-  },
-];
 
 const Documents = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("date-desc");
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const getStatusColor = (status: DocumentStatus) => {
     switch (status) {
@@ -86,7 +55,79 @@ const Documents = () => {
     }
   };
 
-  const filteredDocuments = mockDocuments
+  useEffect(() => {
+    fetchDocuments();
+  }, []);
+
+  const fetchDocuments = async () => {
+    try {
+      setIsLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        navigate("/auth");
+        return;
+      }
+
+      // Fetch documents with template names
+      const { data: docsData, error: docsError } = await supabase
+        .from("documents")
+        .select(`
+          id,
+          name,
+          type,
+          created_at,
+          status,
+          template_id
+        `)
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (docsError) throw docsError;
+
+      // Fetch template names for documents that have templates
+      const templateIds = docsData
+        ?.filter(doc => doc.template_id)
+        .map(doc => doc.template_id) || [];
+
+      let templatesMap: Record<string, string> = {};
+      
+      if (templateIds.length > 0) {
+        const { data: templatesData, error: templatesError } = await supabase
+          .from("templates")
+          .select("id, name")
+          .in("id", templateIds);
+
+        if (templatesError) throw templatesError;
+
+        templatesMap = Object.fromEntries(
+          templatesData?.map(t => [t.id, t.name]) || []
+        );
+      }
+
+      const formattedDocs: Document[] = docsData?.map(doc => ({
+        id: doc.id,
+        name: doc.name,
+        type: doc.type,
+        date: doc.created_at,
+        status: doc.status as DocumentStatus,
+        template: doc.template_id ? templatesMap[doc.template_id] : null,
+      })) || [];
+
+      setDocuments(formattedDocs);
+    } catch (error) {
+      console.error("Error fetching documents:", error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się pobrać dokumentów",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const filteredDocuments = documents
     .filter((doc) => {
       const matchesSearch = doc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            doc.type.toLowerCase().includes(searchQuery.toLowerCase());
@@ -165,8 +206,13 @@ const Documents = () => {
         </div>
 
         {/* Documents Grid */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredDocuments.map((doc) => (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {filteredDocuments.map((doc) => (
             <Card
               key={doc.id}
               className="p-6 cursor-pointer hover:shadow-lg transition-all hover:scale-105"
@@ -192,16 +238,19 @@ const Documents = () => {
                     <Calendar className="h-4 w-4" />
                     <span>{new Date(doc.date).toLocaleDateString("pl-PL")}</span>
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    Szablon: {doc.template}
-                  </div>
+                  {doc.template && (
+                    <div className="text-xs text-muted-foreground">
+                      Szablon: {doc.template}
+                    </div>
+                  )}
                 </div>
               </div>
             </Card>
           ))}
-        </div>
+          </div>
+        )}
 
-        {filteredDocuments.length === 0 && (
+        {!isLoading && filteredDocuments.length === 0 && (
           <div className="text-center py-12">
             <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-semibold mb-2">Brak dokumentów</h3>
