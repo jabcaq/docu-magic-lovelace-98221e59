@@ -66,13 +66,19 @@ const WordTemplater = () => {
         throw response.error;
       }
 
-      const { document } = response.data;
+      const { document, extractedText } = response.data;
       setDocumentId(document.id);
+      setTextContent(extractedText || "");
 
       toast({
-        title: "Plik przesłany",
-        description: `${selectedFile.name} jest gotowy do przetworzenia`,
+        title: "Plik przesłany i sparsowany",
+        description: `Wyekstrahowano ${extractedText?.length || 0} znaków z ${selectedFile.name}`,
       });
+
+      // Automatically extract runs after upload
+      if (extractedText && extractedText.trim()) {
+        await performExtractRuns(document.id, extractedText);
+      }
     } catch (error) {
       console.error("Upload error:", error);
       toast({
@@ -86,22 +92,13 @@ const WordTemplater = () => {
     }
   };
 
-  const handleExtractRuns = async () => {
-    if (!documentId || !textContent.trim()) {
-      toast({
-        title: "Brak danych",
-        description: "Proszę wpisać treść dokumentu do przetworzenia",
-        variant: "destructive",
-      });
-      return;
-    }
-
+  const performExtractRuns = async (docId: string, content: string) => {
     setIsProcessing(true);
     try {
       const { data, error } = await supabase.functions.invoke("extract-runs", {
         body: {
-          documentId,
-          textContent,
+          documentId: docId,
+          textContent: content,
         },
       });
 
@@ -135,6 +132,19 @@ const WordTemplater = () => {
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleExtractRuns = async () => {
+    if (!documentId || !textContent.trim()) {
+      toast({
+        title: "Brak danych",
+        description: "Proszę wpisać treść dokumentu do przetworzenia",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    await performExtractRuns(documentId, textContent);
   };
 
   const handleSaveTemplate = async () => {
@@ -245,13 +255,13 @@ const WordTemplater = () => {
         </div>
       </Card>
 
-      {/* Text Input Section */}
-      {file && !extractedRuns.length && (
+      {/* Text Input Section - shown during processing or if auto-extract failed */}
+      {file && !extractedRuns.length && !isProcessing && (
         <Card className="p-6 space-y-4">
           <div>
             <h3 className="text-lg font-semibold mb-2">Treść dokumentu</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              Wklej lub wpisz treść dokumentu Word, którą chcesz przetworzyć
+              {textContent ? "Treść została automatycznie wyekstrahowana. Możesz ją edytować przed przetworzeniem." : "Wklej treść dokumentu, jeśli automatyczna ekstrakcja nie zadziałała."}
             </p>
           </div>
           
@@ -261,7 +271,7 @@ const WordTemplater = () => {
               id="text-content"
               value={textContent}
               onChange={(e) => setTextContent(e.target.value)}
-              placeholder="Wklej tutaj treść dokumentu..."
+              placeholder="Treść dokumentu..."
               className="min-h-[300px] font-mono text-sm"
             />
           </div>
@@ -272,8 +282,18 @@ const WordTemplater = () => {
             className="w-full"
             size="lg"
           >
-            {isProcessing ? "Przetwarzanie z AI..." : "Wyekstrahuj i zataguj fragmenty"}
+            {isProcessing ? "Przetwarzanie z AI..." : "Przetworz ponownie"}
           </Button>
+        </Card>
+      )}
+
+      {/* Processing indicator */}
+      {isProcessing && !extractedRuns.length && (
+        <Card className="p-6">
+          <div className="flex flex-col items-center justify-center py-8 space-y-4">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            <p className="text-sm text-muted-foreground">Przetwarzanie dokumentu z AI...</p>
+          </div>
         </Card>
       )}
 

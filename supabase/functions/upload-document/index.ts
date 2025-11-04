@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import mammoth from "https://esm.sh/mammoth@1.8.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -60,6 +61,18 @@ serve(async (req) => {
       throw uploadError;
     }
 
+    // Extract text from .docx file
+    console.log("Extracting text from .docx...");
+    let extractedText = "";
+    try {
+      const result = await mammoth.extractRawText({ arrayBuffer: fileBuffer });
+      extractedText = result.value;
+      console.log(`Extracted ${extractedText.length} characters from document`);
+    } catch (extractError) {
+      console.error("Error extracting text:", extractError);
+      // Continue without text if extraction fails
+    }
+
     // Create document record
     const { data: document, error: docError } = await supabase
       .from("documents")
@@ -88,6 +101,7 @@ serve(async (req) => {
           type: document.type,
           status: document.status,
         },
+        extractedText,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
