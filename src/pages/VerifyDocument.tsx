@@ -10,7 +10,6 @@ import DocumentFieldEditor from "@/components/DocumentFieldEditor";
 import VerificationProgress from "@/components/VerificationProgress";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
-import htmlDocx from "html-docx-js/dist/html-docx";
 
 interface DocumentField {
   id: string;
@@ -268,50 +267,41 @@ const VerifyDocument = () => {
     if (!documentId) return;
 
     try {
-      // Fetch the latest HTML content
-      const { data: docData, error: docError } = await supabase
-        .from("documents")
-        .select("html_content, name")
-        .eq("id", documentId)
-        .single();
+      toast({
+        title: "Przygotowywanie dokumentu...",
+        description: "Generowanie pliku DOCX",
+      });
 
-      if (docError) throw docError;
-      if (!docData?.html_content) {
-        throw new Error("Brak zawartości dokumentu");
+      // Call edge function to convert HTML to DOCX
+      const { data, error } = await supabase.functions.invoke("download-document", {
+        body: { documentId },
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (error) throw error;
+
+      if (!data || !data.base64) {
+        throw new Error("Brak danych dokumentu");
       }
 
-      // Create a complete HTML document with styles
-      const fullHtml = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta charset="utf-8">
-            <style>
-              body { 
-                font-family: Arial, sans-serif;
-                line-height: 1.6;
-              }
-              .highlight-field { 
-                background-color: #ffeb3b;
-                padding: 2px 4px;
-                border-radius: 2px;
-              }
-            </style>
-          </head>
-          <body>
-            ${docData.html_content}
-          </body>
-        </html>
-      `;
+      // Convert base64 to blob
+      const byteCharacters = atob(data.base64);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { 
+        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
+      });
 
-      // Convert HTML to DOCX
-      const docx = htmlDocx.asBlob(fullHtml);
-      
       // Create download link
-      const url = URL.createObjectURL(docx);
+      const url = URL.createObjectURL(blob);
       const link = window.document.createElement('a');
       link.href = url;
-      link.download = `${docData.name || 'document'}.docx`;
+      link.download = data.filename || 'document.docx';
       window.document.body.appendChild(link);
       link.click();
       window.document.body.removeChild(link);
@@ -325,7 +315,7 @@ const VerifyDocument = () => {
       console.error("Error downloading document:", error);
       toast({
         title: "Błąd",
-        description: "Nie udało się pobrać dokumentu",
+        description: error instanceof Error ? error.message : "Nie udało się pobrać dokumentu",
         variant: "destructive",
       });
     }
