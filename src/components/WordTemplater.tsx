@@ -67,19 +67,18 @@ const WordTemplater = () => {
         throw response.error;
       }
 
-      const { document, extractedText } = response.data;
+      const { document } = response.data;
       setDocumentId(document.id);
-      setTextContent(extractedText || "");
 
       toast({
-        title: "Plik przesłany i sparsowany",
-        description: `Wyekstrahowano ${extractedText?.length || 0} znaków z ${selectedFile.name}`,
+        title: "Dokument przesłany pomyślnie!",
+        description: `${selectedFile.name} został przekonwertowany na HTML i jest gotowy do edycji`,
       });
 
-      // Automatically extract runs after upload
-      if (extractedText && extractedText.trim()) {
-        await performExtractRuns(document.id, extractedText);
-      }
+      // Navigate to documents page to see the uploaded document
+      setTimeout(() => {
+        navigate("/documents");
+      }, 1500);
     } catch (error) {
       console.error("Upload error:", error);
       toast({
