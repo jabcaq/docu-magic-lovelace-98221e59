@@ -17,14 +17,6 @@ interface DocumentField {
   tag: string;
 }
 
-interface DocumentRun {
-  id: string;
-  text: string;
-  tag: string | null;
-  type: string;
-  run_index: number;
-}
-
 interface DocumentData {
   id: string;
   name: string;
@@ -32,7 +24,6 @@ interface DocumentData {
   template: string | null;
   originalWord: string;
   fields: DocumentField[];
-  runs: DocumentRun[];
 }
 
 const VerifyDocument = () => {
@@ -112,15 +103,6 @@ const VerifyDocument = () => {
           tag: run.tag || '',
         })) || [];
 
-      // All runs for preview
-      const allRuns: DocumentRun[] = runsData?.map(run => ({
-        id: run.id,
-        text: run.text,
-        tag: run.tag,
-        type: run.type,
-        run_index: run.run_index,
-      })) || [];
-
       setDocument({
         id: docData.id,
         name: docData.name,
@@ -128,7 +110,6 @@ const VerifyDocument = () => {
         template: templateName,
         originalWord: docData.name,
         fields,
-        runs: allRuns,
       });
 
     } catch (error) {
@@ -283,7 +264,7 @@ const VerifyDocument = () => {
                 <Eye className="h-5 w-5 text-primary" />
                 <h2 className="font-semibold">Podgląd dokumentu z tagami</h2>
               </div>
-              <DocumentPreview runs={document.runs} />
+              <DocumentPreview documentId={document.id} />
             </Card>
           </div>
 
