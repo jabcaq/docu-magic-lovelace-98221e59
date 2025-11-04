@@ -3,13 +3,14 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ArrowLeft, Save, FileText, Eye, Link2, Loader2 } from "lucide-react";
+import { ArrowLeft, Save, FileText, Eye, Link2, Loader2, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import DocumentPreviewEnhanced from "@/components/DocumentPreviewEnhanced";
 import DocumentFieldEditor from "@/components/DocumentFieldEditor";
 import VerificationProgress from "@/components/VerificationProgress";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
+import htmlDocx from "html-docx-js/dist/html-docx";
 
 interface DocumentField {
   id: string;
@@ -263,6 +264,73 @@ const VerifyDocument = () => {
     }
   };
 
+  const handleDownloadDocument = async () => {
+    if (!documentId) return;
+
+    try {
+      // Fetch the latest HTML content
+      const { data: docData, error: docError } = await supabase
+        .from("documents")
+        .select("html_content, name")
+        .eq("id", documentId)
+        .single();
+
+      if (docError) throw docError;
+      if (!docData?.html_content) {
+        throw new Error("Brak zawartości dokumentu");
+      }
+
+      // Create a complete HTML document with styles
+      const fullHtml = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <style>
+              body { 
+                font-family: Arial, sans-serif;
+                line-height: 1.6;
+              }
+              .highlight-field { 
+                background-color: #ffeb3b;
+                padding: 2px 4px;
+                border-radius: 2px;
+              }
+            </style>
+          </head>
+          <body>
+            ${docData.html_content}
+          </body>
+        </html>
+      `;
+
+      // Convert HTML to DOCX
+      const docx = htmlDocx.asBlob(fullHtml);
+      
+      // Create download link
+      const url = URL.createObjectURL(docx);
+      const link = window.document.createElement('a');
+      link.href = url;
+      link.download = `${docData.name || 'document'}.docx`;
+      window.document.body.appendChild(link);
+      link.click();
+      window.document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Sukces",
+        description: "Dokument został pobrany",
+      });
+    } catch (error) {
+      console.error("Error downloading document:", error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się pobrać dokumentu",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -299,18 +367,28 @@ const VerifyDocument = () => {
                 <p className="text-sm text-muted-foreground truncate">{document.type}</p>
               </div>
             </div>
-            <Button 
-              onClick={handleSave} 
-              className="gap-2 shrink-0"
-              disabled={isSaving}
-            >
-              {isSaving ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4" />
-              )}
-              Zapisz zmiany
-            </Button>
+            <div className="flex gap-2 shrink-0">
+              <Button 
+                onClick={handleDownloadDocument} 
+                variant="outline"
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Pobierz
+              </Button>
+              <Button 
+                onClick={handleSave} 
+                className="gap-2"
+                disabled={isSaving}
+              >
+                {isSaving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                Zapisz zmiany
+              </Button>
+            </div>
           </div>
         </div>
       </header>
