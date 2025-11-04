@@ -274,10 +274,7 @@ const VerifyDocument = () => {
 
       // Call edge function to convert HTML to DOCX
       const { data, error } = await supabase.functions.invoke("download-document", {
-        body: { documentId },
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        body: { documentId }
       });
 
       if (error) throw error;

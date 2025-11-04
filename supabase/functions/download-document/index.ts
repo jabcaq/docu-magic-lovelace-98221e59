@@ -33,16 +33,38 @@ serve(async (req) => {
       throw new Error("Unauthorized");
     }
 
-    // Parse request body
-    let documentId: string;
+    // Parse request body or query
+    let documentId: string | null = null;
+
+    const contentType = (req.headers.get("content-type") || "").toLowerCase();
+    const url = new URL(req.url);
+
     try {
-      const body = await req.text();
-      console.log("Raw request body:", body);
-      const parsed = JSON.parse(body);
-      documentId = parsed.documentId;
-    } catch (parseError) {
-      console.error("Failed to parse request body:", parseError);
-      throw new Error("Invalid request body");
+      if (contentType.includes("application/json")) {
+        const json = await req.json();
+        documentId = json?.documentId ?? null;
+      } else if (contentType.includes("application/x-www-form-urlencoded")) {
+        const bodyText = await req.text();
+        const params = new URLSearchParams(bodyText);
+        documentId = params.get("documentId");
+      } else {
+        // Try query param first
+        documentId = url.searchParams.get("documentId");
+        if (!documentId) {
+          // As a last resort, try to parse text as JSON
+          const bodyText = await req.text().catch(() => null);
+          if (bodyText) {
+            try {
+              const parsed = JSON.parse(bodyText);
+              documentId = parsed?.documentId ?? null;
+            } catch (_) {
+              // ignore
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Body parse error:", e);
     }
 
     if (!documentId) {
