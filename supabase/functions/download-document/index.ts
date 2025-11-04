@@ -33,7 +33,21 @@ serve(async (req) => {
       throw new Error("Unauthorized");
     }
 
-    const { documentId } = await req.json();
+    // Parse request body
+    let documentId: string;
+    try {
+      const body = await req.text();
+      console.log("Raw request body:", body);
+      const parsed = JSON.parse(body);
+      documentId = parsed.documentId;
+    } catch (parseError) {
+      console.error("Failed to parse request body:", parseError);
+      throw new Error("Invalid request body");
+    }
+
+    if (!documentId) {
+      throw new Error("documentId is required");
+    }
 
     console.log("Downloading document:", documentId);
 
