@@ -77,10 +77,10 @@ serve(async (req) => {
 
     console.log("Downloading document:", documentId);
 
-    // Get document data
+    // Get document data with XML content
     const { data: document, error: docError } = await supabase
       .from("documents")
-      .select("name, storage_path")
+      .select("name, storage_path, xml_content")
       .eq("id", documentId)
       .eq("user_id", user.id)
       .single();
@@ -89,6 +89,10 @@ serve(async (req) => {
 
     if (!document.storage_path) {
       throw new Error("Document has no storage path");
+    }
+    
+    if (!document.xml_content) {
+      throw new Error("Document has no XML content");
     }
 
     // Get all document fields with their values
@@ -118,49 +122,33 @@ serve(async (req) => {
 
     console.log("File downloaded successfully, size:", fileData.size);
 
-    // Load DOCX as ZIP
+    // Load DOCX as ZIP from storage (need the structure, styles, etc.)
     const arrayBuffer = await fileData.arrayBuffer();
     const zip = await JSZip.loadAsync(arrayBuffer);
 
-    // Get document.xml
-    const documentXml = await zip.file("word/document.xml")?.async("string");
-    
-    if (!documentXml) {
-      throw new Error("Invalid DOCX file - no document.xml found");
-    }
-
-    console.log("Original document.xml length:", documentXml.length);
+    console.log("Using XML content from database");
     console.log("Mode:", mode);
 
-    // Replace field values in Word XML based on mode
-    let modifiedXml = documentXml;
+    // Start with the XML content from the database (which has tags)
+    let modifiedXml = document.xml_content;
     
-    if (fields && fields.length > 0) {
+    if (mode === "filled" && fields && fields.length > 0) {
+      // Replace tags with actual values
       for (const field of fields) {
-        if (!field.field_value) continue;
+        if (!field.field_tag || !field.field_value) continue;
         
-        // In Word XML, text is in <w:t> tags
-        // We need to find the field value in the XML and replace it
-        const valueToFind = field.field_value;
-        const replacement = mode === "template" ? field.field_tag : field.field_value;
-        
-        // Escape special XML characters in the search value
-        const escapedValue = valueToFind
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;");
-        
-        // Replace the text content in <w:t> tags
-        const textPattern = new RegExp(
-          `(<w:t[^>]*>)${escapedValue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(</w:t>)`,
+        // Simple text replacement of tags with values
+        const tagPattern = new RegExp(
+          field.field_tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
           "gi"
         );
         
-        modifiedXml = modifiedXml.replace(textPattern, `$1${replacement}$2`);
+        modifiedXml = modifiedXml.replace(tagPattern, field.field_value);
         
-        console.log(`Replaced "${valueToFind}" with "${replacement}"`);
+        console.log(`Replaced "${field.field_tag}" with "${field.field_value}"`);
       }
     }
+    // For template mode, keep the tags as-is (already in xml_content)
 
     console.log("Modified document.xml length:", modifiedXml.length);
 
@@ -173,8 +161,13 @@ serve(async (req) => {
       compression: "DEFLATE"
     });
 
-    // Convert to base64
-    const base64 = btoa(String.fromCharCode(...modifiedDocx));
+    // Convert to base64 efficiently (avoid stack overflow with large files)
+    let base64 = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < modifiedDocx.length; i += chunkSize) {
+      const chunk = modifiedDocx.slice(i, i + chunkSize);
+      base64 += btoa(String.fromCharCode(...chunk));
+    }
 
     // Create filename based on mode
     const originalName = document.name || "document.docx";
