@@ -38,9 +38,15 @@ function safeReplaceInHTML(html: string, searchText: string, replacement: string
       }
     }
     
-    // Skip style and script tags
-    if (node.nodeType === 1 && (node.tagName === 'STYLE' || node.tagName === 'SCRIPT')) {
-      return;
+    // Skip style and script tags, and also skip existing doc-variable spans
+    if (node.nodeType === 1) {
+      if (node.tagName === 'STYLE' || node.tagName === 'SCRIPT') {
+        return;
+      }
+      // Check if this is already a tagged field
+      if (node.tagName === 'SPAN' && node.getAttribute('class') === 'doc-variable') {
+        return;
+      }
     }
     
     // Process child nodes
