@@ -29,3 +29,9 @@ verify_jwt = true
 
 [functions.add-document-field]
 verify_jwt = true
+
+[functions.delete-document-field]
+verify_jwt = true
+
+[functions.update-document-field]
+verify_jwt = true

@@ -208,6 +208,74 @@ const VerifyDocument = () => {
     setHighlightedFieldId(null);
   };
 
+  const handleDeleteField = async (fieldId: string) => {
+    if (!document) return;
+
+    try {
+      toast({
+        title: "Usuwanie zmiennej...",
+      });
+
+      const { error } = await supabase.functions.invoke("delete-document-field", {
+        body: { fieldId, documentId: document.id },
+      });
+
+      if (error) throw error;
+
+      // Refetch document to get updated fields
+      await refetch();
+
+      // Trigger preview refresh
+      setPreviewRefreshKey(prev => prev + 1);
+
+      toast({
+        title: "Sukces",
+        description: "Zmienna została usunięta",
+      });
+    } catch (error) {
+      console.error("Error deleting field:", error);
+      toast({
+        title: "Błąd",
+        description: error instanceof Error ? error.message : "Nie udało się usunąć zmiennej",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditField = async (fieldId: string, newLabel: string, newTag: string) => {
+    if (!document) return;
+
+    try {
+      toast({
+        title: "Aktualizacja zmiennej...",
+      });
+
+      const { error } = await supabase.functions.invoke("update-document-field", {
+        body: { fieldId, documentId: document.id, newLabel, newTag },
+      });
+
+      if (error) throw error;
+
+      // Refetch document to get updated fields
+      await refetch();
+
+      // Trigger preview refresh
+      setPreviewRefreshKey(prev => prev + 1);
+
+      toast({
+        title: "Sukces",
+        description: "Zmienna została zaktualizowana",
+      });
+    } catch (error) {
+      console.error("Error updating field:", error);
+      toast({
+        title: "Błąd",
+        description: error instanceof Error ? error.message : "Nie udało się zaktualizować zmiennej",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleAddNewField = async (selectedText: string, tagName: string) => {
     if (!document) return;
 
@@ -448,6 +516,8 @@ const VerifyDocument = () => {
                   onChange={(value) => handleFieldChange(field.id, value)}
                   onFocus={() => handleFieldFocus(field.id)}
                   onBlur={handleFieldBlur}
+                  onDelete={handleDeleteField}
+                  onEdit={handleEditField}
                   autoFocus={index === 0}
                   isHighlighted={highlightedFieldId === field.id}
                 />
