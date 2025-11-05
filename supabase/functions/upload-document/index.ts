@@ -163,27 +163,36 @@ serve(async (req) => {
 
     console.log("Document created successfully:", document.id);
 
-    // Automatically analyze document with AI to suggest fields
+    // For Word documents, extract OpenXML runs first
     try {
-      console.log("Starting AI analysis...");
-      const analysisResponse = await fetch(`${supabaseUrl}/functions/v1/analyze-document-fields`, {
-        method: "POST",
-        headers: {
-          "Authorization": authHeader,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ documentId: document.id }),
+      console.log("Extracting OpenXML runs for Word document...");
+      
+      const { error: runsError } = await supabase.functions.invoke('extract-openxml-runs', {
+        body: { documentId: document.id }
       });
 
-      if (analysisResponse.ok) {
-        const analysisData = await analysisResponse.json();
-        console.log(`AI suggested and applied ${analysisData.appliedCount} fields`);
-      } else {
-        console.warn("AI analysis failed, but document was created successfully");
+      if (runsError) {
+        console.error('Failed to extract runs:', runsError);
       }
-    } catch (analysisError) {
-      console.warn("AI analysis error:", analysisError);
-      // Don't fail the upload if AI analysis fails
+    } catch (runsExtractError) {
+      console.error('Error during run extraction:', runsExtractError);
+    }
+
+    // Now trigger AI analysis
+    try {
+      console.log("Starting AI analysis...");
+      
+      const { error: analyzeError } = await supabase.functions.invoke('analyze-document-fields', {
+        body: { documentId: document.id }
+      });
+
+      if (analyzeError) {
+        console.error('Failed to analyze document:', analyzeError);
+      } else {
+        console.log('AI analysis completed successfully');
+      }
+    } catch (analyzeError) {
+      console.error('Error during analysis:', analyzeError);
     }
 
     return new Response(
