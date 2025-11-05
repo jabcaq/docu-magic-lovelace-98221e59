@@ -107,24 +107,47 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are an AI assistant that analyzes documents and identifies variable fields that should be replaced with placeholders. 
-            
-Your task:
-1. Identify dynamic content that changes between document instances (names, dates, numbers, addresses, IDs, VINs, plate numbers, etc.)
-2. Suggest clear, descriptive variable names in English using camelCase
-3. Return EXACT text fragments (at least 3 characters long) and their suggested variable names
+            content: `You are an AI assistant specialized in analyzing automotive documents for translation services. These documents (registration certificates, titles, invoices, customs declarations) have been used for a specific vehicle/situation and need to become reusable templates for future translations.
 
-Rules:
-- Only identify content that would change between different document instances
-- Don't tag static text, labels, or boilerplate content
-- Don't tag single characters or very short fragments (minimum 3 characters)
-- Variable names should be descriptive (e.g., "customerName", "invoiceDate", "totalAmount", "vinNumber")
-- Return exact text as it appears in the document
-- Prioritize longer, more specific text fragments over short generic ones`
+CONTEXT: Tlumaczka.pl translation bureau processes automotive documents from abroad (USA, Netherlands, Germany, France). Each document contains vehicle-specific and client-specific data that must be tagged for template creation.
+
+Your task:
+1. Identify ALL variable fields that differ between vehicles/clients/transactions
+2. Suggest clear, descriptive variable names in English using camelCase
+3. Return EXACT text fragments (at least 3 characters long) from the document
+
+AUTOMOTIVE-SPECIFIC CATEGORIES:
+- vin: Vehicle Identification Numbers (17-character codes)
+- registration_plate: License plate numbers, registration numbers
+- vehicle_data: Make, model, year, engine capacity, fuel type, color, body type
+- vehicle_ids: Homologation codes, type approval numbers, chassis numbers
+- owner_data: Owner names, addresses, ID numbers, contact information
+- financial_data: Purchase prices, taxes, fees, currency amounts
+- dates: Registration dates, purchase dates, manufacture dates, validity dates
+- location_data: Cities, countries, postal codes, dealership locations
+- transaction_ids: Invoice numbers, document numbers, reference codes
+
+IMPORTANT RULES:
+- Tag ALL data that varies between different vehicles or owners
+- Don't tag: static labels, form field names, legal disclaimers, column headers
+- Minimum 3 characters per fragment
+- Use descriptive names: "vinNumber", "engineCapacityCcm", "firstRegistrationDate", "buyerFullName"
+- Prioritize complete values over partial matches
+- Recognize multi-language terminology (e.g., "Motor/Engine/Silnik" all mean engine)
+
+Example good tags:
+- "WBA12345678901234" → vinNumber
+- "ABC-1234" → registrationPlate  
+- "Jan Kowalski" → ownerName
+- "2.0 TDI" → engineType
+- "15.03.2023" → firstRegistrationDate
+- "€25,000" → purchasePrice`
           },
           {
             role: "user",
-            content: `Analyze these text runs and identify which ones contain variable data that should be tagged. 
+            content: `Analyze these text runs from an automotive document (registration certificate, title, invoice, or customs declaration). This document was used for a specific vehicle and will become a template for future translations.
+
+Identify ALL fields that vary between different vehicles, owners, or transactions. Tag complete values, not labels.
             
 Runs:
 ${JSON.stringify(runsForAI, null, 2)}
@@ -135,7 +158,7 @@ Return format:
     {
       "text": "exact text from run (minimum 3 characters)",
       "variableName": "suggestedVariableName",
-      "category": "name|date|number|address|id|other"
+      "category": "vin|registration_plate|vehicle_data|vehicle_ids|owner_data|financial_data|dates|location_data|transaction_ids|other"
     }
   ]
 }`
@@ -159,8 +182,8 @@ Return format:
                         variableName: { type: "string", description: "Suggested variable name in camelCase" },
                         category: { 
                           type: "string", 
-                          enum: ["name", "date", "number", "address", "id", "other"],
-                          description: "Category of the field"
+                          enum: ["vin", "registration_plate", "vehicle_data", "vehicle_ids", "owner_data", "financial_data", "dates", "location_data", "transaction_ids", "other"],
+                          description: "Category of the field - use automotive-specific categories for vehicle documents"
                         }
                       },
                       required: ["text", "variableName", "category"],
