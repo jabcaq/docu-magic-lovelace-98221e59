@@ -36,6 +36,7 @@ serve(async (req) => {
 
     // Parse request body or query
     let documentId: string | null = null;
+    let mode: string = "filled"; // "filled" or "template"
 
     const contentType = (req.headers.get("content-type") || "").toLowerCase();
     const url = new URL(req.url);
@@ -44,18 +45,22 @@ serve(async (req) => {
       if (contentType.includes("application/json")) {
         const json = await req.json();
         documentId = json?.documentId ?? null;
+        mode = json?.mode ?? "filled";
       } else if (contentType.includes("application/x-www-form-urlencoded")) {
         const bodyText = await req.text();
         const params = new URLSearchParams(bodyText);
         documentId = params.get("documentId");
+        mode = params.get("mode") || "filled";
       } else {
         documentId = url.searchParams.get("documentId");
+        mode = url.searchParams.get("mode") || "filled";
         if (!documentId) {
           const bodyText = await req.text().catch(() => null);
           if (bodyText) {
             try {
               const parsed = JSON.parse(bodyText);
               documentId = parsed?.documentId ?? null;
+              mode = parsed?.mode ?? "filled";
             } catch (_) {
               // ignore
             }
@@ -125,22 +130,24 @@ serve(async (req) => {
     }
 
     console.log("Original document.xml length:", documentXml.length);
+    console.log("Mode:", mode);
 
-    // Replace field spans with their values
+    // Replace field spans based on mode
     let modifiedXml = documentXml;
     
     if (fields && fields.length > 0) {
       for (const field of fields) {
-        // Find the span tag pattern and replace with just the value
-        // The pattern looks for: <span ...data-field-id="xxx"...>text</span>
+        // Find the span tag pattern
         const spanPattern = new RegExp(
           `<span[^>]*data-field-id="${field.id}"[^>]*>.*?</span>`,
           "gi"
         );
-        const value = field.field_value || "";
-        modifiedXml = modifiedXml.replace(spanPattern, value);
         
-        console.log(`Replaced field ${field.id} (${field.field_tag}) with value: ${value}`);
+        // Replace with either value (filled mode) or tag template (template mode)
+        const replacement = mode === "template" ? field.field_tag : (field.field_value || "");
+        modifiedXml = modifiedXml.replace(spanPattern, replacement);
+        
+        console.log(`Replaced field ${field.id} (${field.field_tag}) with: ${replacement}`);
       }
     }
 
@@ -158,10 +165,11 @@ serve(async (req) => {
     // Convert to base64
     const base64 = btoa(String.fromCharCode(...modifiedDocx));
 
-    // Create filename with "_wypełniony" suffix
+    // Create filename based on mode
     const originalName = document.name || "document.docx";
     const nameWithoutExt = originalName.replace(/\.docx$/i, '');
-    const filename = `${nameWithoutExt}_wypelniony.docx`;
+    const suffix = mode === "template" ? "_szablon" : "_wypelniony";
+    const filename = `${nameWithoutExt}${suffix}.docx`;
 
     return new Response(
       JSON.stringify({ 

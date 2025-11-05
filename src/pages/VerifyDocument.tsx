@@ -10,6 +10,12 @@ import DocumentFieldEditor from "@/components/DocumentFieldEditor";
 import VerificationProgress from "@/components/VerificationProgress";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface DocumentField {
   id: string;
@@ -331,18 +337,19 @@ const VerifyDocument = () => {
     }
   };
 
-  const handleDownloadDocument = async () => {
+  const handleDownloadDocument = async (mode: "filled" | "template") => {
     if (!documentId) return;
 
     try {
+      const modeText = mode === "filled" ? "wypełnionymi wartościami" : "zmiennymi {{}}";
       toast({
         title: "Przygotowywanie dokumentu...",
-        description: "Generowanie pliku DOCX",
+        description: `Generowanie pliku DOCX z ${modeText}`,
       });
 
       // Call edge function to convert HTML to DOCX
       const { data, error } = await supabase.functions.invoke("download-document", {
-        body: { documentId }
+        body: { documentId, mode }
       });
 
       if (error) throw error;
@@ -423,14 +430,22 @@ const VerifyDocument = () => {
               </div>
             </div>
             <div className="flex gap-2 shrink-0">
-              <Button 
-                onClick={handleDownloadDocument} 
-                variant="outline"
-                className="gap-2"
-              >
-                <Download className="h-4 w-4" />
-                Pobierz
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="gap-2">
+                    <Download className="h-4 w-4" />
+                    Pobierz
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => handleDownloadDocument("filled")}>
+                    Z wypełnionymi wartościami
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleDownloadDocument("template")}>
+                    Ze zmiennymi {"{{}}"}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button 
                 onClick={handleSave} 
                 className="gap-2"
