@@ -105,44 +105,93 @@ function escapeHtml(s: string) {
 function convertXMLToHTML(xmlContent: string, fields: Array<{id: string; field_tag: string}>): string {
   const styles = `
     <style>
-      body { font-family: 'Times New Roman', serif; line-height: 1.6; padding: 0; width: 100%; }
-      p { margin: 10px 0; text-align: justify; }
+      body { font-family: 'Calibri', 'Arial', sans-serif; line-height: 1.6; padding: 20px; max-width: 100%; margin: 0 auto; }
+      p { margin: 12px 0; text-align: justify; word-wrap: break-word; }
       .doc-variable { background-color: #fef08a; border: 2px solid #facc15; padding: 2px 8px; border-radius: 4px; display: inline; font-weight: 500; white-space: pre-wrap; cursor: pointer; transition: all 0.2s ease; }
       .doc-variable:hover { background-color: #fde047; transform: scale(1.01); }
       .doc-tag-badge { display: inline-block; background-color: #3b82f6; color: white; font-size: 9px; padding: 2px 5px; border-radius: 3px; margin-left: 4px; font-family: 'Courier New', monospace; font-weight: normal; white-space: nowrap; }
     </style>
   `;
 
-  const paraRegex = /<w:p[\s\S]*?<\/w:p>/g;
+  console.log("Converting XML to HTML, XML length:", xmlContent.length);
+
+  // Extract all text from <w:t> tags
   const textRegex = /<w:t[^>]*>([\s\S]*?)<\/w:t>/g;
-  const paragraphs = xmlContent.match(paraRegex) || [];
+  const matches = Array.from(xmlContent.matchAll(textRegex));
+  
+  console.log("Found", matches.length, "text runs");
+
+  if (matches.length === 0) {
+    console.warn("No text runs found in XML");
+    return styles + `<p>Brak tekstu w dokumencie</p>`;
+  }
+
+  // Group text by paragraphs (detect <w:p> boundaries)
+  const paraRegex = /<w:p\b[^>]*>([\s\S]*?)<\/w:p>/g;
+  const paragraphs = Array.from(xmlContent.matchAll(paraRegex));
+  
+  console.log("Found", paragraphs.length, "paragraphs");
 
   const tagMap = new Map<string, string>();
   fields.forEach(f => tagMap.set(f.field_tag, f.id));
 
   const renderText = (text: string) => {
+    // First unescape XML entities
+    text = text
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&apos;/g, "'")
+      .replace(/&amp;/g, '&');
+
+    // Then escape for HTML display
+    text = escapeHtml(text);
+
     // Wrap {{tag}} tokens
     return text.replace(/\{\{[^}]+\}\}/g, (m) => {
-      const id = tagMap.get(m);
-      if (!id) return `<span class="doc-variable" data-tag="${m}">${escapeHtml(m)}</span>`;
-      return `<span class="doc-variable" data-field-id="${id}" data-tag="${m}">${escapeHtml(m)}<span class="doc-tag-badge">${escapeHtml(m)}</span></span>`;
+      const unescaped = m.replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+      const id = tagMap.get(unescaped);
+      if (!id) return `<span class="doc-variable" data-tag="${unescaped}">${m}</span>`;
+      return `<span class="doc-variable" data-field-id="${id}" data-tag="${unescaped}">${m}<span class="doc-tag-badge">${unescaped}</span></span>`;
     });
   };
 
-  if (paragraphs.length === 0) {
-    // Fallback: join all w:t
-    let combined = '';
-    const all = xmlContent.matchAll(textRegex);
-    for (const m of all) combined += m[1] || '';
-    return styles + `<p>${renderText(escapeHtml(combined))}</p>`;
+  let html = styles;
+  
+  if (paragraphs.length > 0) {
+    // Process each paragraph
+    for (const paraMatch of paragraphs) {
+      const paraContent = paraMatch[1];
+      const textMatches = Array.from(paraContent.matchAll(textRegex));
+      
+      if (textMatches.length === 0) {
+        // Empty paragraph - add line break
+        html += `<p>&nbsp;</p>`;
+        continue;
+      }
+
+      let paragraphText = '';
+      for (const textMatch of textMatches) {
+        const content = textMatch[1] || '';
+        paragraphText += content;
+      }
+
+      if (paragraphText.trim()) {
+        html += `<p>${renderText(paragraphText)}</p>`;
+      } else {
+        html += `<p>&nbsp;</p>`;
+      }
+    }
+  } else {
+    // Fallback: no paragraphs found, join all text
+    console.warn("No paragraphs found, using fallback");
+    let allText = '';
+    for (const match of matches) {
+      allText += match[1] || '';
+    }
+    html += `<p>${renderText(allText)}</p>`;
   }
 
-  let html = styles;
-  for (const p of paragraphs) {
-    let text = '';
-    const runs = p.matchAll(textRegex);
-    for (const m of runs) text += m[1] || '';
-    html += `<p>${renderText(escapeHtml(text))}</p>`;
-  }
+  console.log("Generated HTML length:", html.length);
   return html;
 }
