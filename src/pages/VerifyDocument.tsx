@@ -43,6 +43,7 @@ const VerifyDocument = () => {
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
+  const [isCleanView, setIsCleanView] = useState(false);
 
   // Fetch document data using React Query
   const { data: document, isLoading, error, refetch } = useQuery({
@@ -497,9 +498,20 @@ const VerifyDocument = () => {
             <div className="flex items-center gap-2 mb-4 shrink-0">
               <Eye className="h-5 w-5 text-primary" />
               <h2 className="font-semibold text-lg">Podgląd dokumentu</h2>
-              <Badge variant="outline" className="text-xs">
-                Zaznacz tekst aby dodać zmienną
-              </Badge>
+              <div className="flex-1" />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsCleanView(!isCleanView)}
+              >
+                <Eye className="h-4 w-4 mr-2" />
+                {isCleanView ? "Widok edycji" : "Czysty podgląd"}
+              </Button>
+              {!isCleanView && (
+                <Badge variant="outline" className="text-xs">
+                  Zaznacz tekst aby dodać zmienną
+                </Badge>
+              )}
             </div>
             <div className="flex-1 overflow-hidden">
               <DocumentPreviewEnhanced 
@@ -508,6 +520,8 @@ const VerifyDocument = () => {
                 onTagHover={handleTagHover}
                 onAddNewField={handleAddNewField}
                 refreshKey={previewRefreshKey}
+                isCleanView={isCleanView}
+                fieldValues={editedFields}
               />
             </div>
           </Card>

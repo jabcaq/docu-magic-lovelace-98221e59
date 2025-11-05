@@ -10,6 +10,8 @@ interface DocumentPreviewEnhancedProps {
   onTagHover?: (fieldId: string | null) => void;
   onAddNewField?: (selectedText: string, tagName: string) => void;
   refreshKey?: number;
+  isCleanView?: boolean;
+  fieldValues?: Record<string, string>;
 }
 
 const DocumentPreviewEnhanced = ({
@@ -18,6 +20,8 @@ const DocumentPreviewEnhanced = ({
   onTagHover,
   onAddNewField,
   refreshKey = 0,
+  isCleanView = false,
+  fieldValues = {},
 }: DocumentPreviewEnhancedProps) => {
   const [html, setHtml] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
@@ -28,6 +32,27 @@ const DocumentPreviewEnhanced = ({
     position: { x: number; y: number };
     selectedText: string;
   } | null>(null);
+
+  // Function to generate clean HTML without XML tags and with filled values
+  const generateCleanHtml = (htmlContent: string) => {
+    let clean = htmlContent;
+    
+    // Remove all XML tags like <w:r>, <w:t>, etc.
+    clean = clean.replace(/<\/?w:[^>]+>/g, '');
+    
+    // Replace {{variableName}} with actual values
+    clean = clean.replace(/<span class="doc-variable"[^>]*data-field-id="([^"]+)"[^>]*data-tag="([^"]+)"[^>]*>([^<]+)<span class="doc-tag-badge">[^<]*<\/span><\/span>/g, 
+      (match, fieldId, tag, content) => {
+        const value = fieldValues[fieldId] || content.replace(/[{}]/g, '');
+        return `<span class="doc-field-value">${value}</span>`;
+      }
+    );
+    
+    // Clean up any remaining variable spans
+    clean = clean.replace(/<span class="doc-variable"[^>]*>([^<]+)<\/span>/g, '$1');
+    
+    return clean;
+  };
 
   useEffect(() => {
     const fetchRenderedDocument = async () => {
@@ -106,7 +131,7 @@ const DocumentPreviewEnhanced = ({
 
   // Handle text selection
   useEffect(() => {
-    if (!contentRef.current || !onAddNewField) return;
+    if (!contentRef.current || !onAddNewField || isCleanView) return;
 
     const handleMouseUp = () => {
       const selection = window.getSelection();
@@ -150,7 +175,7 @@ const DocumentPreviewEnhanced = ({
     return () => {
       content.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [html, onAddNewField]);
+  }, [html, onAddNewField, isCleanView]);
 
   const handleConfirmSelection = (tagName: string) => {
     if (selectionPopup && onAddNewField) {
@@ -224,13 +249,18 @@ const DocumentPreviewEnhanced = ({
           background-color: #fde047 !important;
           transform: scale(1.01);
         }
+        
+        .doc-field-value {
+          color: inherit;
+          font-weight: normal;
+        }
       `}</style>
       <ScrollArea className="h-[500px] sm:h-[600px] lg:h-[calc(100vh-320px)] w-full border rounded-lg bg-gray-100 dark:bg-gray-800">
         {html ? (
           <div className="p-4 sm:p-8">
             <div
               ref={contentRef}
-              dangerouslySetInnerHTML={{ __html: html }}
+              dangerouslySetInnerHTML={{ __html: isCleanView ? generateCleanHtml(html) : html }}
               className="document-preview-content max-w-[210mm] mx-auto [&_.doc-variable]:inline [&_.doc-tag-badge]:inline-block"
             />
           </div>
