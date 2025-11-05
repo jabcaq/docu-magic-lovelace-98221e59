@@ -157,17 +157,11 @@ serve(async (req) => {
 
     // Generate new DOCX file
     const modifiedDocx = await zip.generateAsync({ 
-      type: "uint8array",
-      compression: "DEFLATE"
+      type: "base64"
     });
 
-    // Convert to base64 efficiently (avoid stack overflow with large files)
-    let base64 = '';
-    const chunkSize = 8192;
-    for (let i = 0; i < modifiedDocx.length; i += chunkSize) {
-      const chunk = modifiedDocx.slice(i, i + chunkSize);
-      base64 += btoa(String.fromCharCode(...chunk));
-    }
+    // Already in base64 format
+    const base64 = modifiedDocx;
 
     // Create filename based on mode
     const originalName = document.name || "document.docx";
