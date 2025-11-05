@@ -51,11 +51,36 @@ serve(async (req) => {
       throw new Error("Document has no HTML content");
     }
 
+    // Get all document fields to replace values with tags for preview
+    const { data: fields, error: fieldsError } = await supabase
+      .from("document_fields")
+      .select("id, field_tag")
+      .eq("document_id", documentId);
+
+    if (fieldsError) throw fieldsError;
+
     console.log("Document HTML length:", document.html_content.length);
+    console.log("Found fields:", fields?.length || 0);
+
+    // Replace field spans with their tags in {{}} format for preview
+    let previewHtml = document.html_content;
+    
+    if (fields && fields.length > 0) {
+      for (const field of fields) {
+        // Find and replace the span content with the tag
+        const spanPattern = new RegExp(
+          `(<span[^>]*data-field-id="${field.id}"[^>]*>)[^<]*(</span>)`,
+          "gi"
+        );
+        previewHtml = previewHtml.replace(spanPattern, `$1${field.field_tag}$2`);
+        
+        console.log(`Replaced field ${field.id} content with tag: ${field.field_tag}`);
+      }
+    }
 
     return new Response(
       JSON.stringify({ 
-        html: document.html_content
+        html: previewHtml
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
