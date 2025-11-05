@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
-import mammoth from "https://esm.sh/mammoth@1.8.0";
+import JSZip from "https://esm.sh/jszip@3.10.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -61,88 +61,19 @@ serve(async (req) => {
       throw uploadError;
     }
 
-    // Convert Word document to HTML
-    const result = await mammoth.convertToHtml(
-      { arrayBuffer: fileBuffer },
-      {
-        styleMap: [
-          "p[style-name='Heading 1'] => h1:fresh",
-          "p[style-name='Heading 2'] => h2:fresh",
-          "p[style-name='Heading 3'] => h3:fresh",
-          "p[style-name='Title'] => h1.title:fresh",
-          "b => strong",
-          "i => em",
-        ],
-      }
-    );
+    // Extract XML from DOCX
+    console.log("Extracting XML from DOCX...");
+    const zip = await JSZip.loadAsync(fileBuffer);
+    const xmlFile = zip.file("word/document.xml");
+    
+    if (!xmlFile) {
+      throw new Error("Could not find document.xml in DOCX file");
+    }
+    
+    const xmlContent = await xmlFile.async("string");
+    console.log("XML extraction complete, length:", xmlContent.length);
 
-    console.log("HTML conversion complete, length:", result.value.length);
-
-    // Add CSS styles to the HTML
-    const styledHtml = `
-      <style>
-        body {
-          font-family: 'Times New Roman', serif;
-          line-height: 1.6;
-          padding: 0;
-          width: 100%;
-        }
-        h1, h2, h3 {
-          color: #1a1a1a;
-          margin-top: 20px;
-          margin-bottom: 10px;
-        }
-        p {
-          margin: 10px 0;
-          text-align: justify;
-        }
-        table {
-          border-collapse: collapse;
-          width: 100%;
-          margin: 10px 0;
-        }
-        td, th {
-          border: 1px solid #ddd;
-          padding: 8px;
-        }
-        .doc-variable {
-          background-color: #fef08a;
-          border: 2px solid #facc15;
-          padding: 2px 8px;
-          border-radius: 4px;
-          display: inline;
-          font-weight: 500;
-          white-space: pre-wrap;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-        .doc-variable:hover {
-          background-color: #fde047;
-          transform: scale(1.01);
-        }
-        .doc-tag-badge {
-          display: inline-block;
-          background-color: #3b82f6;
-          color: white;
-          font-size: 9px;
-          padding: 2px 5px;
-          border-radius: 3px;
-          margin-left: 4px;
-          font-family: 'Courier New', monospace;
-          font-weight: normal;
-          white-space: nowrap;
-        }
-        strong {
-          font-weight: bold;
-        }
-        em {
-          font-style: italic;
-        }
-      </style>
-      ${result.value}
-    `;
-
-    // Create document record with HTML content
+    // Create document record with XML content
     const { data: document, error: docError } = await supabase
       .from("documents")
       .insert({
@@ -150,7 +81,8 @@ serve(async (req) => {
         name: documentName || file.name,
         type: documentType || "Dokument Word",
         storage_path: filePath,
-        html_content: styledHtml,
+        xml_content: xmlContent,
+        html_cache: null, // Will be generated on-demand by render-document
         status: "pending",
         auto_analyze: false // Prevent DB trigger from firing; we'll run analysis manually
       })
@@ -206,8 +138,7 @@ serve(async (req) => {
           name: document.name,
           type: document.type,
           status: document.status,
-        },
-        warnings: result.messages,
+        }
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

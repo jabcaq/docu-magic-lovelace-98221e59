@@ -7,6 +7,62 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Helper function to safely find and replace text in OpenXML document.xml
+function safeReplaceInXML(
+  xmlContent: string, 
+  searchText: string, 
+  fieldId: string, 
+  tag: string
+): { success: boolean; xml: string } {
+  try {
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(xmlContent, "text/xml");
+    
+    if (!xmlDoc) {
+      return { success: false, xml: xmlContent };
+    }
+
+    let found = false;
+
+    // Find all w:t elements and search for the text
+    const textNodes = xmlDoc.getElementsByTagName("w:t");
+    
+    for (let i = 0; i < textNodes.length; i++) {
+      const textNode = textNodes[i];
+      const text = textNode.textContent || "";
+      
+      if (text.includes(searchText)) {
+        // Mark this run with custom XML attributes for field tracking
+        const run = textNode.parentElement; // w:r
+        if (run) {
+          // Add custom attributes to the run for field identification
+          run.setAttribute("w:rsidRPr", fieldId);
+          run.setAttribute("data-field-id", fieldId);
+          run.setAttribute("data-tag", tag);
+          
+          // Replace text content with the tag
+          textNode.textContent = tag;
+          
+          found = true;
+          break;
+        }
+      }
+    }
+
+    if (!found) {
+      return { success: false, xml: xmlContent };
+    }
+
+    // Serialize back to XML string
+    const newXml = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n" + xmlDoc.documentElement!.outerHTML;
+
+    return { success: true, xml: newXml };
+  } catch (error) {
+    console.error("Error in safeReplaceInXML:", error);
+    return { success: false, xml: xmlContent };
+  }
+}
+
 // Helper function to safely find and replace text in HTML content only (not in tags)
 function safeReplaceInHTML(html: string, searchText: string, replacement: string): string {
   const parser = new DOMParser();
@@ -100,10 +156,10 @@ serve(async (req) => {
 
     console.log("Adding field:", { documentId, selectedText, tagName });
 
-    // Get document HTML
+    // Get document XML
     const { data: document, error: docError } = await supabase
       .from("documents")
-      .select("html_content")
+      .select("xml_content")
       .eq("id", documentId)
       .eq("user_id", user.id)
       .single();
@@ -112,9 +168,9 @@ serve(async (req) => {
       throw new Error("Document not found or access denied");
     }
 
-    let html = document.html_content;
-    if (!html) {
-      throw new Error("Document has no HTML content");
+    let xml = document.xml_content;
+    if (!xml) {
+      throw new Error("Document has no XML content");
     }
 
     // Normalize whitespace in selected text
@@ -124,27 +180,27 @@ serve(async (req) => {
     const fieldId = crypto.randomUUID();
     const tag = `{{${tagName}}}`;
 
-    // Wrap the selected text in a span with field ID
-    const replacement = `<span class="doc-variable" data-field-id="${fieldId}" data-tag="${tag}">${normalizedSelection}<span class="doc-tag-badge">${tag}</span></span>`;
-    
     // Use safe replacement function
-    try {
-      html = safeReplaceInHTML(html, normalizedSelection, replacement);
-    } catch (error) {
-      console.error("Safe replace error:", error);
-      throw new Error(`Could not find text "${selectedText}" in visible document content. It may already be tagged or located in a non-editable area.`);
+    const result = safeReplaceInXML(xml, normalizedSelection, fieldId, tag);
+    
+    if (!result.success) {
+      throw new Error(`Could not find text "${selectedText}" in document content. It may already be tagged.`);
     }
 
-    // Update document HTML
+    xml = result.xml;
+
+    // Update document XML and clear HTML cache
     const { error: updateError } = await supabase
       .from("documents")
-      .update({ html_content: html })
+      .update({ 
+        xml_content: xml,
+        html_cache: null // Force regeneration
+      })
       .eq("id", documentId);
 
     if (updateError) throw updateError;
 
     // Create field record
-    const position = html.indexOf(replacement);
     const { error: fieldError } = await supabase
       .from("document_fields")
       .insert({
@@ -152,7 +208,7 @@ serve(async (req) => {
         field_name: tagName,
         field_value: selectedText,
         field_tag: tag,
-        position_in_html: position,
+        position_in_html: 0, // Will be recalculated
       });
 
     if (fieldError) throw fieldError;

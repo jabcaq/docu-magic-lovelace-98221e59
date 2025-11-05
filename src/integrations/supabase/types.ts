@@ -62,7 +62,7 @@ export type Database = {
         Row: {
           auto_analyze: boolean | null
           created_at: string
-          html_content: string | null
+          html_cache: string | null
           id: string
           name: string
           runs_metadata: Json | null
@@ -72,11 +72,12 @@ export type Database = {
           type: string
           updated_at: string
           user_id: string
+          xml_content: string | null
         }
         Insert: {
           auto_analyze?: boolean | null
           created_at?: string
-          html_content?: string | null
+          html_cache?: string | null
           id?: string
           name: string
           runs_metadata?: Json | null
@@ -86,11 +87,12 @@ export type Database = {
           type: string
           updated_at?: string
           user_id: string
+          xml_content?: string | null
         }
         Update: {
           auto_analyze?: boolean | null
           created_at?: string
-          html_content?: string | null
+          html_cache?: string | null
           id?: string
           name?: string
           runs_metadata?: Json | null
@@ -100,6 +102,7 @@ export type Database = {
           type?: string
           updated_at?: string
           user_id?: string
+          xml_content?: string | null
         }
         Relationships: [
           {

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
+import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -50,27 +51,52 @@ serve(async (req) => {
 
     if (deleteError) throw deleteError;
 
-    // Get document HTML to remove the tag
+    // Get document XML to remove the tag
     const { data: document, error: docError } = await supabase
       .from("documents")
-      .select("html_content")
+      .select("xml_content")
       .eq("id", documentId)
       .eq("user_id", user.id)
       .single();
 
     if (docError) throw docError;
 
-    // Remove the span tag and keep just the text content
-    const tagPattern = new RegExp(
-      `<span[^>]*data-field-id=\\"${fieldId}\\"[^>]*>(.*?)</span>`,
-      "gi"
-    );
-    const updatedHtml = document.html_content.replace(tagPattern, "$1");
+    // Parse XML and remove field attributes
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(document.xml_content, "text/xml");
+    
+    if (!xmlDoc) {
+      throw new Error("Failed to parse XML");
+    }
 
-    // Update document HTML
+    // Find the run with this field ID and restore original value
+    const runs = xmlDoc.getElementsByTagName("w:r");
+    for (let i = 0; i < runs.length; i++) {
+      const run = runs[i];
+      if (run.getAttribute("data-field-id") === fieldId) {
+        // Remove field attributes
+        run.removeAttribute("w:rsidRPr");
+        run.removeAttribute("data-field-id");
+        run.removeAttribute("data-tag");
+        
+        // Restore original text from field.field_value
+        const textNode = run.getElementsByTagName("w:t")[0];
+        if (textNode && field) {
+          textNode.textContent = field.field_tag; // Keep the tag text (will be replaced on download)
+        }
+        break;
+      }
+    }
+
+    const updatedXml = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n" + xmlDoc.documentElement!.outerHTML;
+
+    // Update document XML and clear HTML cache
     const { error: updateError } = await supabase
       .from("documents")
-      .update({ html_content: updatedHtml })
+      .update({ 
+        xml_content: updatedXml,
+        html_cache: null // Force regeneration
+      })
       .eq("id", documentId);
 
     if (updateError) throw updateError;

@@ -7,7 +7,63 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Helper function to safely find and replace text in HTML content only (not in tags)
+// Helper function to safely find and replace text in OpenXML document.xml
+function safeReplaceInXML(
+  xmlContent: string, 
+  searchText: string, 
+  fieldId: string, 
+  tag: string
+): { success: boolean; xml: string } {
+  try {
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(xmlContent, "text/xml");
+    
+    if (!xmlDoc) {
+      return { success: false, xml: xmlContent };
+    }
+
+    let found = false;
+
+    // Find all w:t elements and search for the text
+    const textNodes = xmlDoc.getElementsByTagName("w:t");
+    
+    for (let i = 0; i < textNodes.length; i++) {
+      const textNode = textNodes[i];
+      const text = textNode.textContent || "";
+      
+      if (text.includes(searchText)) {
+        // Mark this run with custom XML attributes for field tracking
+        const run = textNode.parentElement; // w:r
+        if (run) {
+          // Add custom attributes to the run for field identification
+          run.setAttribute("w:rsidRPr", fieldId);
+          run.setAttribute("data-field-id", fieldId);
+          run.setAttribute("data-tag", tag);
+          
+          // Replace text content with the tag
+          textNode.textContent = tag;
+          
+          found = true;
+          break;
+        }
+      }
+    }
+
+    if (!found) {
+      return { success: false, xml: xmlContent };
+    }
+
+    // Serialize back to XML string
+    const newXml = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n" + xmlDoc.documentElement!.outerHTML;
+
+    return { success: true, xml: newXml };
+  } catch (error) {
+    console.error("Error in safeReplaceInXML:", error);
+    return { success: false, xml: xmlContent };
+  }
+}
+
+// Old HTML function - kept for backwards compatibility
 function safeReplaceInHTML(html: string, searchText: string, replacement: string): { success: boolean; html: string } {
   try {
     const parser = new DOMParser();
@@ -101,10 +157,10 @@ serve(async (req) => {
 
     console.log("Analyzing document:", documentId);
 
-    // Get document HTML and type
+    // Get document XML and type
     const { data: document, error: docError } = await supabase
       .from("documents")
-      .select("html_content, name, type, runs_metadata")
+      .select("xml_content, name, type, runs_metadata")
       .eq("id", documentId)
       .eq("user_id", user.id)
       .single();
@@ -113,24 +169,32 @@ serve(async (req) => {
       throw new Error("Document not found");
     }
 
-    // For Word documents with runs_metadata, use that; otherwise extract from HTML
+    if (!document.xml_content) {
+      throw new Error("Document has no XML content");
+    }
+
+    // Extract text from XML runs for AI analysis
     let runsForAI: Array<{ text: string; formatting?: any }> = [];
     
-    if (document.type === 'word' && document.runs_metadata && Array.isArray(document.runs_metadata) && document.runs_metadata.length > 0) {
+    if (document.runs_metadata && Array.isArray(document.runs_metadata) && document.runs_metadata.length > 0) {
       console.log("Using OpenXML runs from metadata");
       runsForAI = document.runs_metadata;
     } else {
-      // Strip HTML tags for AI analysis
-      const textContent = document.html_content
-        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-        .replace(/<[^>]+>/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-
-      // Split into simple runs (sentences)
-      const sentences = textContent.split(/(?<=[.!?])\s+/);
-      runsForAI = sentences.map((text: string) => ({ text }));
+      // Parse XML to extract text
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(document.xml_content, "text/xml");
+      
+      if (!xmlDoc) {
+        throw new Error("Failed to parse XML");
+      }
+      
+      const textNodes = xmlDoc.getElementsByTagName("w:t");
+      for (let i = 0; i < textNodes.length; i++) {
+        const text = textNodes[i].textContent?.trim();
+        if (text) {
+          runsForAI.push({ text });
+        }
+      }
     }
 
     console.log(`Processing ${runsForAI.length} runs for AI analysis`);
@@ -246,8 +310,8 @@ Return format:
     
     console.log(`Found ${filteredSuggestions.length} valid suggestions (filtered from ${suggestions.length})`);
 
-    // Now automatically apply these suggestions to the HTML
-    let html = document.html_content;
+    // Now automatically apply these suggestions to the XML
+    let xml = document.xml_content;
     let appliedCount = 0;
 
     for (const suggestion of filteredSuggestions) {
@@ -260,21 +324,18 @@ Return format:
       const fieldId = crypto.randomUUID();
       const tag = `{{${variableName}}}`;
       
-      const replacement = `<span class="doc-variable" data-field-id="${fieldId}" data-tag="${tag}">${text}<span class="doc-tag-badge">${tag}</span></span>`;
-      
-      const result = safeReplaceInHTML(html, text, replacement);
+      const result = safeReplaceInXML(xml, text, fieldId, tag);
       
       if (result.success) {
-        html = result.html;
+        xml = result.xml;
         
         // Save to document_fields with formatting
-        const position = html.indexOf(replacement);
         await supabase.from("document_fields").insert({
           document_id: documentId,
           field_name: variableName,
           field_value: text,
           field_tag: tag,
-          position_in_html: position,
+          position_in_html: appliedCount, // Sequential position
           run_formatting: formatting,
         });
         
@@ -285,11 +346,12 @@ Return format:
       }
     }
 
-    // Update document with tagged HTML
+    // Update document with tagged XML and clear HTML cache
     await supabase
       .from("documents")
       .update({ 
-        html_content: html,
+        xml_content: xml,
+        html_cache: null, // Force regeneration
         status: "verified" // Mark as ready for verification
       })
       .eq("id", documentId);
