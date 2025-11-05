@@ -198,6 +198,15 @@ serve(async (req) => {
     }
 
     console.log(`Processing ${runsForAI.length} runs for AI analysis`);
+    
+    // Log first few runs with formatting for debugging
+    console.log("Sample runs (first 5):");
+    runsForAI.slice(0, 5).forEach((run, idx) => {
+      console.log(`  Run ${idx + 1}:`, {
+        text: run.text,
+        formatting: run.formatting || 'none'
+      });
+    });
 
     // Call Lovable AI to analyze and suggest fields
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -308,14 +317,24 @@ Return format:
     // Filter out suggestions that are too short
     const filteredSuggestions = suggestions.filter((s: any) => s.text.length >= 3);
     
-    console.log(`Found ${filteredSuggestions.length} valid suggestions (filtered from ${suggestions.length})`);
+    console.log(`\n📊 AI ANALYSIS RESULTS:`);
+    console.log(`   Total suggestions: ${suggestions.length}`);
+    console.log(`   Valid suggestions (>= 3 chars): ${filteredSuggestions.length}`);
+    console.log(`\n💡 AI SUGGESTIONS:`);
+    filteredSuggestions.forEach((s: any, idx: number) => {
+      console.log(`   ${idx + 1}. [${s.category}] "${s.text}" → {{${s.variableName}}}`);
+    });
 
     // Now automatically apply these suggestions to the XML
     let xml = document.xml_content;
     let appliedCount = 0;
+    const appliedFields: any[] = [];
+    const skippedFields: any[] = [];
+
+    console.log(`\n🔄 APPLYING SUGGESTIONS TO XML:`);
 
     for (const suggestion of filteredSuggestions) {
-      const { text, variableName } = suggestion;
+      const { text, variableName, category } = suggestion;
       
       // Find the matching run to get formatting
       const matchingRun = runsForAI.find(r => r.text.includes(text));
@@ -323,6 +342,8 @@ Return format:
       
       const fieldId = crypto.randomUUID();
       const tag = `{{${variableName}}}`;
+      
+      console.log(`   Attempting: "${text}" → ${tag}`);
       
       const result = safeReplaceInXML(xml, text, fieldId, tag);
       
@@ -340,9 +361,11 @@ Return format:
         });
         
         appliedCount++;
-        console.log(`Applied: ${variableName} = "${text}" with formatting:`, formatting);
+        appliedFields.push({ text, tag, formatting, category });
+        console.log(`   ✅ Success! Applied with formatting:`, formatting);
       } else {
-        console.log(`Skipped: ${variableName} = "${text}" (not found in content)`);
+        skippedFields.push({ text, tag, category, reason: 'not found in XML' });
+        console.log(`   ❌ Skipped: not found in XML content`);
       }
     }
 
@@ -356,7 +379,23 @@ Return format:
       })
       .eq("id", documentId);
 
-    console.log(`Applied ${appliedCount} of ${filteredSuggestions.length} suggestions`);
+    console.log(`\n📈 SUMMARY:`);
+    console.log(`   ✅ Applied: ${appliedCount} fields`);
+    console.log(`   ❌ Skipped: ${skippedFields.length} fields`);
+    
+    if (appliedFields.length > 0) {
+      console.log(`\n✨ Successfully applied fields:`);
+      appliedFields.forEach(f => {
+        console.log(`   • ${f.tag} [${f.category}]`);
+      });
+    }
+    
+    if (skippedFields.length > 0) {
+      console.log(`\n⚠️  Skipped fields:`);
+      skippedFields.forEach(f => {
+        console.log(`   • ${f.tag} [${f.category}] - ${f.reason}`);
+      });
+    }
 
     return new Response(
       JSON.stringify({
