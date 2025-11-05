@@ -169,7 +169,8 @@ serve(async (req) => {
       console.log("Extracting OpenXML runs for Word document...");
       
       const { error: runsError } = await supabase.functions.invoke('extract-openxml-runs', {
-        body: { documentId: document.id }
+        body: { documentId: document.id },
+        headers: { Authorization: authHeader }
       });
 
       if (runsError) {
@@ -184,7 +185,8 @@ serve(async (req) => {
       console.log("Starting AI analysis...");
       
       const { error: analyzeError } = await supabase.functions.invoke('analyze-document-fields', {
-        body: { documentId: document.id }
+        body: { documentId: document.id },
+        headers: { Authorization: authHeader }
       });
 
       if (analyzeError) {
