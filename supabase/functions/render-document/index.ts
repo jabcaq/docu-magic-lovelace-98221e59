@@ -97,7 +97,7 @@ serve(async (req) => {
 // Helper function to convert OpenXML to HTML
 function convertXMLToHTML(xmlContent: string, fields: any[]): string {
   const parser = new DOMParser();
-  const xmlDoc = parser.parseFromString(xmlContent, "text/xml");
+  const xmlDoc = parser.parseFromString(xmlContent, "text/html");
   
   if (!xmlDoc) {
     throw new Error("Failed to parse XML");

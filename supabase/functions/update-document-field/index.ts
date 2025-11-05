@@ -68,7 +68,7 @@ serve(async (req) => {
 
     // Parse XML and update field attributes
     const parser = new DOMParser();
-    const xmlDoc = parser.parseFromString(document.xml_content, "text/xml");
+    const xmlDoc = parser.parseFromString(document.xml_content, "text/html");
     
     if (!xmlDoc) {
       throw new Error("Failed to parse XML");

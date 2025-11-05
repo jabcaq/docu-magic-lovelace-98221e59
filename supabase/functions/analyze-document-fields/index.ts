@@ -16,7 +16,7 @@ function safeReplaceInXML(
 ): { success: boolean; xml: string } {
   try {
     const parser = new DOMParser();
-    const xmlDoc = parser.parseFromString(xmlContent, "text/xml");
+    const xmlDoc = parser.parseFromString(xmlContent, "text/html");
     
     if (!xmlDoc) {
       return { success: false, xml: xmlContent };
@@ -182,7 +182,7 @@ serve(async (req) => {
     } else {
       // Parse XML to extract text
       const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(document.xml_content, "text/xml");
+      const xmlDoc = parser.parseFromString(document.xml_content, "text/html");
       
       if (!xmlDoc) {
         throw new Error("Failed to parse XML");

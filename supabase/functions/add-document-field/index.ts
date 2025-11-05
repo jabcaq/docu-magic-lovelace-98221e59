@@ -16,7 +16,7 @@ function safeReplaceInXML(
 ): { success: boolean; xml: string } {
   try {
     const parser = new DOMParser();
-    const xmlDoc = parser.parseFromString(xmlContent, "text/xml");
+    const xmlDoc = parser.parseFromString(xmlContent, "text/html");
     
     if (!xmlDoc) {
       return { success: false, xml: xmlContent };
