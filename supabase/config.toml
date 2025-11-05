@@ -23,3 +23,9 @@ verify_jwt = false
 
 [functions.analyze-document-fields]
 verify_jwt = true
+
+[functions.extract-openxml-runs]
+verify_jwt = true
+
+[functions.add-document-field]
+verify_jwt = true

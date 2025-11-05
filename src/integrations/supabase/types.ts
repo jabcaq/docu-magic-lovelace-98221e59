@@ -23,6 +23,7 @@ export type Database = {
           field_value: string
           id: string
           position_in_html: number
+          run_formatting: Json | null
           updated_at: string | null
         }
         Insert: {
@@ -33,6 +34,7 @@ export type Database = {
           field_value: string
           id?: string
           position_in_html: number
+          run_formatting?: Json | null
           updated_at?: string | null
         }
         Update: {
@@ -43,6 +45,7 @@ export type Database = {
           field_value?: string
           id?: string
           position_in_html?: number
+          run_formatting?: Json | null
           updated_at?: string | null
         }
         Relationships: [
@@ -62,6 +65,7 @@ export type Database = {
           html_content: string | null
           id: string
           name: string
+          runs_metadata: Json | null
           status: string
           storage_path: string
           template_id: string | null
@@ -75,6 +79,7 @@ export type Database = {
           html_content?: string | null
           id?: string
           name: string
+          runs_metadata?: Json | null
           status?: string
           storage_path: string
           template_id?: string | null
@@ -88,6 +93,7 @@ export type Database = {
           html_content?: string | null
           id?: string
           name?: string
+          runs_metadata?: Json | null
           status?: string
           storage_path?: string
           template_id?: string | null

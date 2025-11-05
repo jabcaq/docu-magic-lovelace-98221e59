@@ -101,10 +101,10 @@ serve(async (req) => {
 
     console.log("Analyzing document:", documentId);
 
-    // Get document HTML
+    // Get document HTML and type
     const { data: document, error: docError } = await supabase
       .from("documents")
-      .select("html_content, name")
+      .select("html_content, name, type, runs_metadata")
       .eq("id", documentId)
       .eq("user_id", user.id)
       .single();
@@ -113,15 +113,27 @@ serve(async (req) => {
       throw new Error("Document not found");
     }
 
-    // Strip HTML tags for AI analysis
-    const textContent = document.html_content
-      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+    // For Word documents with runs_metadata, use that; otherwise extract from HTML
+    let runsForAI: Array<{ text: string; formatting?: any }> = [];
+    
+    if (document.type === 'word' && document.runs_metadata && Array.isArray(document.runs_metadata) && document.runs_metadata.length > 0) {
+      console.log("Using OpenXML runs from metadata");
+      runsForAI = document.runs_metadata;
+    } else {
+      // Strip HTML tags for AI analysis
+      const textContent = document.html_content
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
 
-    console.log("Text content length:", textContent.length);
+      // Split into simple runs (sentences)
+      const sentences = textContent.split(/(?<=[.!?])\s+/);
+      runsForAI = sentences.map((text: string) => ({ text }));
+    }
+
+    console.log(`Processing ${runsForAI.length} runs for AI analysis`);
 
     // Call Lovable AI to analyze and suggest fields
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -152,16 +164,16 @@ Rules:
           },
           {
             role: "user",
-            content: `Analyze this document and identify all variable fields that should be tagged. Return suggestions as a JSON array.
-
-Document content:
-${textContent}
+            content: `Analyze these text runs and identify which ones contain variable data that should be tagged. 
+            
+Runs:
+${JSON.stringify(runsForAI, null, 2)}
 
 Return format:
 {
   "suggestions": [
     {
-      "text": "exact text from document (minimum 3 characters)",
+      "text": "exact text from run (minimum 3 characters)",
       "variableName": "suggestedVariableName",
       "category": "name|date|number|address|id|other"
     }
@@ -241,6 +253,10 @@ Return format:
     for (const suggestion of filteredSuggestions) {
       const { text, variableName } = suggestion;
       
+      // Find the matching run to get formatting
+      const matchingRun = runsForAI.find(r => r.text.includes(text));
+      const formatting = matchingRun?.formatting || {};
+      
       const fieldId = crypto.randomUUID();
       const tag = `{{${variableName}}}`;
       
@@ -251,7 +267,7 @@ Return format:
       if (result.success) {
         html = result.html;
         
-        // Save to document_fields
+        // Save to document_fields with formatting
         const position = html.indexOf(replacement);
         await supabase.from("document_fields").insert({
           document_id: documentId,
@@ -259,10 +275,11 @@ Return format:
           field_value: text,
           field_tag: tag,
           position_in_html: position,
+          run_formatting: formatting,
         });
         
         appliedCount++;
-        console.log(`Applied: ${variableName} = "${text}"`);
+        console.log(`Applied: ${variableName} = "${text}" with formatting:`, formatting);
       } else {
         console.log(`Skipped: ${variableName} = "${text}" (not found in content)`);
       }

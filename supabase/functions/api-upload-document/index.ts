@@ -98,17 +98,21 @@ serve(async (req) => {
       }
     }
 
+    // Determine document type category
+    const isWordDocument = documentType.includes("wordprocessingml") || documentType.includes("msword");
+    const docType = isWordDocument ? "word" : "other";
+
     // Insert document record with auto_analyze flag
     const { data: document, error: dbError } = await supabase
       .from("documents")
       .insert({
         user_id: userId,
         name: documentName,
-        type: documentType,
+        type: docType,
         storage_path: storagePath,
         html_content: htmlContent,
         status: "pending",
-        auto_analyze: autoAnalyze
+        auto_analyze: false // We'll trigger analysis manually after extracting runs
       })
       .select()
       .single();
@@ -120,7 +124,41 @@ serve(async (req) => {
 
     console.log("Document record created:", document.id);
 
-    // The database trigger will automatically call analyze-document-fields if auto_analyze is true
+    // For Word documents, extract OpenXML runs first
+    if (isWordDocument && autoAnalyze) {
+      console.log("Extracting OpenXML runs for Word document...");
+      
+      try {
+        const { error: runsError } = await supabase.functions.invoke('extract-openxml-runs', {
+          body: { documentId: document.id }
+        });
+
+        if (runsError) {
+          console.error('Failed to extract runs:', runsError);
+        }
+      } catch (runsExtractError) {
+        console.error('Error during run extraction:', runsExtractError);
+      }
+
+      // Now trigger analysis
+      try {
+        const { error: analyzeError } = await supabase.functions.invoke('analyze-document-fields', {
+          body: { documentId: document.id }
+        });
+
+        if (analyzeError) {
+          console.error('Failed to analyze document:', analyzeError);
+        }
+      } catch (analyzeError) {
+        console.error('Error during analysis:', analyzeError);
+      }
+    } else if (autoAnalyze) {
+      // For non-Word documents, trigger analysis directly via database trigger
+      await supabase
+        .from("documents")
+        .update({ auto_analyze: true })
+        .eq("id", document.id);
+    }
 
     return new Response(
       JSON.stringify({
