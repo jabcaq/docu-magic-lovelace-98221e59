@@ -132,22 +132,33 @@ serve(async (req) => {
     console.log("Original document.xml length:", documentXml.length);
     console.log("Mode:", mode);
 
-    // Replace field spans based on mode
+    // Replace field values in Word XML based on mode
     let modifiedXml = documentXml;
     
     if (fields && fields.length > 0) {
       for (const field of fields) {
-        // Find the span tag pattern
-        const spanPattern = new RegExp(
-          `<span[^>]*data-field-id="${field.id}"[^>]*>.*?</span>`,
+        if (!field.field_value) continue;
+        
+        // In Word XML, text is in <w:t> tags
+        // We need to find the field value in the XML and replace it
+        const valueToFind = field.field_value;
+        const replacement = mode === "template" ? field.field_tag : field.field_value;
+        
+        // Escape special XML characters in the search value
+        const escapedValue = valueToFind
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+        
+        // Replace the text content in <w:t> tags
+        const textPattern = new RegExp(
+          `(<w:t[^>]*>)${escapedValue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(</w:t>)`,
           "gi"
         );
         
-        // Replace with either value (filled mode) or tag template (template mode)
-        const replacement = mode === "template" ? field.field_tag : (field.field_value || "");
-        modifiedXml = modifiedXml.replace(spanPattern, replacement);
+        modifiedXml = modifiedXml.replace(textPattern, `$1${replacement}$2`);
         
-        console.log(`Replaced field ${field.id} (${field.field_tag}) with: ${replacement}`);
+        console.log(`Replaced "${valueToFind}" with "${replacement}"`);
       }
     }
 
