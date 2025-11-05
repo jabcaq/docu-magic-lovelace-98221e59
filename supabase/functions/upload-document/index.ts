@@ -152,6 +152,7 @@ serve(async (req) => {
         storage_path: filePath,
         html_content: styledHtml,
         status: "pending",
+        auto_analyze: false // Prevent DB trigger from firing; we'll run analysis manually
       })
       .select()
       .single();
