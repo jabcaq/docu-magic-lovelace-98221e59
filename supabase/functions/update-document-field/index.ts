@@ -66,32 +66,11 @@ serve(async (req) => {
 
     if (docError) throw docError;
 
-    // Parse XML and update field attributes
-    const parser = new DOMParser();
-    const xmlDoc = parser.parseFromString(document.xml_content, "text/html");
-    
-    if (!xmlDoc) {
-      throw new Error("Failed to parse XML");
-    }
+    let xml = document.xml_content as string;
 
-    // Find the run with this field ID and update its tag
-    const runs = xmlDoc.getElementsByTagName("w:r");
-    for (let i = 0; i < runs.length; i++) {
-      const run = runs[i];
-      if (run.getAttribute("data-field-id") === fieldId) {
-        // Update tag attribute
-        run.setAttribute("data-tag", newTag);
-        
-        // Update text content
-        const textNode = run.getElementsByTagName("w:t")[0];
-        if (textNode) {
-          textNode.textContent = newTag;
-        }
-        break;
-      }
-    }
-
-    const updatedXml = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n" + xmlDoc.documentElement!.outerHTML;
+    // Replace old tag token with new tag token globally
+    const oldTagRegex = new RegExp(oldTag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+    const updatedXml = xml.replace(oldTagRegex, newTag);
 
     // Update document XML and clear HTML cache
     const { error: updateDocError } = await supabase

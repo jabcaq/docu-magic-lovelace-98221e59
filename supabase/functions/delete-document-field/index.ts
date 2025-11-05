@@ -61,40 +61,19 @@ serve(async (req) => {
 
     if (docError) throw docError;
 
-    // Parse XML and remove field attributes
-    const parser = new DOMParser();
-    const xmlDoc = parser.parseFromString(document.xml_content, "text/html");
-    
-    if (!xmlDoc) {
-      throw new Error("Failed to parse XML");
-    }
+    let xml = document.xml_content as string;
 
-    // Find the run with this field ID and restore original value
-    const runs = xmlDoc.getElementsByTagName("w:r");
-    for (let i = 0; i < runs.length; i++) {
-      const run = runs[i];
-      if (run.getAttribute("data-field-id") === fieldId) {
-        // Remove field attributes
-        run.removeAttribute("w:rsidRPr");
-        run.removeAttribute("data-field-id");
-        run.removeAttribute("data-tag");
-        
-        // Restore original text from field.field_value
-        const textNode = run.getElementsByTagName("w:t")[0];
-        if (textNode && field) {
-          textNode.textContent = field.field_tag; // Keep the tag text (will be replaced on download)
-        }
-        break;
-      }
-    }
-
-    const updatedXml = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n" + xmlDoc.documentElement!.outerHTML;
+    // Replace tag token with original value
+    const tagToken = field.field_tag;
+    const originalText = field.field_value;
+    const tagRegex = new RegExp(tagToken.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    xml = xml.replace(tagRegex, originalText);
 
     // Update document XML and clear HTML cache
     const { error: updateError } = await supabase
       .from("documents")
       .update({ 
-        xml_content: updatedXml,
+        xml_content: xml,
         html_cache: null // Force regeneration
       })
       .eq("id", documentId);

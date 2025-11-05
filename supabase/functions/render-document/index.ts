@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
-import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -65,7 +64,7 @@ serve(async (req) => {
     console.log("Found fields:", fields?.length || 0);
 
     // Generate HTML from XML
-    let html = convertXMLToHTML(document.xml_content, fields);
+    let html = convertXMLToHTML(document.xml_content, fields || []);
 
     // Cache the HTML for faster future loads
     await supabase
@@ -94,120 +93,56 @@ serve(async (req) => {
   }
 });
 
-// Helper function to convert OpenXML to HTML
-function convertXMLToHTML(xmlContent: string, fields: any[]): string {
-  const parser = new DOMParser();
-  const xmlDoc = parser.parseFromString(xmlContent, "text/html");
-  
-  if (!xmlDoc) {
-    throw new Error("Failed to parse XML");
-  }
+// Helper: escape HTML
+function escapeHtml(s: string) {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
 
-  let html = `
+// Convert minimal OpenXML (word/document.xml) to simple HTML paragraphs
+function convertXMLToHTML(xmlContent: string, fields: Array<{id: string; field_tag: string}>): string {
+  const styles = `
     <style>
-      body {
-        font-family: 'Times New Roman', serif;
-        line-height: 1.6;
-        padding: 0;
-        width: 100%;
-      }
-      h1, h2, h3 {
-        color: #1a1a1a;
-        margin-top: 20px;
-        margin-bottom: 10px;
-      }
-      p {
-        margin: 10px 0;
-        text-align: justify;
-      }
-      table {
-        border-collapse: collapse;
-        width: 100%;
-        margin: 10px 0;
-      }
-      td, th {
-        border: 1px solid #ddd;
-        padding: 8px;
-      }
-      .doc-variable {
-        background-color: #fef08a;
-        border: 2px solid #facc15;
-        padding: 2px 8px;
-        border-radius: 4px;
-        display: inline;
-        font-weight: 500;
-        white-space: pre-wrap;
-        cursor: pointer;
-        transition: all 0.2s ease;
-      }
-      .doc-variable:hover {
-        background-color: #fde047;
-        transform: scale(1.01);
-      }
-      .doc-tag-badge {
-        display: inline-block;
-        background-color: #3b82f6;
-        color: white;
-        font-size: 9px;
-        padding: 2px 5px;
-        border-radius: 3px;
-        margin-left: 4px;
-        font-family: 'Courier New', monospace;
-        font-weight: normal;
-        white-space: nowrap;
-      }
-      strong {
-        font-weight: bold;
-      }
-      em {
-        font-style: italic;
-      }
+      body { font-family: 'Times New Roman', serif; line-height: 1.6; padding: 0; width: 100%; }
+      p { margin: 10px 0; text-align: justify; }
+      .doc-variable { background-color: #fef08a; border: 2px solid #facc15; padding: 2px 8px; border-radius: 4px; display: inline; font-weight: 500; white-space: pre-wrap; cursor: pointer; transition: all 0.2s ease; }
+      .doc-variable:hover { background-color: #fde047; transform: scale(1.01); }
+      .doc-tag-badge { display: inline-block; background-color: #3b82f6; color: white; font-size: 9px; padding: 2px 5px; border-radius: 3px; margin-left: 4px; font-family: 'Courier New', monospace; font-weight: normal; white-space: nowrap; }
     </style>
   `;
 
-  // Get all paragraphs from XML
-  const paragraphs = xmlDoc.getElementsByTagName("w:p");
-  
-  for (let i = 0; i < paragraphs.length; i++) {
-    const para = paragraphs[i];
-    const runs = para.getElementsByTagName("w:r");
-    
-    let paraHtml = "<p>";
-    
-    for (let j = 0; j < runs.length; j++) {
-      const run = runs[j];
-      const textNodes = run.getElementsByTagName("w:t");
-      
-      if (textNodes.length === 0) continue;
-      
-      const text = textNodes[0].textContent || "";
-      
-      // Check if this run has formatting
-      const rPr = run.getElementsByTagName("w:rPr")[0];
-      let isBold = false;
-      let isItalic = false;
-      
-      if (rPr) {
-        isBold = rPr.getElementsByTagName("w:b").length > 0;
-        isItalic = rPr.getElementsByTagName("w:i").length > 0;
-      }
-      
-      // Check if this text is a field
-      const matchingField = fields?.find(f => text.includes(f.field_tag));
-      
-      if (matchingField) {
-        paraHtml += `<span class="doc-variable" data-field-id="${matchingField.id}" data-tag="${matchingField.field_tag}">${matchingField.field_tag}</span>`;
-      } else {
-        let formattedText = text;
-        if (isBold) formattedText = `<strong>${formattedText}</strong>`;
-        if (isItalic) formattedText = `<em>${formattedText}</em>`;
-        paraHtml += formattedText;
-      }
-    }
-    
-    paraHtml += "</p>";
-    html += paraHtml;
+  const paraRegex = /<w:p[\s\S]*?<\/w:p>/g;
+  const textRegex = /<w:t[^>]*>([\s\S]*?)<\/w:t>/g;
+  const paragraphs = xmlContent.match(paraRegex) || [];
+
+  const tagMap = new Map<string, string>();
+  fields.forEach(f => tagMap.set(f.field_tag, f.id));
+
+  const renderText = (text: string) => {
+    // Wrap {{tag}} tokens
+    return text.replace(/\{\{[^}]+\}\}/g, (m) => {
+      const id = tagMap.get(m);
+      if (!id) return `<span class="doc-variable" data-tag="${m}">${escapeHtml(m)}</span>`;
+      return `<span class="doc-variable" data-field-id="${id}" data-tag="${m}">${escapeHtml(m)}<span class="doc-tag-badge">${escapeHtml(m)}</span></span>`;
+    });
+  };
+
+  if (paragraphs.length === 0) {
+    // Fallback: join all w:t
+    let combined = '';
+    const all = xmlContent.matchAll(textRegex);
+    for (const m of all) combined += m[1] || '';
+    return styles + `<p>${renderText(escapeHtml(combined))}</p>`;
   }
-  
+
+  let html = styles;
+  for (const p of paragraphs) {
+    let text = '';
+    const runs = p.matchAll(textRegex);
+    for (const m of runs) text += m[1] || '';
+    html += `<p>${renderText(escapeHtml(text))}</p>`;
+  }
   return html;
 }

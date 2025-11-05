@@ -1,130 +1,26 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
-import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Helper function to safely find and replace text in OpenXML document.xml
-function safeReplaceInXML(
-  xmlContent: string, 
-  searchText: string, 
-  fieldId: string, 
-  tag: string
-): { success: boolean; xml: string } {
-  try {
-    const parser = new DOMParser();
-    const xmlDoc = parser.parseFromString(xmlContent, "text/html");
-    
-    if (!xmlDoc) {
-      return { success: false, xml: xmlContent };
-    }
-
-    let found = false;
-
-    // Find all w:t elements and search for the text
-    const textNodes = xmlDoc.getElementsByTagName("w:t");
-    
-    for (let i = 0; i < textNodes.length; i++) {
-      const textNode = textNodes[i];
-      const text = textNode.textContent || "";
-      
-      if (text.includes(searchText)) {
-        // Mark this run with custom XML attributes for field tracking
-        const run = textNode.parentElement; // w:r
-        if (run) {
-          // Add custom attributes to the run for field identification
-          run.setAttribute("w:rsidRPr", fieldId);
-          run.setAttribute("data-field-id", fieldId);
-          run.setAttribute("data-tag", tag);
-          
-          // Replace text content with the tag
-          textNode.textContent = tag;
-          
-          found = true;
-          break;
-        }
-      }
-    }
-
-    if (!found) {
-      return { success: false, xml: xmlContent };
-    }
-
-    // Serialize back to XML string
-    const newXml = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n" + xmlDoc.documentElement!.outerHTML;
-
-    return { success: true, xml: newXml };
-  } catch (error) {
-    console.error("Error in safeReplaceInXML:", error);
-    return { success: false, xml: xmlContent };
-  }
+// Replace first occurrence of searchText inside <w:t> nodes only
+function replaceInWT(xml: string, searchText: string, replacement: string): { success: boolean; xml: string } {
+  let replaced = false;
+  const wtRegex = /(<w:t[^>]*>)([\s\S]*?)(<\/w:t>)/g;
+  const newXml = xml.replace(wtRegex, (full, open, content, close) => {
+    if (replaced) return full;
+    const idx = content.indexOf(searchText);
+    if (idx === -1) return full;
+    replaced = true;
+    const updated = content.slice(0, idx) + replacement + content.slice(idx + searchText.length);
+    return `${open}${updated}${close}`;
+  });
+  return { success: replaced, xml: newXml };
 }
-
-// Old HTML function - kept for backwards compatibility
-function safeReplaceInHTML(html: string, searchText: string, replacement: string): { success: boolean; html: string } {
-  try {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    
-    if (!doc || !doc.body) {
-      return { success: false, html };
-    }
-
-    let found = false;
-
-    // Recursively process text nodes
-    function processNode(node: any): void {
-      if (found) return; // Stop after first match
-      
-      if (node.nodeType === 3) { // Text node
-        const text = node.textContent;
-        if (text && text.includes(searchText)) {
-          // Create a temporary div to parse the replacement HTML
-          const tempDiv = doc!.createElement('div');
-          tempDiv.innerHTML = text.replace(searchText, replacement);
-          
-          // Replace the text node with the new content
-          const parent = node.parentNode;
-          while (tempDiv.firstChild) {
-            parent.insertBefore(tempDiv.firstChild, node);
-          }
-          parent.removeChild(node);
-          found = true;
-          return;
-        }
-      }
-      
-      // Skip style and script tags
-      if (node.nodeType === 1 && (node.tagName === 'STYLE' || node.tagName === 'SCRIPT')) {
-        return;
-      }
-      
-      // Process child nodes
-      if (node.childNodes) {
-        // Create array copy since we might modify the tree
-        const children = Array.from(node.childNodes);
-        for (const child of children) {
-          processNode(child);
-          if (found) return;
-        }
-      }
-    }
-
-    processNode(doc.body);
-
-    if (!found) {
-      return { success: false, html };
-    }
-
-    return { success: true, html: doc.body.innerHTML };
-  } catch (error) {
-    console.error("Error in safeReplaceInHTML:", error);
-    return { success: false, html };
-  }
-}
+// (HTML replacement helper removed - XML is handled via replaceInWT)
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -180,21 +76,9 @@ serve(async (req) => {
       console.log("Using OpenXML runs from metadata");
       runsForAI = document.runs_metadata;
     } else {
-      // Parse XML to extract text
-      const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(document.xml_content, "text/html");
-      
-      if (!xmlDoc) {
-        throw new Error("Failed to parse XML");
-      }
-      
-      const textNodes = xmlDoc.getElementsByTagName("w:t");
-      for (let i = 0; i < textNodes.length; i++) {
-        const text = textNodes[i].textContent?.trim();
-        if (text) {
-          runsForAI.push({ text });
-        }
-      }
+      // Extract plain text runs from XML by reading <w:t>
+      const texts = Array.from(xmlContent.matchAll(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g)).map(m => m[1]?.trim()).filter(Boolean) as string[];
+      runsForAI = texts.map(t => ({ text: t }));
     }
 
     console.log(`Processing ${runsForAI.length} runs for AI analysis`);
@@ -345,7 +229,7 @@ Return format:
       
       console.log(`   Attempting: "${text}" → ${tag}`);
       
-      const result = safeReplaceInXML(xml, text, fieldId, tag);
+      const result = replaceInWT(xml, text, tag);
       
       if (result.success) {
         xml = result.xml;
