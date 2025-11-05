@@ -77,7 +77,10 @@ serve(async (req) => {
       runsForAI = document.runs_metadata;
     } else {
       // Extract plain text runs from XML by reading <w:t>
-      const texts = Array.from(xmlContent.matchAll(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g)).map(m => m[1]?.trim()).filter(Boolean) as string[];
+      const matches = Array.from(document.xml_content.matchAll(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g)) as RegExpMatchArray[];
+      const texts = matches
+        .map(m => m[1]?.trim())
+        .filter(Boolean) as string[];
       runsForAI = texts.map(t => ({ text: t }));
     }
 
