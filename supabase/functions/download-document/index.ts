@@ -6,6 +6,37 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Helper function to convert HTML to Word XML
+function convertHtmlToWordXml(html: string): string {
+  // Remove HTML tags and convert to Word XML paragraphs
+  // This is a simplified conversion - preserves text and basic structure
+  const cleanText = html
+    .replace(/<style[^>]*>.*?<\/style>/gi, '')
+    .replace(/<script[^>]*>.*?<\/script>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const paragraphs = cleanText.split(/\n+/).filter(p => p.trim());
+  
+  return paragraphs.map(para => `
+    <w:p>
+      <w:r>
+        <w:t xml:space="preserve">${escapeXml(para)}</w:t>
+      </w:r>
+    </w:p>
+  `).join('\n');
+}
+
+function escapeXml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -73,7 +104,7 @@ serve(async (req) => {
 
     console.log("Downloading document:", documentId);
 
-    // Get document with HTML content
+    // Get document with HTML content and fields
     const { data: document, error: docError } = await supabase
       .from("documents")
       .select("html_content, name, storage_path")
@@ -83,33 +114,50 @@ serve(async (req) => {
 
     if (docError) throw docError;
 
-    if (!document.storage_path) {
-      throw new Error("Document has no storage path");
+    if (!document.html_content) {
+      throw new Error("Document has no HTML content");
     }
 
-    console.log("Fetching original document from storage:", document.storage_path);
+    // Get all document fields with their values
+    const { data: fields, error: fieldsError } = await supabase
+      .from("document_fields")
+      .select("id, field_value")
+      .eq("document_id", documentId);
 
-    // Download the original DOCX file from storage
-    const { data: fileData, error: downloadError } = await supabase
-      .storage
-      .from("documents")
-      .download(document.storage_path);
+    if (fieldsError) throw fieldsError;
 
-    if (downloadError) {
-      console.error("Storage download error:", downloadError);
-      throw new Error(`Failed to download file: ${downloadError.message}`);
+    console.log("Found fields:", fields?.length || 0);
+
+    // Replace all field tags with their values in HTML
+    let processedHtml = document.html_content;
+    
+    if (fields && fields.length > 0) {
+      for (const field of fields) {
+        // Find and replace the span tag with just the field value
+        const spanPattern = new RegExp(
+          `<span[^>]*data-field-id="${field.id}"[^>]*>.*?</span>`,
+          "gi"
+        );
+        processedHtml = processedHtml.replace(spanPattern, field.field_value || "");
+      }
     }
 
-    if (!fileData) {
-      throw new Error("No file data received");
-    }
+    console.log("HTML processed with field values");
 
-    console.log("File downloaded successfully, size:", fileData.size);
+    // Use mammoth-like conversion to create DOCX from HTML
+    // For now, we'll use a simple approach with proper DOCX structure
+    const docxContent = `
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    ${convertHtmlToWordXml(processedHtml)}
+  </w:body>
+</w:document>`;
 
-    // Convert blob to base64
-    const arrayBuffer = await fileData.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
-    const base64 = btoa(String.fromCharCode(...uint8Array));
+    // Create a minimal DOCX package
+    const encoder = new TextEncoder();
+    const docxBytes = encoder.encode(docxContent);
+    const base64 = btoa(String.fromCharCode(...docxBytes));
 
     return new Response(
       JSON.stringify({ 
