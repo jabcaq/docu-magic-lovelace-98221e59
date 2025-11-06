@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Search, Calendar, Filter, Loader2 } from "lucide-react";
+import { FileText, Search, Calendar, Filter, Loader2, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -78,7 +78,8 @@ const Documents = () => {
           type,
           created_at,
           status,
-          template_id
+          template_id,
+          storage_path
         `)
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
@@ -124,6 +125,70 @@ const Documents = () => {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const deleteDocument = async (docId: string, docName: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click navigation
+    
+    if (!confirm(`Czy na pewno chcesz usunąć dokument "${docName}"?`)) {
+      return;
+    }
+
+    try {
+      // Get document details for storage path
+      const { data: doc, error: fetchError } = await supabase
+        .from("documents")
+        .select("storage_path")
+        .eq("id", docId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Delete file from storage
+      if (doc.storage_path) {
+        const { error: storageError } = await supabase.storage
+          .from("documents")
+          .remove([doc.storage_path]);
+
+        if (storageError) {
+          console.error("Storage deletion error:", storageError);
+          // Continue with document deletion even if storage fails
+        }
+      }
+
+      // Delete document fields first (due to foreign key)
+      const { error: fieldsError } = await supabase
+        .from("document_fields")
+        .delete()
+        .eq("document_id", docId);
+
+      if (fieldsError) {
+        console.error("Fields deletion error:", fieldsError);
+      }
+
+      // Delete document record
+      const { error: docError } = await supabase
+        .from("documents")
+        .delete()
+        .eq("id", docId);
+
+      if (docError) throw docError;
+
+      toast({
+        title: "Dokument usunięty",
+        description: `"${docName}" został usunięty`,
+      });
+
+      // Refresh documents list
+      fetchDocuments();
+    } catch (error) {
+      console.error("Error deleting document:", error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się usunąć dokumentu",
+        variant: "destructive",
+      });
     }
   };
 
@@ -215,7 +280,7 @@ const Documents = () => {
             {filteredDocuments.map((doc) => (
             <Card
               key={doc.id}
-              className="p-6 cursor-pointer hover:shadow-lg transition-all hover:scale-105"
+              className="p-6 cursor-pointer hover:shadow-lg transition-all hover:scale-105 relative group"
               onClick={() => navigate(`/verify/${doc.id}`)}
             >
               <div className="space-y-4">
@@ -223,9 +288,19 @@ const Documents = () => {
                   <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
                     <FileText className="h-6 w-6 text-primary" />
                   </div>
-                  <Badge className={getStatusColor(doc.status)}>
-                    {getStatusLabel(doc.status)}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge className={getStatusColor(doc.status)}>
+                      {getStatusLabel(doc.status)}
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive"
+                      onClick={(e) => deleteDocument(doc.id, doc.name, e)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
 
                 <div>
