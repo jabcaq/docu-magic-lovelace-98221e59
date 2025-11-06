@@ -35,3 +35,6 @@ verify_jwt = true
 
 [functions.update-document-field]
 verify_jwt = true
+
+[functions.extract-pdf-data]
+verify_jwt = true

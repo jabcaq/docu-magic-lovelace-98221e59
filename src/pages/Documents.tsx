@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Search, Calendar, Filter, Loader2, Trash2 } from "lucide-react";
+import { FileText, Search, Calendar, Filter, Loader2, Trash2, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -125,6 +125,38 @@ const Documents = () => {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const extractPdfData = async (docId: string, docName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    try {
+      toast({
+        title: "Przetwarzanie...",
+        description: "Wyciągam dane z PDF za pomocą AI",
+      });
+
+      const { data, error } = await supabase.functions.invoke('extract-pdf-data', {
+        body: { documentId: docId }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Dane wyciągnięte!",
+        description: `Znaleziono ${data.fieldsCreated} pól danych`,
+      });
+
+      // Navigate to verify page to see the results
+      navigate(`/verify/${docId}`);
+    } catch (error) {
+      console.error('Error extracting PDF data:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się wyciągnąć danych z PDF",
+        variant: "destructive",
+      });
     }
   };
 
@@ -292,6 +324,17 @@ const Documents = () => {
                     <Badge className={getStatusColor(doc.status)}>
                       {getStatusLabel(doc.status)}
                     </Badge>
+                    {doc.type === 'pdf' && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-primary/10 hover:text-primary"
+                        onClick={(e) => extractPdfData(doc.id, doc.name, e)}
+                        title="Wyciągnij dane AI"
+                      >
+                        <Sparkles className="h-4 w-4" />
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="icon"
