@@ -396,17 +396,24 @@ const VerifyDocument = () => {
     }
   };
 
-  const handleDownloadXML = () => {
+  const handleDownloadXML = async () => {
+    if (!documentId) return;
+
+    // Check if XML content exists in the document
     if (!document?.xml_content) {
       toast({
         title: "Błąd",
-        description: "Brak zawartości XML",
+        description: "Brak zawartości XML. Ten dokument może być starszej wersji.",
         variant: "destructive",
       });
       return;
     }
 
     try {
+      toast({
+        title: "Przygotowywanie XML...",
+      });
+
       // Create blob from XML content
       const blob = new Blob([document.xml_content], { type: 'application/xml' });
       
