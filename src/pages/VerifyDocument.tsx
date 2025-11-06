@@ -31,6 +31,7 @@ interface DocumentData {
   template: string | null;
   originalWord: string;
   fields: DocumentField[];
+  xml_content: string | null;
 }
 
 const VerifyDocument = () => {
@@ -111,6 +112,7 @@ const VerifyDocument = () => {
         template: templateName,
         originalWord: docData.name,
         fields,
+        xml_content: docData.xml_content,
       } as DocumentData;
     },
     enabled: !!documentId,
@@ -394,6 +396,44 @@ const VerifyDocument = () => {
     }
   };
 
+  const handleDownloadXML = () => {
+    if (!document?.xml_content) {
+      toast({
+        title: "Błąd",
+        description: "Brak zawartości XML",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Create blob from XML content
+      const blob = new Blob([document.xml_content], { type: 'application/xml' });
+      
+      // Create download link
+      const url = URL.createObjectURL(blob);
+      const link = window.document.createElement('a');
+      link.href = url;
+      link.download = `${document.name.replace(/\.[^/.]+$/, '')}_document.xml`;
+      window.document.body.appendChild(link);
+      link.click();
+      window.document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Sukces",
+        description: "Plik XML został pobrany",
+      });
+    } catch (error) {
+      console.error("Error downloading XML:", error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się pobrać pliku XML",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -444,6 +484,9 @@ const VerifyDocument = () => {
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => handleDownloadDocument("template")}>
                     Ze zmiennymi {"{{}}"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleDownloadXML}>
+                    Pobierz XML
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
