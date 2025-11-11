@@ -38,3 +38,6 @@ verify_jwt = true
 
 [functions.extract-pdf-data]
 verify_jwt = true
+
+[functions.fill-document-fields]
+verify_jwt = true
