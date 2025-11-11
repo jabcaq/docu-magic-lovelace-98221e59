@@ -41,3 +41,6 @@ verify_jwt = true
 
 [functions.fill-document-fields]
 verify_jwt = true
+
+[functions.analyze-document-quality]
+verify_jwt = true

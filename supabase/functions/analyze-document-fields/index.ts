@@ -115,6 +115,9 @@ Your task:
 1. Identify ALL variable fields that differ between vehicles/clients/transactions
 2. Suggest clear, descriptive variable names in English using camelCase
 3. Return EXACT text fragments (at least 3 characters long) from the document
+4. **DETECT DUPLICATES**: If you see the same value appearing multiple times (e.g., same VIN, same name, same number), tag it ONLY ONCE with ONE variable name
+5. **DETECT INCOMPLETE VALUES**: For addresses, include street + number together (e.g., "SMOORSTRAAT 24" not just "SMOORSTRAAT")
+6. **AVOID HARDCODED VALUES**: Tag ALL data that appears to be specific to this document instance
 
 AUTOMOTIVE-SPECIFIC CATEGORIES:
 - vin: Vehicle Identification Numbers (17-character codes)
@@ -127,6 +130,18 @@ AUTOMOTIVE-SPECIFIC CATEGORIES:
 - location_data: Cities, countries, postal codes, dealership locations
 - transaction_ids: Invoice numbers, document numbers, reference codes
 
+CRITICAL DUPLICATE DETECTION:
+- If you see "WBADT43452G123456" multiple times → tag it ONCE as "vinNumber"
+- If you see "12-02-2025" in multiple places → tag it ONCE as appropriate variable (e.g., "declarationDate")
+- If you see "BAUM ANDRZEJ" twice → tag it ONCE as "importerName"
+- Use the SAME variable name for identical values appearing in different locations
+
+ADDRESS COMPLETENESS:
+- INCOMPLETE: "SMOORSTRAAT" → Missing building number
+- COMPLETE: "SMOORSTRAAT 24" → Good! Tag as "agentStreet"
+- INCOMPLETE: "PIATKOWIEC" → Missing number
+- COMPLETE: "PIATKOWIEC 44" → Good! Tag as "importerStreet"
+
 IMPORTANT RULES:
 - Tag ALL data that varies between different vehicles or owners
 - Don't tag: static labels, form field names, legal disclaimers, column headers
@@ -134,14 +149,17 @@ IMPORTANT RULES:
 - Use descriptive names: "vinNumber", "engineCapacityCcm", "firstRegistrationDate", "buyerFullName"
 - Prioritize complete values over partial matches
 - Recognize multi-language terminology (e.g., "Motor/Engine/Silnik" all mean engine)
+- ONE variable per unique value (even if it appears multiple times in document)
 
 Example good tags:
-- "WBA12345678901234" → vinNumber
+- "WBA12345678901234" → vinNumber (even if appears 2x in doc, tag once)
 - "ABC-1234" → registrationPlate  
 - "Jan Kowalski" → ownerName
 - "2.0 TDI" → engineType
 - "15.03.2023" → firstRegistrationDate
-- "€25,000" → purchasePrice`
+- "€25,000" → purchasePrice
+- "SMOORSTRAAT 24" → agentStreet (complete address with number)
+- "3.085,000" → grossMass (if it's vehicle mass, not label)`
           },
           {
             role: "user",

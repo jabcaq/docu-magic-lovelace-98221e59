@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ArrowLeft, Save, FileText, Eye, Link2, Loader2, Download } from "lucide-react";
+import { ArrowLeft, Save, FileText, Eye, Link2, Loader2, Download, CheckCircle2, AlertTriangle, AlertCircle, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import DocumentPreviewEnhanced from "@/components/DocumentPreviewEnhanced";
 import DocumentFieldEditor from "@/components/DocumentFieldEditor";
@@ -16,6 +16,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface DocumentField {
   id: string;
@@ -45,6 +53,9 @@ const VerifyDocument = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
   const [isCleanView, setIsCleanView] = useState(false);
+  const [qualityAnalysis, setQualityAnalysis] = useState<any>(null);
+  const [showQualityDialog, setShowQualityDialog] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   // Fetch document data using React Query
   const { data: document, isLoading, error, refetch } = useQuery({
@@ -441,6 +452,45 @@ const VerifyDocument = () => {
     }
   };
 
+  const handleAnalyzeQuality = async () => {
+    if (!documentId) return;
+
+    try {
+      setIsAnalyzing(true);
+      toast({
+        title: "Analizuję jakość zmapowania...",
+        description: "To może chwilę potrwać",
+      });
+
+      const { data, error } = await supabase.functions.invoke("analyze-document-quality", {
+        body: { documentId },
+      });
+
+      if (error) throw error;
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      setQualityAnalysis(data.analysis);
+      setShowQualityDialog(true);
+
+      toast({
+        title: "Analiza zakończona",
+        description: `Znaleziono ${data.analysis.summary.totalIssues} problemów`,
+      });
+    } catch (error) {
+      console.error("Error analyzing quality:", error);
+      toast({
+        title: "Błąd",
+        description: error instanceof Error ? error.message : "Nie udało się przeanalizować dokumentu",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -478,6 +528,19 @@ const VerifyDocument = () => {
               </div>
             </div>
             <div className="flex gap-2 shrink-0">
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={handleAnalyzeQuality}
+                disabled={isAnalyzing}
+              >
+                {isAnalyzing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4" />
+                )}
+                Analizuj jakość
+              </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="gap-2">
@@ -605,6 +668,120 @@ const VerifyDocument = () => {
           </Card>
         </div>
       </main>
+
+      {/* Quality Analysis Dialog */}
+      <Dialog open={showQualityDialog} onOpenChange={setShowQualityDialog}>
+        <DialogContent className="max-w-3xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Analiza jakości zmapowania</DialogTitle>
+            <DialogDescription>
+              {qualityAnalysis ? (
+                <div className="flex gap-4 mt-2">
+                  <Badge variant={qualityAnalysis.summary.highSeverity > 0 ? "destructive" : "secondary"}>
+                    Krytyczne: {qualityAnalysis.summary.highSeverity}
+                  </Badge>
+                  <Badge variant={qualityAnalysis.summary.mediumSeverity > 0 ? "default" : "secondary"}>
+                    Średnie: {qualityAnalysis.summary.mediumSeverity}
+                  </Badge>
+                  <Badge variant="secondary">
+                    Niskie: {qualityAnalysis.summary.lowSeverity}
+                  </Badge>
+                </div>
+              ) : null}
+            </DialogDescription>
+          </DialogHeader>
+
+          <ScrollArea className="max-h-[60vh] pr-4">
+            {qualityAnalysis && qualityAnalysis.issues.length > 0 ? (
+              <div className="space-y-4">
+                {qualityAnalysis.issues.map((issue: any, idx: number) => {
+                  const getSeverityIcon = () => {
+                    switch (issue.severity) {
+                      case "high":
+                        return <AlertCircle className="h-5 w-5 text-destructive" />;
+                      case "medium":
+                        return <AlertTriangle className="h-5 w-5 text-orange-500" />;
+                      default:
+                        return <Info className="h-5 w-5 text-blue-500" />;
+                    }
+                  };
+
+                  const getTypeLabel = () => {
+                    switch (issue.type) {
+                      case "duplicate":
+                        return "Duplikat";
+                      case "incomplete":
+                        return "Niekompletne";
+                      case "hardcoded":
+                        return "Hardkodowane";
+                      case "naming":
+                        return "Nazewnictwo";
+                      default:
+                        return issue.type;
+                    }
+                  };
+
+                  return (
+                    <Card key={idx} className="p-4">
+                      <div className="flex gap-3">
+                        <div className="shrink-0 mt-1">{getSeverityIcon()}</div>
+                        <div className="flex-1 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline">{getTypeLabel()}</Badge>
+                            <Badge 
+                              variant={
+                                issue.severity === "high" 
+                                  ? "destructive" 
+                                  : issue.severity === "medium" 
+                                  ? "default" 
+                                  : "secondary"
+                              }
+                            >
+                              {issue.severity}
+                            </Badge>
+                          </div>
+                          
+                          <div>
+                            <p className="font-medium">{issue.description}</p>
+                          </div>
+
+                          <div className="bg-muted/50 p-3 rounded-md space-y-2 text-sm">
+                            <div>
+                              <span className="font-medium text-muted-foreground">Obecny stan:</span>
+                              <p className="mt-1">{issue.currentState}</p>
+                            </div>
+                            <div>
+                              <span className="font-medium text-muted-foreground">Sugestia:</span>
+                              <p className="mt-1 text-primary">{issue.suggestion}</p>
+                            </div>
+                          </div>
+
+                          {issue.affectedVariables && issue.affectedVariables.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              <span className="text-xs text-muted-foreground">Zmienne:</span>
+                              {issue.affectedVariables.map((v: string, i: number) => (
+                                <Badge key={i} variant="secondary" className="text-xs font-mono">
+                                  {v}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <CheckCircle2 className="h-12 w-12 mx-auto mb-3 text-green-500" />
+                <p className="font-medium">Świetna robota!</p>
+                <p className="text-sm">Nie znaleziono żadnych problemów z jakością zmapowania.</p>
+              </div>
+            )}
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
