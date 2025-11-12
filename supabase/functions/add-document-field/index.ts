@@ -6,19 +6,99 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Replace first occurrence of selected text inside <w:t>
+// Replace first occurrence of selected text, handling text that spans multiple <w:t> tags
 function replaceInWT(xml: string, searchText: string, replacement: string): { success: boolean; xml: string } {
-  let replaced = false;
   const wtRegex = /(<w:t[^>]*>)([\s\S]*?)(<\/w:t>)/g;
-  const newXml = xml.replace(wtRegex, (full, open, content, close) => {
-    if (replaced) return full;
-    const idx = content.indexOf(searchText);
-    if (idx === -1) return full;
-    replaced = true;
-    const updated = content.slice(0, idx) + replacement + content.slice(idx + searchText.length);
-    return `${open}${updated}${close}`;
-  });
-  return { success: replaced, xml: newXml };
+  
+  // Extract all <w:t> tags with their positions
+  const tags: Array<{ start: number; end: number; open: string; content: string; close: string; full: string }> = [];
+  let match;
+  
+  while ((match = wtRegex.exec(xml)) !== null) {
+    tags.push({
+      start: match.index,
+      end: match.index + match[0].length,
+      open: match[1],
+      content: match[2],
+      close: match[3],
+      full: match[0]
+    });
+  }
+  
+  // Build combined text from all tags
+  const combinedText = tags.map(t => t.content).join('');
+  
+  // Find the search text in combined content
+  const searchIdx = combinedText.indexOf(searchText);
+  if (searchIdx === -1) {
+    return { success: false, xml };
+  }
+  
+  // Find which tags contain the search text
+  let currentPos = 0;
+  let startTagIdx = -1;
+  let endTagIdx = -1;
+  let startOffset = 0;
+  let endOffset = 0;
+  
+  for (let i = 0; i < tags.length; i++) {
+    const tagLen = tags[i].content.length;
+    const tagStart = currentPos;
+    const tagEnd = currentPos + tagLen;
+    
+    if (searchIdx >= tagStart && searchIdx < tagEnd) {
+      startTagIdx = i;
+      startOffset = searchIdx - tagStart;
+    }
+    
+    if (searchIdx + searchText.length > tagStart && searchIdx + searchText.length <= tagEnd) {
+      endTagIdx = i;
+      endOffset = searchIdx + searchText.length - tagStart;
+    }
+    
+    currentPos += tagLen;
+  }
+  
+  if (startTagIdx === -1 || endTagIdx === -1) {
+    return { success: false, xml };
+  }
+  
+  // Build the modified XML
+  let result = xml;
+  let offset = 0;
+  
+  if (startTagIdx === endTagIdx) {
+    // Text is within a single tag
+    const tag = tags[startTagIdx];
+    const newContent = tag.content.slice(0, startOffset) + replacement + tag.content.slice(endOffset);
+    const newTag = tag.open + newContent + tag.close;
+    result = xml.slice(0, tag.start + offset) + newTag + xml.slice(tag.end + offset);
+  } else {
+    // Text spans multiple tags - replace in first tag, remove from middle tags, clean up last tag
+    for (let i = startTagIdx; i <= endTagIdx; i++) {
+      const tag = tags[i];
+      let newTag: string;
+      
+      if (i === startTagIdx) {
+        // First tag: keep content before search text + add replacement
+        const newContent = tag.content.slice(0, startOffset) + replacement;
+        newTag = tag.open + newContent + tag.close;
+      } else if (i === endTagIdx) {
+        // Last tag: keep content after search text
+        const newContent = tag.content.slice(endOffset);
+        newTag = newContent ? (tag.open + newContent + tag.close) : '';
+      } else {
+        // Middle tags: remove completely
+        newTag = '';
+      }
+      
+      const oldLen = tag.end - tag.start;
+      result = result.slice(0, tag.start + offset) + newTag + result.slice(tag.end + offset);
+      offset += newTag.length - oldLen;
+    }
+  }
+  
+  return { success: true, xml: result };
 }
 
 // (HTML helper removed; XML edits are done with replaceInWT)
