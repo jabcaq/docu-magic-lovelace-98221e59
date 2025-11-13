@@ -56,14 +56,14 @@ serve(async (req) => {
     }
 
     // Extract runs
-    let runs: Array<{ text: string; formatting?: any }> = [];
+    let runs: Array<{ text: string; formatting?: any; paragraphIndex?: number }> = [];
     
     if (document.runs_metadata && Array.isArray(document.runs_metadata) && document.runs_metadata.length > 0) {
       runs = document.runs_metadata;
     } else {
       const matches = Array.from(document.xml_content.matchAll(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g)) as RegExpMatchArray[];
       const texts = matches.map(m => m[1]?.trim()).filter(Boolean) as string[];
-      runs = texts.map(t => ({ text: t }));
+      runs = texts.map((t, i) => ({ text: t, paragraphIndex: 0 }));
     }
 
     console.log(`   Found ${runs.length} text runs`);
@@ -172,7 +172,8 @@ Output: ["Owner:", "{{ownerName}}", "VIN:", "{{vinNumber}}", "{{issueDate}}"]`;
     // Create new runs with processed texts
     const processedRuns = runs.map((run, i) => ({
       text: processedTexts[i],
-      formatting: run.formatting
+      formatting: run.formatting,
+      paragraphIndex: run.paragraphIndex
     }));
 
     console.log("   Analyzing processed texts for variables...\n");

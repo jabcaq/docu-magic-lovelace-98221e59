@@ -228,7 +228,8 @@ Output: ["Owner:", "{{ownerName}}", "{{documentType}}: {{documentTypeValue}}"]`;
     // Update runs_metadata with improved texts
     const improvedRuns = runs.map((run: any, i: number) => ({
       text: improvedTexts[i],
-      formatting: run.formatting
+      formatting: run.formatting,
+      paragraphIndex: run.paragraphIndex
     }));
 
     const { error: updateError } = await supabase

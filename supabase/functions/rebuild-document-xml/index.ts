@@ -100,14 +100,31 @@ interface RunFormatting {
 interface ProcessedRun {
   text: string;
   formatting?: RunFormatting;
+  paragraphIndex?: number;
 }
 
 function buildDocumentXML(runs: ProcessedRun[]): string {
-  // Build runs XML
-  let runsXML = '';
+  // Group runs by paragraph
+  const paragraphs: Map<number, ProcessedRun[]> = new Map();
   
   for (const run of runs) {
-    runsXML += buildRunXML(run);
+    const pIndex = run.paragraphIndex ?? 0;
+    if (!paragraphs.has(pIndex)) {
+      paragraphs.set(pIndex, []);
+    }
+    paragraphs.get(pIndex)!.push(run);
+  }
+  
+  // Build paragraphs XML
+  let paragraphsXML = '';
+  const sortedParagraphs = Array.from(paragraphs.entries()).sort((a, b) => a[0] - b[0]);
+  
+  for (const [_, paragraphRuns] of sortedParagraphs) {
+    let runsXML = '';
+    for (const run of paragraphRuns) {
+      runsXML += buildRunXML(run);
+    }
+    paragraphsXML += `    <w:p>\n      ${runsXML}\n    </w:p>\n`;
   }
 
   // Wrap in basic document structure
@@ -115,10 +132,7 @@ function buildDocumentXML(runs: ProcessedRun[]): string {
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" 
             xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
   <w:body>
-    <w:p>
-      ${runsXML}
-    </w:p>
-    <w:sectPr>
+${paragraphsXML}    <w:sectPr>
       <w:pgSz w:w="11906" w:h="16838"/>
       <w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="708" w:footer="708" w:gutter="0"/>
     </w:sectPr>
