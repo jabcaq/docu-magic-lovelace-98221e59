@@ -19,6 +19,7 @@ interface RunFormatting {
 interface ExtractedRun {
   text: string;
   formatting: RunFormatting;
+  paragraphIndex: number;
 }
 
 serve(async (req) => {
@@ -132,13 +133,14 @@ async function extractOpenXMLRuns(file: Blob): Promise<ExtractedRun[]> {
     // Extract document.xml which contains the main content
     const documentXml = zip.file("word/document.xml");
     if (!documentXml) {
-      throw new Error("Invalid .docx file: missing document.xml");
+      throw new Error("document.xml not found in the Word file");
     }
 
     const xmlContent = await documentXml.async("text");
 
-    // String-based parsing to avoid DOMParser limitations in edge runtime
-    const runsRegex = /<w:r\b[\s\S]*?<\/w:r>/g;
+    // Regex to extract paragraphs and runs
+    const paragraphRegex = /<w:p\b[^>]*>([\s\S]*?)<\/w:p>/g;
+    const runsRegex = /<w:r\b[^>]*>([\s\S]*?)<\/w:r>/g;
     const tRegex = /<w:t[^>]*>([\s\S]*?)<\/w:t>/g;
 
     const decodeXml = (s: string) => s
@@ -148,33 +150,47 @@ async function extractOpenXMLRuns(file: Blob): Promise<ExtractedRun[]> {
       .replace(/&apos;/g, "'")
       .replace(/&amp;/g, '&');
 
-    const runMatches = xmlContent.match(runsRegex) || [];
+    // Extract paragraphs
+    const paragraphMatches = [...xmlContent.matchAll(paragraphRegex)];
+    
+    for (let paragraphIndex = 0; paragraphIndex < paragraphMatches.length; paragraphIndex++) {
+      const paragraphContent = paragraphMatches[paragraphIndex][1];
+      
+      // Extract runs within this paragraph
+      const runMatches = [...paragraphContent.matchAll(runsRegex)];
 
-    for (const runXml of runMatches) {
-      // Extract formatting flags
-      const formatting: RunFormatting = {};
-      if (/<w:b\b[^>]*\/>|<w:b\b[^>]*>/.test(runXml)) formatting.bold = true;
-      if (/<w:i\b[^>]*\/>|<w:i\b[^>]*>/.test(runXml)) formatting.italic = true;
-      if (/<w:u\b[^>]*\/>|<w:u\b[^>]*>/.test(runXml)) formatting.underline = true;
+      for (const runMatch of runMatches) {
+        const runXml = runMatch[0];
+        
+        // Extract formatting flags
+        const formatting: RunFormatting = {};
+        if (/<w:b\b[^>]*\/>|<w:b\b[^>]*>/.test(runXml)) formatting.bold = true;
+        if (/<w:i\b[^>]*\/>|<w:i\b[^>]*>/.test(runXml)) formatting.italic = true;
+        if (/<w:u\b[^>]*\/>|<w:u\b[^>]*>/.test(runXml)) formatting.underline = true;
 
-      const szMatch = runXml.match(/<w:sz[^>]*w:val="(\d+)"/);
-      if (szMatch) formatting.fontSize = parseInt(szMatch[1]) / 2; // half-points
+        const szMatch = runXml.match(/<w:sz[^>]*w:val="(\d+)"/);
+        if (szMatch) formatting.fontSize = parseInt(szMatch[1]) / 2; // half-points
 
-      const fontMatch = runXml.match(/<w:rFonts[^>]*w:ascii="([^"]+)"/);
-      if (fontMatch) formatting.fontFamily = fontMatch[1];
+        const fontMatch = runXml.match(/<w:rFonts[^>]*w:ascii="([^"]+)"/);
+        if (fontMatch) formatting.fontFamily = fontMatch[1];
 
-      const colorMatch = runXml.match(/<w:color[^>]*w:val="([^"]+)"/);
-      if (colorMatch && colorMatch[1] !== 'auto') formatting.color = `#${colorMatch[1]}`;
+        const colorMatch = runXml.match(/<w:color[^>]*w:val="([^"]+)"/);
+        if (colorMatch && colorMatch[1] !== 'auto') formatting.color = `#${colorMatch[1]}`;
 
-      // Extract all text pieces in this run
-      let text = '';
-      const tMatches = [...runXml.matchAll(tRegex)];
-      for (const m of tMatches) {
-        text += decodeXml(m[1] || '');
-      }
+        // Extract all text pieces in this run
+        let text = '';
+        const tMatches = [...runXml.matchAll(tRegex)];
+        for (const m of tMatches) {
+          text += decodeXml(m[1] || '');
+        }
 
-      if (text.trim()) {
-        runs.push({ text, formatting });
+        if (text.trim()) {
+          runs.push({ 
+            text, 
+            formatting,
+            paragraphIndex 
+          });
+        }
       }
     }
 
