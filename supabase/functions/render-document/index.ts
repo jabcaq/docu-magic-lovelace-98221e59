@@ -122,6 +122,7 @@ interface RunFormatting {
 interface ProcessedRun {
   text: string;
   formatting?: RunFormatting;
+  paragraphIndex?: number;
 }
 
 // Convert runs to HTML with formatting
@@ -149,59 +150,62 @@ function convertRunsToHTML(
   const tagMap = new Map<string, string>();
   fields.forEach(f => tagMap.set(f.field_tag, f.id));
 
-  let html = styles + '<p>';
-  
+  // Group runs by paragraph index to preserve layout
+  const paragraphs = new Map<number, ProcessedRun[]>();
   for (const run of runs) {
-    const text = escapeHtml(run.text);
-    const formatting = run.formatting || {};
-    
-    // Build inline style from formatting
-    let style = '';
-    if (formatting.bold) style += 'font-weight: bold;';
-    if (formatting.italic) style += 'font-style: italic;';
-    if (formatting.underline) style += 'text-decoration: underline;';
-    if (formatting.fontSize) style += `font-size: ${formatting.fontSize}pt;`;
-    if (formatting.fontFamily) style += `font-family: ${formatting.fontFamily};`;
-    if (formatting.color) style += `color: ${formatting.color};`;
-    
-    // Check if text contains {{tag}}
-    const tagMatch = text.match(/\{\{[^}]+\}\}/g);
-    
-    if (tagMatch) {
-      // Replace each tag with styled span
-      let styledText = text;
-      for (const tag of tagMatch) {
-        const unescapedTag = tag.replace(/&lt;/g, '<').replace(/&gt;/g, '>');
-        const fieldId = tagMap.get(unescapedTag);
-        const isNew = newFieldTags.has(unescapedTag);
-        
-        const variableClass = isNew ? "doc-variable-new" : "doc-variable";
-        const badgeClass = isNew ? "doc-tag-badge-new" : "doc-tag-badge";
-        
-        if (fieldId) {
-          styledText = styledText.replace(
-            tag,
-            `<span class="${variableClass}" data-field-id="${fieldId}" data-tag="${unescapedTag}" style="${style}">${tag}<span class="${badgeClass}">${unescapedTag}</span></span>`
-          );
-        } else {
-          styledText = styledText.replace(
-            tag,
-            `<span class="${variableClass}" data-tag="${unescapedTag}" style="${style}">${tag}</span>`
-          );
+    const p = run.paragraphIndex ?? 0;
+    if (!paragraphs.has(p)) paragraphs.set(p, []);
+    paragraphs.get(p)!.push(run);
+  }
+
+  const sorted = Array.from(paragraphs.entries()).sort((a, b) => a[0] - b[0]);
+  let html = styles;
+
+  for (const [pIndex, paraRuns] of sorted) {
+    html += '<p>';
+    for (const run of paraRuns) {
+      const text = escapeHtml(run.text);
+      const formatting = run.formatting || {};
+
+      // Build inline style from formatting
+      let style = '';
+      if (formatting.bold) style += 'font-weight: bold;';
+      if (formatting.italic) style += 'font-style: italic;';
+      if (formatting.underline) style += 'text-decoration: underline;';
+      if (formatting.fontSize) style += `font-size: ${formatting.fontSize}pt;`;
+      if (formatting.fontFamily) style += `font-family: ${formatting.fontFamily};`;
+      if (formatting.color) style += `color: ${formatting.color};`;
+
+      // Tags within the text
+      const tagMatch = text.match(/\{\{[^}]+\}\}/g);
+      if (tagMatch) {
+        let styledText = text;
+        for (const tag of tagMatch) {
+          const unescapedTag = tag.replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+          const fieldId = tagMap.get(unescapedTag);
+          const isNew = newFieldTags.has(unescapedTag);
+          const variableClass = isNew ? 'doc-variable-new' : 'doc-variable';
+          const badgeClass = isNew ? 'doc-tag-badge-new' : 'doc-tag-badge';
+
+          if (fieldId) {
+            styledText = styledText.replace(
+              tag,
+              `<span class="${variableClass}" data-field-id="${fieldId}" data-tag="${unescapedTag}" style="${style}">${tag}<span class="${badgeClass}">${unescapedTag}</span></span>`
+            );
+          } else {
+            styledText = styledText.replace(
+              tag,
+              `<span class="${variableClass}" data-tag="${unescapedTag}" style="${style}">${tag}</span>`
+            );
+          }
         }
-      }
-      html += styledText;
-    } else {
-      // Regular text with formatting
-      if (style) {
-        html += `<span style="${style}">${text}</span>`;
+        html += styledText;
       } else {
-        html += text;
+        html += style ? `<span style="${style}">${text}</span>` : text;
       }
     }
+    html += '</p>';
   }
-  
-  html += '</p>';
 
   console.log("Generated HTML length:", html.length);
   return html;
