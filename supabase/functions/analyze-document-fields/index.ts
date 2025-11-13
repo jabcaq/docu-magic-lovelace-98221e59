@@ -6,20 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Replace first occurrence of searchText inside <w:t> nodes only
-function replaceInWT(xml: string, searchText: string, replacement: string): { success: boolean; xml: string } {
-  let replaced = false;
-  const wtRegex = /(<w:t[^>]*>)([\s\S]*?)(<\/w:t>)/g;
-  const newXml = xml.replace(wtRegex, (full, open, content, close) => {
-    if (replaced) return full;
-    const idx = content.indexOf(searchText);
-    if (idx === -1) return full;
-    replaced = true;
-    const updated = content.slice(0, idx) + replacement + content.slice(idx + searchText.length);
-    return `${open}${updated}${close}`;
-  });
-  return { success: replaced, xml: newXml };
-}
+// No longer needed - we don't modify XML directly
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -84,7 +71,8 @@ serve(async (req) => {
     // Extract just the text array for AI
     const originalTexts = runs.map(r => r.text);
     
-    console.log(`   Sending ${originalTexts.length} texts to AI...\n`);
+    console.log(`   Sending ${originalTexts.length} texts to AI...`);
+    console.log("   Original runs have formatting:", runs.some(r => r.formatting));
 
     // AI Prompt - zwróć te same teksty, ale zmień zmienne na {{tags}}
     const systemPrompt = `You are analyzing text fragments from automotive documents.
@@ -181,13 +169,13 @@ Output: ["Owner:", "{{ownerName}}", "VIN:", "{{vinNumber}}", "{{issueDate}}"]`;
       formatting: run.formatting
     }));
 
-    console.log("   Building document from processed runs...\n");
+    console.log("   Analyzing processed texts for variables...\n");
 
-    // Build XML from processed runs - replace each run's text
-    let xml = document.xml_content;
+    // ✅ NIE modyfikujemy xml_content tutaj - to zrobi rebuild-document-xml później
+    
+    // Extract fields from processed texts
     const appliedFields: any[] = [];
     const seenTags = new Set<string>();
-    let replacementCount = 0;
 
     for (let i = 0; i < originalTexts.length; i++) {
       const originalText = originalTexts[i];
@@ -208,39 +196,31 @@ Output: ["Owner:", "{{ownerName}}", "VIN:", "{{vinNumber}}", "{{issueDate}}"]`;
           continue;
         }
 
-        // Replace in XML
-        const result = replaceInWT(xml, originalText, tag);
-        if (result.success) {
-          xml = result.xml;
-          replacementCount++;
-          seenTags.add(tag);
+        seenTags.add(tag);
 
-          // Determine category based on variable name
-          let category = 'other';
-          const lowerVar = varName.toLowerCase();
-          if (lowerVar.includes('vin')) category = 'vin';
-          else if (lowerVar.includes('owner') || lowerVar.includes('name') || lowerVar.includes('address')) category = 'owner_data';
-          else if (lowerVar.includes('vehicle') || lowerVar.includes('make') || lowerVar.includes('model') || lowerVar.includes('year')) category = 'vehicle_details';
-          else if (lowerVar.includes('date')) category = 'dates';
-          else if (lowerVar.includes('price') || lowerVar.includes('amount') || lowerVar.includes('tax')) category = 'financial';
-          else if (lowerVar.includes('city') || lowerVar.includes('country') || lowerVar.includes('location')) category = 'location';
+        // Determine category based on variable name
+        let category = 'other';
+        const lowerVar = varName.toLowerCase();
+        if (lowerVar.includes('vin')) category = 'vin';
+        else if (lowerVar.includes('owner') || lowerVar.includes('name') || lowerVar.includes('address')) category = 'owner_data';
+        else if (lowerVar.includes('vehicle') || lowerVar.includes('make') || lowerVar.includes('model') || lowerVar.includes('year')) category = 'vehicle_details';
+        else if (lowerVar.includes('date')) category = 'dates';
+        else if (lowerVar.includes('price') || lowerVar.includes('amount') || lowerVar.includes('tax')) category = 'financial';
+        else if (lowerVar.includes('city') || lowerVar.includes('country') || lowerVar.includes('location')) category = 'location';
 
-          appliedFields.push({
-            field_name: varName,
-            field_value: originalText,
-            field_tag: tag,
-            category,
-            run_formatting: runs[i].formatting || null,
-          });
+        appliedFields.push({
+          field_name: varName,
+          field_value: originalText,
+          field_tag: tag,
+          category,
+          run_formatting: runs[i].formatting || null,
+        });
 
-          console.log(`   ${i + 1}: ✅ "${originalText.slice(0, 40)}" → ${tag}`);
-        } else {
-          console.log(`   ${i + 1}: ⚠️  "${originalText.slice(0, 40)}" - not found in XML`);
-        }
+        console.log(`   ${i + 1}: ✅ "${originalText.slice(0, 40)}" → ${tag}`);
       }
     }
 
-    console.log(`\n📊 Analysis complete: ${replacementCount} variables found`);
+    console.log(`\n📊 Analysis complete: ${appliedFields.length} variables found`);
 
     // Save to database
     if (appliedFields.length > 0) {
@@ -264,14 +244,14 @@ Output: ["Owner:", "{{ownerName}}", "VIN:", "{{vinNumber}}", "{{issueDate}}"]`;
       console.log(`   ✓ Saved ${appliedFields.length} fields to database`);
     }
 
-    // Update document with new XML and processed runs
+    // Update document with processed runs (xml_content will be rebuilt later by rebuild-document-xml)
     const { error: updateError } = await supabase
       .from("documents")
       .update({
-        xml_content: xml,
-        runs_metadata: processedRuns, // Save processed runs with {{tags}}
+        runs_metadata: processedRuns, // ✅ Runy z formatowaniem i {{tags}}
         html_cache: null,
         status: "verified",
+        // ❌ NIE aktualizujemy xml_content tutaj
       })
       .eq("id", documentId);
 
@@ -285,7 +265,7 @@ Output: ["Owner:", "{{ownerName}}", "VIN:", "{{vinNumber}}", "{{issueDate}}"]`;
     return new Response(
       JSON.stringify({
         success: true,
-        appliedCount: replacementCount,
+        appliedCount: appliedFields.length,
         totalAnalyzed: originalTexts.length,
         fields: appliedFields.map(f => ({
           name: f.field_name,

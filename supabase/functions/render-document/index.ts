@@ -37,34 +37,33 @@ serve(async (req) => {
 
     console.log("Rendering document:", documentId);
 
-    // Get document with XML content
+    // Get document with runs_metadata
     const { data: document, error: docError } = await supabase
       .from("documents")
-      .select("xml_content, html_cache")
+      .select("runs_metadata, html_cache")
       .eq("id", documentId)
       .eq("user_id", user.id)
       .single();
 
     if (docError) throw docError;
 
-    if (!document.xml_content) {
-      throw new Error("Document has no XML content");
+    if (!document.runs_metadata || !Array.isArray(document.runs_metadata)) {
+      throw new Error("Document has no runs_metadata");
     }
 
-    // Get all document fields to replace values with tags for preview
+    // Get all document fields to get field IDs for tags
     const { data: fields, error: fieldsError } = await supabase
       .from("document_fields")
-      .select("id, field_tag, position_in_html")
-      .eq("document_id", documentId)
-      .order("position_in_html", { ascending: true });
+      .select("id, field_tag")
+      .eq("document_id", documentId);
 
     if (fieldsError) throw fieldsError;
 
-    console.log("Document XML length:", document.xml_content.length);
+    console.log("Document runs count:", document.runs_metadata.length);
     console.log("Found fields:", fields?.length || 0);
 
-    // Generate HTML from XML
-    let html = convertXMLToHTML(document.xml_content, fields || []);
+    // Generate HTML from runs
+    let html = convertRunsToHTML(document.runs_metadata, fields || []);
 
     // Cache the HTML for faster future loads
     await supabase
@@ -101,8 +100,22 @@ function escapeHtml(s: string) {
     .replace(/>/g, "&gt;");
 }
 
-// Convert minimal OpenXML (word/document.xml) to simple HTML paragraphs
-function convertXMLToHTML(xmlContent: string, fields: Array<{id: string; field_tag: string}>): string {
+interface RunFormatting {
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  fontSize?: number;
+  fontFamily?: string;
+  color?: string;
+}
+
+interface ProcessedRun {
+  text: string;
+  formatting?: RunFormatting;
+}
+
+// Convert runs to HTML with formatting
+function convertRunsToHTML(runs: ProcessedRun[], fields: Array<{id: string; field_tag: string}>): string {
   const styles = `
     <style>
       body { font-family: 'Calibri', 'Arial', sans-serif; line-height: 1.6; padding: 20px; max-width: 100%; margin: 0 auto; }
@@ -113,84 +126,61 @@ function convertXMLToHTML(xmlContent: string, fields: Array<{id: string; field_t
     </style>
   `;
 
-  console.log("Converting XML to HTML, XML length:", xmlContent.length);
+  console.log("Converting", runs.length, "runs to HTML");
 
-  // Extract all text from <w:t> tags
-  const textRegex = /<w:t[^>]*>([\s\S]*?)<\/w:t>/g;
-  const matches = Array.from(xmlContent.matchAll(textRegex));
-  
-  console.log("Found", matches.length, "text runs");
-
-  if (matches.length === 0) {
-    console.warn("No text runs found in XML");
-    return styles + `<p>Brak tekstu w dokumencie</p>`;
-  }
-
-  // Group text by paragraphs (detect <w:p> boundaries)
-  const paraRegex = /<w:p\b[^>]*>([\s\S]*?)<\/w:p>/g;
-  const paragraphs = Array.from(xmlContent.matchAll(paraRegex));
-  
-  console.log("Found", paragraphs.length, "paragraphs");
-
+  // Create tag map
   const tagMap = new Map<string, string>();
   fields.forEach(f => tagMap.set(f.field_tag, f.id));
 
-  const renderText = (text: string) => {
-    // First unescape XML entities
-    text = text
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"')
-      .replace(/&apos;/g, "'")
-      .replace(/&amp;/g, '&');
-
-    // Then escape for HTML display
-    text = escapeHtml(text);
-
-    // Wrap {{tag}} tokens
-    return text.replace(/\{\{[^}]+\}\}/g, (m) => {
-      const unescaped = m.replace(/&lt;/g, '<').replace(/&gt;/g, '>');
-      const id = tagMap.get(unescaped);
-      if (!id) return `<span class="doc-variable" data-tag="${unescaped}">${m}</span>`;
-      return `<span class="doc-variable" data-field-id="${id}" data-tag="${unescaped}">${m}<span class="doc-tag-badge">${unescaped}</span></span>`;
-    });
-  };
-
-  let html = styles;
+  let html = styles + '<p>';
   
-  if (paragraphs.length > 0) {
-    // Process each paragraph
-    for (const paraMatch of paragraphs) {
-      const paraContent = paraMatch[1];
-      const textMatches = Array.from(paraContent.matchAll(textRegex));
-      
-      if (textMatches.length === 0) {
-        // Empty paragraph - add line break
-        html += `<p>&nbsp;</p>`;
-        continue;
+  for (const run of runs) {
+    const text = escapeHtml(run.text);
+    const formatting = run.formatting || {};
+    
+    // Build inline style from formatting
+    let style = '';
+    if (formatting.bold) style += 'font-weight: bold;';
+    if (formatting.italic) style += 'font-style: italic;';
+    if (formatting.underline) style += 'text-decoration: underline;';
+    if (formatting.fontSize) style += `font-size: ${formatting.fontSize}pt;`;
+    if (formatting.fontFamily) style += `font-family: ${formatting.fontFamily};`;
+    if (formatting.color) style += `color: ${formatting.color};`;
+    
+    // Check if text contains {{tag}}
+    const tagMatch = text.match(/\{\{[^}]+\}\}/g);
+    
+    if (tagMatch) {
+      // Replace each tag with styled span
+      let styledText = text;
+      for (const tag of tagMatch) {
+        const unescapedTag = tag.replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+        const fieldId = tagMap.get(unescapedTag);
+        
+        if (fieldId) {
+          styledText = styledText.replace(
+            tag,
+            `<span class="doc-variable" data-field-id="${fieldId}" data-tag="${unescapedTag}" style="${style}">${tag}<span class="doc-tag-badge">${unescapedTag}</span></span>`
+          );
+        } else {
+          styledText = styledText.replace(
+            tag,
+            `<span class="doc-variable" data-tag="${unescapedTag}" style="${style}">${tag}</span>`
+          );
+        }
       }
-
-      let paragraphText = '';
-      for (const textMatch of textMatches) {
-        const content = textMatch[1] || '';
-        paragraphText += content;
-      }
-
-      if (paragraphText.trim()) {
-        html += `<p>${renderText(paragraphText)}</p>`;
+      html += styledText;
+    } else {
+      // Regular text with formatting
+      if (style) {
+        html += `<span style="${style}">${text}</span>`;
       } else {
-        html += `<p>&nbsp;</p>`;
+        html += text;
       }
     }
-  } else {
-    // Fallback: no paragraphs found, join all text
-    console.warn("No paragraphs found, using fallback");
-    let allText = '';
-    for (const match of matches) {
-      allText += match[1] || '';
-    }
-    html += `<p>${renderText(allText)}</p>`;
   }
+  
+  html += '</p>';
 
   console.log("Generated HTML length:", html.length);
   return html;

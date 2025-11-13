@@ -96,38 +96,47 @@ serve(async (req) => {
 
     console.log("Document created successfully:", document.id);
 
-    // For Word documents, extract OpenXML runs first
+    // For Word documents, trigger processing pipeline
     try {
-      console.log("Extracting OpenXML runs for Word document...");
+      console.log("Step 1: Extracting runs for document:", document.id);
       
-      const { error: runsError } = await supabase.functions.invoke('extract-openxml-runs', {
+      const { error: runsError } = await supabase.functions.invoke("extract-openxml-runs", {
         body: { documentId: document.id },
         headers: { Authorization: authHeader }
       });
 
       if (runsError) {
         console.error('Failed to extract runs:', runsError);
+        throw runsError;
       }
-    } catch (runsExtractError) {
-      console.error('Error during run extraction:', runsExtractError);
-    }
 
-    // Now trigger AI analysis
-    try {
-      console.log("Starting AI analysis...");
+      console.log("Step 2: Analyzing document fields for document:", document.id);
       
-      const { error: analyzeError } = await supabase.functions.invoke('analyze-document-fields', {
+      const { error: analyzeError } = await supabase.functions.invoke("analyze-document-fields", {
         body: { documentId: document.id },
         headers: { Authorization: authHeader }
       });
 
       if (analyzeError) {
         console.error('Failed to analyze document:', analyzeError);
-      } else {
-        console.log('AI analysis completed successfully');
+        throw analyzeError;
       }
-    } catch (analyzeError) {
-      console.error('Error during analysis:', analyzeError);
+
+      console.log("Step 3: Rebuilding XML for document:", document.id);
+      
+      const { error: rebuildError } = await supabase.functions.invoke("rebuild-document-xml", {
+        body: { documentId: document.id },
+        headers: { Authorization: authHeader }
+      });
+
+      if (rebuildError) {
+        console.error('Failed to rebuild XML:', rebuildError);
+        throw rebuildError;
+      }
+
+      console.log('Document processing pipeline completed successfully');
+    } catch (pipelineError) {
+      console.error('Error during document processing pipeline:', pipelineError);
     }
 
     return new Response(
