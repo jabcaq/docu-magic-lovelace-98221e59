@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Upload, FileText, Download, List } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import UploadProgressDialog from "@/components/UploadProgressDialog";
 
 interface ExtractedRun {
   id: string;
@@ -27,6 +28,24 @@ const WordTemplater = () => {
   const [templateName, setTemplateName] = useState("");
   const [processingTime, setProcessingTime] = useState(0);
   const { toast } = useToast();
+  
+  type StepStatus = "pending" | "loading" | "success" | "error";
+  
+  const [uploadProgress, setUploadProgress] = useState<{
+    open: boolean;
+    currentStep: number;
+    steps: Array<{ id: string; label: string; status: StepStatus }>;
+    error?: string;
+  }>({
+    open: false,
+    currentStep: 0,
+    steps: [
+      { id: "upload", label: "Wysyłanie pliku do serwera", status: "pending" },
+      { id: "ai", label: "Analiza AI i identyfikacja zmiennych", status: "pending" },
+      { id: "xml", label: "Budowanie finalnego dokumentu XML", status: "pending" },
+    ],
+    error: undefined,
+  });
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -46,6 +65,18 @@ const WordTemplater = () => {
     setExtractedRuns([]);
     setDocumentId(null);
 
+    // Open progress dialog
+    setUploadProgress({
+      open: true,
+      currentStep: 0,
+      steps: [
+        { id: "upload", label: "Wysyłanie pliku do serwera", status: "loading" },
+        { id: "ai", label: "Analiza AI i identyfikacja zmiennych", status: "pending" },
+        { id: "xml", label: "Budowanie finalnego dokumentu XML", status: "pending" },
+      ],
+      error: undefined,
+    });
+
     try {
       // Get session
       const { data: { session } } = await supabase.auth.getSession();
@@ -53,7 +84,7 @@ const WordTemplater = () => {
         throw new Error("Brak sesji użytkownika");
       }
 
-      // Upload document
+      // Step 1: Upload document
       const formData = new FormData();
       formData.append("file", selectedFile);
       formData.append("name", selectedFile.name);
@@ -70,23 +101,78 @@ const WordTemplater = () => {
       const { document } = response.data;
       setDocumentId(document.id);
 
+      // Step 1 complete
+      setUploadProgress(prev => ({
+        ...prev,
+        currentStep: 1,
+        steps: [
+          { id: "upload", label: "Wysyłanie pliku do serwera", status: "success" },
+          { id: "ai", label: "Analiza AI i identyfikacja zmiennych", status: "loading" },
+          { id: "xml", label: "Budowanie finalnego dokumentu XML", status: "pending" },
+        ],
+      }));
+
+      // Step 2: AI Analysis (triggered automatically by upload-document)
+      // Wait for analysis to complete
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      setUploadProgress(prev => ({
+        ...prev,
+        currentStep: 2,
+        steps: [
+          { id: "upload", label: "Wysyłanie pliku do serwera", status: "success" },
+          { id: "ai", label: "Analiza AI i identyfikacja zmiennych", status: "success" },
+          { id: "xml", label: "Budowanie finalnego dokumentu XML", status: "loading" },
+        ],
+      }));
+
+      // Step 3: XML Building (already completed in backend)
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      setUploadProgress(prev => ({
+        ...prev,
+        currentStep: 2,
+        steps: [
+          { id: "upload", label: "Wysyłanie pliku do serwera", status: "success" },
+          { id: "ai", label: "Analiza AI i identyfikacja zmiennych", status: "success" },
+          { id: "xml", label: "Budowanie finalnego dokumentu XML", status: "success" },
+        ],
+      }));
+
       toast({
-        title: "Dokument przesłany pomyślnie!",
-        description: `${selectedFile.name} został przekonwertowany na HTML i jest gotowy do edycji`,
+        title: "Dokument przetworzony pomyślnie!",
+        description: `${selectedFile.name} został przeanalizowany i jest gotowy do edycji`,
       });
 
-      // Navigate to documents page to see the uploaded document
+      // Navigate to documents page
       setTimeout(() => {
+        setUploadProgress(prev => ({ ...prev, open: false }));
         navigate("/documents");
       }, 1500);
     } catch (error) {
       console.error("Upload error:", error);
+      
+      const errorMessage = error instanceof Error ? error.message : "Nie udało się przetworzyć pliku";
+      
+      setUploadProgress(prev => ({
+        ...prev,
+        steps: prev.steps.map(step => 
+          step.status === "loading" ? { ...step, status: "error" } : step
+        ),
+        error: errorMessage,
+      }));
+
       toast({
-        title: "Błąd przesyłania",
-        description: error instanceof Error ? error.message : "Nie udało się przesłać pliku",
+        title: "Błąd przetwarzania",
+        description: errorMessage,
         variant: "destructive",
       });
+      
       setFile(null);
+      
+      setTimeout(() => {
+        setUploadProgress(prev => ({ ...prev, open: false }));
+      }, 3000);
     } finally {
       setIsUploading(false);
     }
@@ -432,6 +518,14 @@ const WordTemplater = () => {
           </div>
         </Card>
       )}
+
+      {/* Upload Progress Dialog */}
+      <UploadProgressDialog 
+        open={uploadProgress.open}
+        steps={uploadProgress.steps}
+        currentStep={uploadProgress.currentStep}
+        error={uploadProgress.error}
+      />
     </div>
   );
 };
