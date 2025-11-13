@@ -75,7 +75,7 @@ const VerifyDocument = () => {
       // Fetch document
       const { data: docData, error: docError } = await supabase
         .from("documents")
-        .select("*, analysis_approach")
+        .select("*")
         .eq("id", documentId)
         .eq("user_id", user.id)
         .single();
