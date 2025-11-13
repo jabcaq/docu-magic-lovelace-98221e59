@@ -50,9 +50,9 @@ serve(async (req) => {
 
     const { documentId } = await req.json();
 
-    console.log("Analyzing document:", documentId);
+    console.log("🔍 Starting document analysis:", documentId);
 
-    // Get document XML and type
+    // Get document
     const { data: document, error: docError } = await supabase
       .from("documents")
       .select("xml_content, name, type, runs_metadata")
@@ -68,181 +68,174 @@ serve(async (req) => {
       throw new Error("Document has no XML content");
     }
 
-    // Extract text from XML runs for AI analysis
-    let runsForAI: Array<{ text: string; formatting?: any }> = [];
+    // Extract runs
+    let runs: Array<{ text: string; formatting?: any }> = [];
     
     if (document.runs_metadata && Array.isArray(document.runs_metadata) && document.runs_metadata.length > 0) {
-      console.log("Using OpenXML runs from metadata");
-      runsForAI = document.runs_metadata;
+      runs = document.runs_metadata;
     } else {
-      // Extract plain text runs from XML by reading <w:t>
       const matches = Array.from(document.xml_content.matchAll(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g)) as RegExpMatchArray[];
-      const texts = matches
-        .map(m => m[1]?.trim())
-        .filter(Boolean) as string[];
-      runsForAI = texts.map(t => ({ text: t }));
+      const texts = matches.map(m => m[1]?.trim()).filter(Boolean) as string[];
+      runs = texts.map(t => ({ text: t }));
     }
 
-    // Prepare texts array for AI analysis - filter out XML tags
-    const textsToAnalyze = runsForAI
-      .map((run, index) => ({
-        index,
-        text: run.text.trim(),
-        formatting: run.formatting
-      }))
-      .filter(item => {
-        const text = item.text;
-        // Skip very short texts
-        if (text.length < 3) return false;
-        // Skip XML tags
-        if (text.startsWith('<w:') || text.startsWith('</w:')) return false;
-        // Skip pure XML content
-        if (text.match(/^<[^>]+>$/)) return false;
-        return true;
-      });
+    console.log(`   Found ${runs.length} text runs`);
 
-    console.log(`\n🔍 ANALYZING DOCUMENT`);
-    console.log(`   Total runs: ${runsForAI.length}`);
-    console.log(`   Sending to AI: ${textsToAnalyze.length} texts\n`);
+    // Extract just the text array for AI
+    const originalTexts = runs.map(r => r.text);
+    
+    console.log(`   Sending ${originalTexts.length} texts to AI...\n`);
 
-    const systemPrompt = `Analyze automotive document texts. Return JSON array with EXACTLY same length as input.
+    // AI Prompt - zwróć te same teksty, ale zmień zmienne na {{tags}}
+    const systemPrompt = `You are analyzing text fragments from automotive documents.
 
-CRITICAL: Array length MUST match input length exactly!
+TASK: Return EXACTLY THE SAME array of texts, but replace variable data with {{tagName}} placeholders.
 
-For each text, return:
-{ "text": "original OR {{tag}}", "isVariable": true/false, "variableName": "camelCase", "category": "type" }
+INPUT: Array of text strings
+OUTPUT: Array of strings - SAME LENGTH, SAME ORDER
 
-VARIABLES to tag:
-- Person names → {{ownerName}}, {{driverName}}
-- Full addresses → {{address}}, {{cityPostal}}
-- VIN (17 chars) → {{vinNumber}}
+WHAT TO REPLACE with {{tagName}}:
+- Person names → {{ownerName}}, {{contactPerson}}
+- Addresses (complete, with numbers) → {{ownerAddress}}, {{companyAddress}}
+- VIN (17 characters) → {{vinNumber}}
 - License plates → {{plateNumber}}
-- Dates → {{issueDate}}, {{expiryDate}}
-- Vehicle: make/model/year → {{vehicleMake}}, {{vehicleModel}}, {{year}}
-- Money amounts → {{price}}, {{taxAmount}}
-- Weights/measures → {{weight}}, {{capacity}}
+- Dates → {{issueDate}}, {{birthDate}}, {{expiryDate}}
+- Vehicle: make, model, year → {{vehicleMake}}, {{vehicleModel}}, {{vehicleYear}}
+- Money amounts with currency → {{insuranceAmount}}, {{purchasePrice}}
+- Document numbers → {{policyNumber}}, {{invoiceNumber}}, {{mrnNumber}}
+- Cities/locations → {{city}}, {{country}}
 
-NEVER tag:
-- Labels/headers ("Name:", "VIN:", "Date:")
-- XML tags or HTML
-- Single numbers/letters without context
-- Partial addresses (just street name)
-- Instructions/legal text
+NEVER REPLACE:
+- Section headers ("Owner:", "VIN:", "Date:")
+- Single words without context
+- Partial info (just street name without number)
+- Labels, instructions
+- Company names in headers
 
-Categories: vin, owner_data, vehicle_details, dates, financial, location, other
+RULES:
+1. Return JSON array: ["text or {{tag}}", "text or {{tag}}", ...]
+2. MUST be EXACTLY same length as input
+3. MUST be EXACTLY same order
+4. If text is NOT a variable → return it unchanged
+5. If text IS a variable → return {{camelCaseEnglishName}}
 
-`;
+Example:
+Input: ["Owner:", "Jan Kowalski", "VIN:", "1C4SDJH91PC687665", "09-07-2025"]
+Output: ["Owner:", "{{ownerName}}", "VIN:", "{{vinNumber}}", "{{issueDate}}"]`;
 
-    const userPrompt = `Texts: ${JSON.stringify(textsToAnalyze.map(t => t.text))}`;
+    const userPrompt = `Analyze these ${originalTexts.length} texts:\n${JSON.stringify(originalTexts)}`;
 
-    console.log("   Calling AI...");
+    // Call AI
+    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${lovableApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ],
+        temperature: 0.1,
+      }),
+    });
 
-    let aiResponse;
-    try {
-      const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${lovableApiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt }
-          ],
-          temperature: 0.2,
-        }),
-      });
-
-      if (!aiRes.ok) {
-        const errText = await aiRes.text();
-        throw new Error(`AI failed: ${aiRes.status} - ${errText}`);
-      }
-
-      aiResponse = await aiRes.json();
-    } catch (err) {
-      console.error(`❌ AI error:`, err);
-      throw err;
+    if (!aiRes.ok) {
+      const errText = await aiRes.text();
+      throw new Error(`AI request failed: ${aiRes.status} - ${errText}`);
     }
 
+    const aiResponse = await aiRes.json();
     const content = aiResponse?.choices?.[0]?.message?.content;
     if (!content) throw new Error("No AI response");
 
-    console.log("   ✓ Parsing response...");
+    console.log("   ✓ AI response received, parsing...");
 
-    let analysisResults: Array<{ text: string; isVariable: boolean; variableName?: string; category?: string }>;
+    // Parse AI response
+    let processedTexts: string[];
     try {
       const cleaned = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      analysisResults = JSON.parse(cleaned);
+      processedTexts = JSON.parse(cleaned);
     } catch (parseErr) {
-      console.error("Parse error:", content);
-      throw new Error("Failed to parse AI response");
+      console.error("Failed to parse AI response:", content);
+      throw new Error("AI returned invalid JSON");
     }
 
-    if (!Array.isArray(analysisResults)) {
-      console.error("AI response is not an array");
-      throw new Error("AI returned invalid response");
+    // Validate
+    if (!Array.isArray(processedTexts)) {
+      throw new Error("AI response is not an array");
     }
 
-    if (analysisResults.length !== textsToAnalyze.length) {
-      console.error(`Length mismatch: expected ${textsToAnalyze.length}, got ${analysisResults.length}`);
-      // Try to match by truncating or padding
-      if (analysisResults.length > textsToAnalyze.length) {
-        console.log(`   Truncating results from ${analysisResults.length} to ${textsToAnalyze.length}`);
-        analysisResults = analysisResults.slice(0, textsToAnalyze.length);
-      } else {
-        throw new Error(`AI returned too few results: ${analysisResults.length} instead of ${textsToAnalyze.length}`);
-      }
+    if (processedTexts.length !== originalTexts.length) {
+      console.error(`Length mismatch! Expected: ${originalTexts.length}, Got: ${processedTexts.length}`);
+      throw new Error(`AI returned wrong array length: ${processedTexts.length} instead of ${originalTexts.length}`);
     }
 
-    console.log(`   ✓ Received ${analysisResults.length} results\n`);
+    console.log(`   ✓ Validated: ${processedTexts.length} texts\n`);
+    console.log("   Applying replacements...\n");
 
-    // Apply replacements
+    // Find changes and apply to XML
     let xml = document.xml_content;
-    let appliedCount = 0;
     const appliedFields: any[] = [];
-    const seenValues = new Map<string, string>();
+    const seenTags = new Set<string>();
+    let replacementCount = 0;
 
-    for (let i = 0; i < analysisResults.length; i++) {
-      const analysis = analysisResults[i];
-      const originalItem = textsToAnalyze[i];
-      
-      if (!originalItem || !analysis) {
-        console.log(`   ⚠️  Missing data at index ${i}`);
-        continue;
-      }
-      
-      const originalText = originalItem.text;
+    for (let i = 0; i < originalTexts.length; i++) {
+      const originalText = originalTexts[i];
+      const processedText = processedTexts[i];
 
-      if (!analysis.isVariable) continue;
+      // Check if AI changed the text (found a variable)
+      if (originalText !== processedText && processedText.includes('{{') && processedText.includes('}}')) {
+        // Extract tag name and category from {{tagName}}
+        const tagMatch = processedText.match(/\{\{(\w+)\}\}/);
+        if (!tagMatch) continue;
 
-      const varName = analysis.variableName || `field_${i}`;
-      const tag = `{{${varName}}}`;
+        const tag = processedText;
+        const varName = tagMatch[1];
 
-      if (seenValues.has(originalText)) continue;
+        // Skip duplicates
+        if (seenTags.has(tag)) {
+          console.log(`   ${i + 1}: ⏭️  "${originalText.slice(0, 40)}" - duplicate tag`);
+          continue;
+        }
 
-      const result = replaceInWT(xml, originalText, tag);
-      if (result.success) {
-        xml = result.xml;
-        appliedCount++;
-        seenValues.set(originalText, varName);
+        // Replace in XML
+        const result = replaceInWT(xml, originalText, tag);
+        if (result.success) {
+          xml = result.xml;
+          replacementCount++;
+          seenTags.add(tag);
 
-        appliedFields.push({
-          field_name: varName,
-          field_value: originalText,
-          field_tag: tag,
-          category: analysis.category || 'other',
-          run_formatting: originalItem.formatting || null,
-        });
+          // Determine category based on variable name
+          let category = 'other';
+          const lowerVar = varName.toLowerCase();
+          if (lowerVar.includes('vin')) category = 'vin';
+          else if (lowerVar.includes('owner') || lowerVar.includes('name') || lowerVar.includes('address')) category = 'owner_data';
+          else if (lowerVar.includes('vehicle') || lowerVar.includes('make') || lowerVar.includes('model') || lowerVar.includes('year')) category = 'vehicle_details';
+          else if (lowerVar.includes('date')) category = 'dates';
+          else if (lowerVar.includes('price') || lowerVar.includes('amount') || lowerVar.includes('tax')) category = 'financial';
+          else if (lowerVar.includes('city') || lowerVar.includes('country') || lowerVar.includes('location')) category = 'location';
 
-        console.log(`   ✅ "${originalText.slice(0, 40)}" → ${tag}`);
+          appliedFields.push({
+            field_name: varName,
+            field_value: originalText,
+            field_tag: tag,
+            category,
+            run_formatting: runs[i].formatting || null,
+          });
+
+          console.log(`   ${i + 1}: ✅ "${originalText.slice(0, 40)}" → ${tag}`);
+        } else {
+          console.log(`   ${i + 1}: ⚠️  "${originalText.slice(0, 40)}" - not found in XML`);
+        }
       }
     }
 
-    console.log(`\n📊 Complete: ${appliedCount} fields applied`);
+    console.log(`\n📊 Analysis complete: ${replacementCount} variables found\n`);
 
-    // Save fields to database
+    // Save to database
     if (appliedFields.length > 0) {
       const fieldsToInsert = appliedFields.map((f) => ({
         document_id: documentId,
@@ -264,7 +257,7 @@ Categories: vin, owner_data, vehicle_details, dates, financial, location, other
       console.log(`   ✓ Saved ${appliedFields.length} fields to database`);
     }
 
-    // Update document with tagged XML
+    // Update document
     const { error: updateError } = await supabase
       .from("documents")
       .update({
@@ -284,8 +277,8 @@ Categories: vin, owner_data, vehicle_details, dates, financial, location, other
     return new Response(
       JSON.stringify({
         success: true,
-        appliedCount,
-        totalAnalyzed: analysisResults.length,
+        appliedCount: replacementCount,
+        totalAnalyzed: originalTexts.length,
         fields: appliedFields.map(f => ({
           name: f.field_name,
           value: f.field_value,
@@ -299,7 +292,7 @@ Categories: vin, owner_data, vehicle_details, dates, financial, location, other
       }
     );
   } catch (error) {
-    console.error("Error analyzing document:", error);
+    console.error("❌ Error analyzing document:", error);
     return new Response(
       JSON.stringify({
         error: error instanceof Error ? error.message : "Unknown error",
