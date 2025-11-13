@@ -143,12 +143,21 @@ async function extractOpenXMLRuns(file: Blob): Promise<ExtractedRun[]> {
     const runsRegex = /<w:r\b[^>]*>([\s\S]*?)<\/w:r>/g;
     const tRegex = /<w:t[^>]*>([\s\S]*?)<\/w:t>/g;
 
-    const decodeXml = (s: string) => s
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"')
-      .replace(/&apos;/g, "'")
-      .replace(/&amp;/g, '&');
+    const decodeXml = (s: string) => {
+      // First decode XML entities
+      let decoded = s
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&apos;/g, "'")
+        .replace(/&amp;/g, '&');
+      
+      // Remove any XML tags that might have leaked through
+      decoded = decoded.replace(/<\/?w:[^>]*>/g, '');
+      decoded = decoded.replace(/<[^>]+>/g, '');
+      
+      return decoded;
+    };
 
     // Extract paragraphs
     const paragraphMatches = [...xmlContent.matchAll(paragraphRegex)];
