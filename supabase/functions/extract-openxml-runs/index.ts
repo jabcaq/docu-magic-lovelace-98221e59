@@ -65,11 +65,16 @@ serve(async (req) => {
       throw new Error("Document not found");
     }
 
-    // Check if it's a Word document (handle both "word" and "Dokument Word" types)
+    // Log doc metadata for debugging and normalize strings
+    console.log("Doc type:", document.type, "path:", document.storage_path);
+    const typeStr = (document.type || '').toString().toLowerCase();
+    const pathStr = (document.storage_path || '').toString().toLowerCase();
+
+    // Check if it's a Word document (handle common variants)
     const isWordDocument = document.type === "word" || 
-                          document.type.toLowerCase().includes("word") ||
-                          document.storage_path.toLowerCase().endsWith(".docx") ||
-                          document.storage_path.toLowerCase().endsWith(".doc");
+                          typeStr.includes("word") ||
+                          pathStr.endsWith(".docx") ||
+                          pathStr.endsWith(".doc");
     
     if (!isWordDocument) {
       throw new Error("Only Word documents are supported for OpenXML run extraction");
