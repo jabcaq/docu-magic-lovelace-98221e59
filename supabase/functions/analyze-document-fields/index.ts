@@ -83,223 +83,219 @@ serve(async (req) => {
       runsForAI = texts.map(t => ({ text: t }));
     }
 
-    console.log(`\n🔍 STARTING RUN-BY-RUN ANALYSIS`);
-    console.log(`   Total runs to analyze: ${runsForAI.length}`);
-    console.log(`   This will make up to ${runsForAI.length} AI requests...\n`);
+    // Prepare texts array for batch AI analysis
+    const textsToAnalyze = runsForAI
+      .map((run, index) => ({
+        index,
+        text: run.text.trim(),
+        formatting: run.formatting
+      }))
+      .filter(item => item.text.length >= 3); // Skip very short texts
 
-    // Process each run individually through AI
+    console.log(`\n🔍 BATCH ANALYSIS`);
+    console.log(`   Total runs: ${runsForAI.length}`);
+    console.log(`   Sending to AI: ${textsToAnalyze.length} text fragments\n`);
+
+    // Send all texts to AI in one request
+    const systemPrompt = `You are analyzing text fragments from automotive documents (insurance policies, contracts, registration certificates).
+
+Your task: Return the SAME array of texts, but replace variable fields with template tags {{variableName}}.
+
+VARIABLE examples (replace with {{variableName}}):
+- Owner names, addresses, phone numbers → {{ownerName}}, {{ownerAddress}}, {{ownerPhone}}
+- VIN numbers, registration numbers → {{vinNumber}}, {{registrationNumber}}
+- Dates → {{issueDate}}, {{birthDate}}, {{expiryDate}}
+- Vehicle details → {{vehicleMake}}, {{vehicleModel}}, {{vehicleYear}}
+- Insurance details → {{policyNumber}}, {{premiumAmount}}, {{insurerName}}
+
+STATIC TEXT (keep unchanged):
+- Section headers, titles, labels
+- Instructions, descriptions
+- Company names, standard clauses
+
+Rules:
+1. Return JSON array with same length as input
+2. Each item: { text: string (original OR with {{tag}}), isVariable: boolean, variableName?: string, category?: string }
+3. Variable names MUST be English camelCase
+4. Categories: vin, owner_data, vehicle_details, insurance_data, dates, contract_terms, other
+5. Keep static text unchanged
+
+Example input: ["John Smith", "Insurance Policy", "VIN: ABC123"]
+Example output: [
+  { "text": "{{ownerName}}", "isVariable": true, "variableName": "ownerName", "category": "owner_data" },
+  { "text": "Insurance Policy", "isVariable": false },
+  { "text": "{{vinNumber}}", "isVariable": true, "variableName": "vinNumber", "category": "vin" }
+]`;
+
+    const userPrompt = `Analyze these ${textsToAnalyze.length} text fragments and return JSON array:\n\n${JSON.stringify(textsToAnalyze.map(t => t.text))}`;
+
+    console.log("   Sending batch request to AI...");
+
+    let aiResponse;
+    try {
+      const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${lovableApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt }
+          ],
+          temperature: 0.3,
+        }),
+      });
+
+      if (!aiRes.ok) {
+        const errText = await aiRes.text();
+        throw new Error(`AI request failed: ${aiRes.status} - ${errText}`);
+      }
+
+      aiResponse = await aiRes.json();
+    } catch (err) {
+      console.error(`❌ AI request error:`, err);
+      throw err;
+    }
+
+    const content = aiResponse?.choices?.[0]?.message?.content;
+    if (!content) {
+      throw new Error("No AI response received");
+    }
+
+    console.log("   ✓ AI response received, parsing...");
+
+    // Parse AI response
+    let analysisResults: Array<{ text: string; isVariable: boolean; variableName?: string; category?: string }>;
+    try {
+      const cleaned = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      analysisResults = JSON.parse(cleaned);
+    } catch (parseErr) {
+      console.error("Could not parse AI response:", content);
+      throw new Error("Failed to parse AI response");
+    }
+
+    if (!Array.isArray(analysisResults)) {
+      throw new Error(`AI returned invalid response (not an array)`);
+    }
+
+    console.log(`   ✓ Parsed ${analysisResults.length} results\n`);
+    console.log(`   Processing replacements...\n`);
+
+    // Apply replacements to XML
     let xml = document.xml_content;
     let appliedCount = 0;
     const appliedFields: any[] = [];
-    const skippedFields: any[] = [];
-    const seenValues = new Map<string, string>(); // Track values we've already tagged
+    const seenValues = new Map<string, string>();
 
-    for (let i = 0; i < runsForAI.length; i++) {
-      const run = runsForAI[i];
-      const text = run.text.trim();
-      
-      // Skip empty or very short runs
-      if (!text || text.length < 3) {
+    for (let i = 0; i < analysisResults.length; i++) {
+      const analysis = analysisResults[i];
+      const originalItem = textsToAnalyze[i];
+      const originalText = originalItem.text;
+
+      if (!analysis.isVariable) {
+        console.log(`   ${i + 1}/${analysisResults.length}: "${originalText.slice(0, 40)}" - Static text`);
         continue;
       }
 
-      // Skip if we've already tagged this exact value
-      if (seenValues.has(text)) {
-        console.log(`   ${i + 1}/${runsForAI.length}: "${text.slice(0, 30)}..." - ⏭️  SKIP (duplicate of {{${seenValues.get(text)}}})`);
+      const varName = analysis.variableName || `field_${i}`;
+      const tag = `{{${varName}}}`;
+
+      // Skip duplicates
+      if (seenValues.has(originalText)) {
+        console.log(`   ${i + 1}/${analysisResults.length}: "${originalText.slice(0, 40)}" - ⏭️  SKIP (duplicate)`);
         continue;
       }
 
-      console.log(`   ${i + 1}/${runsForAI.length}: 🔎 "${text.slice(0, 50)}${text.length > 50 ? '...' : ''}"`);
+      // Replace in XML
+      const result = replaceInWT(xml, originalText, tag);
+      if (result.success) {
+        xml = result.xml;
+        appliedCount++;
+        seenValues.set(originalText, varName);
 
-      try {
-        // Ask AI about this specific run
-        const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${lovableApiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "google/gemini-2.5-flash",
-            messages: [
-              {
-                role: "system",
-                content: `You are analyzing a SINGLE text fragment from an automotive document (registration certificate, title, invoice, customs declaration). Decide if this fragment contains VARIABLE data that should be tagged as a template field.
-
-AUTOMOTIVE-SPECIFIC CATEGORIES:
-- vin: Vehicle Identification Numbers (17-character codes)
-- registration_plate: License plate numbers, registration numbers
-- vehicle_data: Make, model, year, engine capacity, fuel type, color, body type
-- vehicle_ids: Homologation codes, type approval numbers, chassis numbers
-- owner_data: Owner names, addresses, ID numbers, contact information
-- financial_data: Purchase prices, taxes, fees, currency amounts
-- dates: Registration dates, purchase dates, manufacture dates, validity dates
-- location_data: Cities, countries, postal codes, dealership locations
-- transaction_ids: Invoice numbers, document numbers, reference codes
-
-WHAT TO TAG AS VARIABLE:
-✅ Specific vehicle data (VIN, plate, make/model, engine specs)
-✅ Owner information (names, addresses with street numbers)
-✅ Dates, amounts, transaction IDs
-✅ Any data specific to THIS vehicle/owner/transaction
-✅ Complete addresses with building numbers (e.g., "SMOORSTRAAT 24")
-
-WHAT NOT TO TAG:
-❌ Form labels ("Marka:", "VIN:", "Owner:", "Date:")
-❌ Column headers ("Make", "Model", "Description")
-❌ Legal text, disclaimers, instructions
-❌ Static formatting text, punctuation marks
-❌ Incomplete addresses without numbers (e.g., just "SMOORSTRAAT")
-❌ Single letters or numbers without context
-
-RESPONSE FORMAT (valid JSON only):
-{
-  "isVariable": true/false,
-  "variableName": "camelCaseEnglishName",
-  "category": "one_of_categories_above",
-  "reason": "brief explanation why this is/isn't a variable"
-}
-
-Examples:
-- "WBA12345678901234" → {"isVariable": true, "variableName": "vinNumber", "category": "vin", "reason": "17-character VIN"}
-- "Marka:" → {"isVariable": false, "reason": "Form label"}
-- "Jan Kowalski" → {"isVariable": true, "variableName": "ownerName", "category": "owner_data", "reason": "Person name"}
-- "SMOORSTRAAT" → {"isVariable": false, "reason": "Incomplete address - missing building number"}
-- "SMOORSTRAAT 24" → {"isVariable": true, "variableName": "agentStreet", "category": "location_data", "reason": "Complete street address"}`
-              },
-              {
-                role: "user",
-                content: `Analyze this text fragment:
-
-Text: "${text}"
-${run.formatting ? `Formatting: ${JSON.stringify(run.formatting, null, 2)}` : ''}
-
-Is this variable data that should be tagged? Respond with valid JSON only.`
-              }
-            ],
-          }),
+        appliedFields.push({
+          field_name: varName,
+          field_value: originalText,
+          field_tag: tag,
+          category: analysis.category || 'other',
+          run_formatting: originalItem.formatting || null,
         });
 
-        if (!aiResponse.ok) {
-          if (aiResponse.status === 429) {
-            console.log(`      ⚠️  Rate limit hit - waiting 2s...`);
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            continue;
-          }
-          console.log(`      ❌ AI API error: ${aiResponse.status}`);
-          continue;
-        }
-
-        const aiData = await aiResponse.json();
-        const aiContent = aiData.choices?.[0]?.message?.content;
-        
-        if (!aiContent) {
-          console.log(`      ❌ No AI response content`);
-          continue;
-        }
-
-        // Parse AI response
-        let analysis;
-        try {
-          // Try to extract JSON from markdown code blocks if present
-          const jsonMatch = aiContent.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/) || 
-                           aiContent.match(/(\{[\s\S]*\})/);
-          const jsonStr = jsonMatch ? jsonMatch[1] : aiContent;
-          analysis = JSON.parse(jsonStr);
-        } catch (e) {
-          console.log(`      ❌ Failed to parse AI JSON: ${aiContent.slice(0, 100)}`);
-          continue;
-        }
-
-        // Check if AI says this is a variable
-        if (!analysis.isVariable) {
-          console.log(`      ℹ️  NOT variable - ${analysis.reason || 'static content'}`);
-          continue;
-        }
-
-        // AI identified this as a variable - apply it!
-        const variableName = analysis.variableName;
-        const category = analysis.category || 'other';
-        const tag = `{{${variableName}}}`;
-
-        console.log(`      ✨ VARIABLE: ${tag} [${category}]`);
-        console.log(`         ${analysis.reason}`);
-
-        const result = replaceInWT(xml, text, tag);
-
-        if (result.success) {
-          xml = result.xml;
-          
-          // Save to document_fields with formatting
-          await supabase.from("document_fields").insert({
-            document_id: documentId,
-            field_name: variableName,
-            field_value: text,
-            field_tag: tag,
-            position_in_html: appliedCount,
-            run_formatting: run.formatting || {},
-          });
-          
-          appliedCount++;
-          appliedFields.push({ text, tag, category, formatting: run.formatting });
-          seenValues.set(text, variableName); // Remember we tagged this value
-          
-          console.log(`      ✅ Applied successfully!\n`);
-        } else {
-          skippedFields.push({ text, tag, category, reason: 'not found in XML' });
-          console.log(`      ❌ Failed - text not found in XML\n`);
-        }
-
-      } catch (error) {
-        console.log(`      ❌ Error: ${error instanceof Error ? error.message : 'unknown'}\n`);
-        continue;
+        console.log(`   ${i + 1}/${analysisResults.length}: ✅ "${originalText.slice(0, 40)}" → ${tag}`);
+      } else {
+        console.log(`   ${i + 1}/${analysisResults.length}: ⚠️  "${originalText.slice(0, 40)}" - Not found in XML`);
       }
     }
 
-    // Update document with tagged XML and clear HTML cache
-    await supabase
+    console.log(`\n📊 ANALYSIS COMPLETE`);
+    console.log(`   Applied: ${appliedCount} fields`);
+    console.log(`   Total analyzed: ${analysisResults.length}`);
+
+    // Save fields to database
+    if (appliedFields.length > 0) {
+      const fieldsToInsert = appliedFields.map((f) => ({
+        document_id: documentId,
+        field_name: f.field_name,
+        field_value: f.field_value,
+        field_tag: f.field_tag,
+        run_formatting: f.run_formatting,
+      }));
+
+      const { error: insertError } = await supabase
+        .from("document_fields")
+        .insert(fieldsToInsert);
+
+      if (insertError) {
+        console.error("Error saving fields:", insertError);
+        throw insertError;
+      }
+
+      console.log(`   ✓ Saved ${appliedFields.length} fields to database`);
+    }
+
+    // Update document with tagged XML
+    const { error: updateError } = await supabase
       .from("documents")
-      .update({ 
+      .update({
         xml_content: xml,
-        html_cache: null, // Force regeneration
-        status: "verified" // Mark as ready for verification
+        html_cache: null,
+        status: "verified",
       })
       .eq("id", documentId);
 
-    console.log(`\n📊 ANALYSIS COMPLETE:`);
-    console.log(`   ✅ Successfully applied: ${appliedCount} fields`);
-    console.log(`   ⏭️  Skipped (duplicates): ${seenValues.size - appliedCount}`);
-    console.log(`   ❌ Failed to apply: ${skippedFields.length}`);
-    
-    if (appliedFields.length > 0) {
-      console.log(`\n✨ Applied fields by category:`);
-      const byCategory = appliedFields.reduce((acc, f) => {
-        acc[f.category] = (acc[f.category] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
-      Object.entries(byCategory).forEach(([cat, count]) => {
-        console.log(`   • ${cat}: ${count}`);
-      });
+    if (updateError) {
+      console.error("Error updating document:", updateError);
+      throw updateError;
     }
+
+    console.log(`   ✓ Document updated\n`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        appliedCount: appliedCount,
-        totalRuns: runsForAI.length,
-        skippedDuplicates: seenValues.size - appliedCount,
-        failedToApply: skippedFields.length,
-        fields: appliedFields
+        appliedCount,
+        totalAnalyzed: analysisResults.length,
+        fields: appliedFields.map(f => ({
+          name: f.field_name,
+          value: f.field_value,
+          tag: f.field_tag,
+          category: f.category,
+        })),
       }),
       {
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
   } catch (error) {
-    console.error("Error in analyze-document-fields:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    console.error("Error analyzing document:", error);
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({
+        error: error instanceof Error ? error.message : "Unknown error",
+      }),
       {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
