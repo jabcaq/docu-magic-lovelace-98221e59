@@ -56,6 +56,7 @@ const VerifyDocument = () => {
   const [qualityAnalysis, setQualityAnalysis] = useState<any>(null);
   const [showQualityDialog, setShowQualityDialog] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isReprocessing, setIsReprocessing] = useState(false);
 
   // Fetch document data using React Query
   const { data: document, isLoading, error, refetch } = useQuery({
@@ -452,6 +453,67 @@ const VerifyDocument = () => {
     }
   };
 
+  const handleReprocess = async () => {
+    if (!documentId) return;
+
+    try {
+      setIsReprocessing(true);
+      toast({
+        title: "Przetwarzam dokument...",
+        description: "Krok 1/3: Ekstrakcja runów",
+      });
+
+      // Step 1: Extract runs
+      const { error: extractError } = await supabase.functions.invoke("extract-openxml-runs", {
+        body: { documentId },
+      });
+
+      if (extractError) throw extractError;
+
+      toast({
+        title: "Przetwarzam dokument...",
+        description: "Krok 2/3: Analiza pól",
+      });
+
+      // Step 2: Analyze fields
+      const { error: analyzeError } = await supabase.functions.invoke("analyze-document-fields", {
+        body: { documentId },
+      });
+
+      if (analyzeError) throw analyzeError;
+
+      toast({
+        title: "Przetwarzam dokument...",
+        description: "Krok 3/3: Budowanie XML",
+      });
+
+      // Step 3: Rebuild XML
+      const { error: rebuildError } = await supabase.functions.invoke("rebuild-document-xml", {
+        body: { documentId },
+      });
+
+      if (rebuildError) throw rebuildError;
+
+      // Refresh document data
+      await refetch();
+      setPreviewRefreshKey(prev => prev + 1);
+
+      toast({
+        title: "Sukces",
+        description: "Dokument został przetworzony ponownie",
+      });
+    } catch (error) {
+      console.error("Error reprocessing document:", error);
+      toast({
+        title: "Błąd",
+        description: error instanceof Error ? error.message : "Nie udało się przetworzyć dokumentu",
+        variant: "destructive",
+      });
+    } finally {
+      setIsReprocessing(false);
+    }
+  };
+
   const handleAnalyzeQuality = async () => {
     if (!documentId) return;
 
@@ -528,6 +590,19 @@ const VerifyDocument = () => {
               </div>
             </div>
             <div className="flex gap-2 shrink-0">
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={handleReprocess}
+                disabled={isReprocessing}
+              >
+                {isReprocessing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <FileText className="h-4 w-4" />
+                )}
+                Przetwórz ponownie
+              </Button>
               <Button
                 variant="outline"
                 className="gap-2"
