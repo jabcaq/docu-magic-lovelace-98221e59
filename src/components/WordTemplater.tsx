@@ -27,6 +27,7 @@ const WordTemplater = () => {
   const [extractedRuns, setExtractedRuns] = useState<ExtractedRun[]>([]);
   const [templateName, setTemplateName] = useState("");
   const [processingTime, setProcessingTime] = useState(0);
+  const [analysisApproach, setAnalysisApproach] = useState<"runs" | "xml_ai">("runs");
   const { toast } = useToast();
   
   type StepStatus = "pending" | "loading" | "success" | "error";
@@ -89,6 +90,7 @@ const WordTemplater = () => {
       formData.append("file", selectedFile);
       formData.append("name", selectedFile.name);
       formData.append("type", "word");
+      formData.append("analysisApproach", analysisApproach);
 
       const response = await supabase.functions.invoke("upload-document", {
         body: formData,
@@ -337,19 +339,57 @@ const WordTemplater = () => {
             </p>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="file-upload">Wybierz plik</Label>
-            <Input
-              id="file-upload"
-              type="file"
-              accept=".docx"
-              onChange={handleFileChange}
-              className="cursor-pointer"
-              disabled={isUploading}
-            />
-            {isUploading && (
-              <p className="text-sm text-muted-foreground">Przesyłanie pliku...</p>
-            )}
+          <div className="space-y-4">
+            <div className="flex flex-col gap-3 mb-4">
+              <label className="text-sm font-medium">Metoda analizy dokumentu:</label>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="analysis-approach"
+                    value="runs"
+                    checked={analysisApproach === "runs"}
+                    onChange={(e) => setAnalysisApproach(e.target.value as "runs" | "xml_ai")}
+                    className="w-4 h-4"
+                    disabled={isUploading}
+                  />
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium">Analiza Runs (szybsza)</span>
+                    <span className="text-xs text-muted-foreground">Obecne podejście z ekstrakcją formatowania</span>
+                  </div>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="analysis-approach"
+                    value="xml_ai"
+                    checked={analysisApproach === "xml_ai"}
+                    onChange={(e) => setAnalysisApproach(e.target.value as "runs" | "xml_ai")}
+                    className="w-4 h-4"
+                    disabled={isUploading}
+                  />
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium">Analiza XML + AI</span>
+                    <span className="text-xs text-muted-foreground">Pełna analiza struktury przez AI</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="file-upload">Wybierz plik</Label>
+              <Input
+                id="file-upload"
+                type="file"
+                accept=".docx"
+                onChange={handleFileChange}
+                className="cursor-pointer"
+                disabled={isUploading}
+              />
+              {isUploading && (
+                <p className="text-sm text-muted-foreground">Przesyłanie pliku...</p>
+              )}
+            </div>
           </div>
 
           {file && (

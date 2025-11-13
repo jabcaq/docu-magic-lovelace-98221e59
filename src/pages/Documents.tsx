@@ -28,6 +28,7 @@ const Documents = () => {
   const [sortBy, setSortBy] = useState<string>("date-desc");
   const [documents, setDocuments] = useState<Document[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [analysisApproach, setAnalysisApproach] = useState<"runs" | "xml_ai">("runs");
 
   const getStatusColor = (status: DocumentStatus) => {
     switch (status) {

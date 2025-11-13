@@ -27,10 +27,11 @@ serve(async (req) => {
       documentName,
       documentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       autoAnalyze = true,
-      userId 
+      userId,
+      analysisApproach = "runs" // "runs" or "xml_ai"
     } = await req.json();
 
-    console.log("API Upload request:", { fileName, documentName, documentType, autoAnalyze, userId });
+    console.log("API Upload request:", { fileName, documentName, documentType, autoAnalyze, userId, analysisApproach });
 
     if (!fileName || !fileContent || !documentName || !userId) {
       throw new Error("Missing required fields: fileName, fileContent, documentName, userId");
@@ -102,7 +103,7 @@ serve(async (req) => {
     const isWordDocument = documentType.includes("wordprocessingml") || documentType.includes("msword");
     const docType = isWordDocument ? "word" : "other";
 
-    // Insert document record with auto_analyze flag
+    // Insert document record with auto_analyze flag and analysis approach
     const { data: document, error: dbError } = await supabase
       .from("documents")
       .insert({
@@ -112,7 +113,8 @@ serve(async (req) => {
         storage_path: storagePath,
         html_content: htmlContent,
         status: "pending",
-        auto_analyze: false // We'll trigger analysis manually after extracting runs
+        auto_analyze: false, // We'll trigger analysis manually after extracting runs
+        analysis_approach: analysisApproach
       })
       .select()
       .single();
@@ -124,33 +126,49 @@ serve(async (req) => {
 
     console.log("Document record created:", document.id);
 
-    // For Word documents, extract OpenXML runs first
+    // For Word documents, choose analysis approach
     if (isWordDocument && autoAnalyze) {
-      console.log("Extracting OpenXML runs for Word document...");
-      
-      try {
-        const { error: runsError } = await supabase.functions.invoke('extract-openxml-runs', {
-          body: { documentId: document.id }
-        });
+      if (analysisApproach === 'xml_ai') {
+        console.log("Using XML + AI analysis approach...");
+        try {
+          const { error: xmlAiError } = await supabase.functions.invoke('analyze-document-xml-ai', {
+            body: { documentId: document.id }
+          });
 
-        if (runsError) {
-          console.error('Failed to extract runs:', runsError);
+          if (xmlAiError) {
+            console.error('Failed to analyze with XML AI:', xmlAiError);
+          }
+        } catch (xmlAiError) {
+          console.error('Error during XML AI analysis:', xmlAiError);
         }
-      } catch (runsExtractError) {
-        console.error('Error during run extraction:', runsExtractError);
-      }
+      } else {
+        // Default: runs approach
+        console.log("Using runs extraction approach...");
+        
+        try {
+          const { error: runsError } = await supabase.functions.invoke('extract-openxml-runs', {
+            body: { documentId: document.id }
+          });
 
-      // Now trigger analysis
-      try {
-        const { error: analyzeError } = await supabase.functions.invoke('analyze-document-fields', {
-          body: { documentId: document.id }
-        });
-
-        if (analyzeError) {
-          console.error('Failed to analyze document:', analyzeError);
+          if (runsError) {
+            console.error('Failed to extract runs:', runsError);
+          }
+        } catch (runsExtractError) {
+          console.error('Error during run extraction:', runsExtractError);
         }
-      } catch (analyzeError) {
-        console.error('Error during analysis:', analyzeError);
+
+        // Now trigger analysis
+        try {
+          const { error: analyzeError } = await supabase.functions.invoke('analyze-document-fields', {
+            body: { documentId: document.id }
+          });
+
+          if (analyzeError) {
+            console.error('Failed to analyze document:', analyzeError);
+          }
+        } catch (analyzeError) {
+          console.error('Error during analysis:', analyzeError);
+        }
       }
     } else if (autoAnalyze) {
       // For non-Word documents, trigger analysis directly via database trigger
