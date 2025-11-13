@@ -92,11 +92,20 @@ serve(async (req) => {
       }))
       .filter(item => item.text.length >= 3); // Skip very short texts
 
-    console.log(`\n🔍 BATCH ANALYSIS`);
+    console.log(`\n🔍 BATCH ANALYSIS WITH CHUNKING`);
     console.log(`   Total runs: ${runsForAI.length}`);
-    console.log(`   Sending to AI: ${textsToAnalyze.length} text fragments\n`);
+    console.log(`   Texts to analyze: ${textsToAnalyze.length}`);
 
-    // Send all texts to AI in one request
+    // Split into batches of 80 to avoid timeout
+    const BATCH_SIZE = 80;
+    const batches: typeof textsToAnalyze[] = [];
+    for (let i = 0; i < textsToAnalyze.length; i += BATCH_SIZE) {
+      batches.push(textsToAnalyze.slice(i, i + BATCH_SIZE));
+    }
+
+    console.log(`   Split into ${batches.length} batches of max ${BATCH_SIZE} texts\n`);
+
+    // Process batches sequentially
     const systemPrompt = `You are analyzing text fragments from automotive documents (insurance policies, contracts, registration certificates).
 
 Your task: Return the SAME array of texts, but replace variable fields with template tags {{variableName}}.
@@ -127,61 +136,74 @@ Example output: [
   { "text": "{{vinNumber}}", "isVariable": true, "variableName": "vinNumber", "category": "vin" }
 ]`;
 
-    const userPrompt = `Analyze these ${textsToAnalyze.length} text fragments and return JSON array:\n\n${JSON.stringify(textsToAnalyze.map(t => t.text))}`;
+    // Process each batch
+    let allAnalysisResults: Array<{ text: string; isVariable: boolean; variableName?: string; category?: string; originalIndex: number }> = [];
 
-    console.log("   Sending batch request to AI...");
+    for (let batchIdx = 0; batchIdx < batches.length; batchIdx++) {
+      const batch = batches[batchIdx];
+      console.log(`\n   📦 Processing batch ${batchIdx + 1}/${batches.length} (${batch.length} texts)...`);
 
-    let aiResponse;
-    try {
-      const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${lovableApiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt }
-          ],
-          temperature: 0.3,
-        }),
-      });
+      const userPrompt = `Analyze these ${batch.length} text fragments and return JSON array:\n\n${JSON.stringify(batch.map(t => t.text))}`;
 
-      if (!aiRes.ok) {
-        const errText = await aiRes.text();
-        throw new Error(`AI request failed: ${aiRes.status} - ${errText}`);
+      let aiResponse;
+      try {
+        const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${lovableApiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt }
+            ],
+            temperature: 0.3,
+          }),
+        });
+
+        if (!aiRes.ok) {
+          const errText = await aiRes.text();
+          throw new Error(`AI request failed: ${aiRes.status} - ${errText}`);
+        }
+
+        aiResponse = await aiRes.json();
+      } catch (err) {
+        console.error(`❌ Batch ${batchIdx + 1} AI request error:`, err);
+        throw err;
       }
 
-      aiResponse = await aiRes.json();
-    } catch (err) {
-      console.error(`❌ AI request error:`, err);
-      throw err;
+      const content = aiResponse?.choices?.[0]?.message?.content;
+      if (!content) {
+        throw new Error(`No AI response for batch ${batchIdx + 1}`);
+      }
+
+      // Parse AI response
+      let batchResults: Array<{ text: string; isVariable: boolean; variableName?: string; category?: string }>;
+      try {
+        const cleaned = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        batchResults = JSON.parse(cleaned);
+      } catch (parseErr) {
+        console.error(`Could not parse AI response for batch ${batchIdx + 1}:`, content);
+        throw new Error(`Failed to parse AI response for batch ${batchIdx + 1}`);
+      }
+
+      if (!Array.isArray(batchResults) || batchResults.length !== batch.length) {
+        throw new Error(`Batch ${batchIdx + 1}: AI returned invalid array (expected ${batch.length}, got ${batchResults?.length || 0})`);
+      }
+
+      // Add original index to results
+      const resultsWithIndex = batchResults.map((result, idx) => ({
+        ...result,
+        originalIndex: batch[idx].index
+      }));
+
+      allAnalysisResults.push(...resultsWithIndex);
+      console.log(`   ✓ Batch ${batchIdx + 1} complete: ${batchResults.length} results`);
     }
 
-    const content = aiResponse?.choices?.[0]?.message?.content;
-    if (!content) {
-      throw new Error("No AI response received");
-    }
-
-    console.log("   ✓ AI response received, parsing...");
-
-    // Parse AI response
-    let analysisResults: Array<{ text: string; isVariable: boolean; variableName?: string; category?: string }>;
-    try {
-      const cleaned = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      analysisResults = JSON.parse(cleaned);
-    } catch (parseErr) {
-      console.error("Could not parse AI response:", content);
-      throw new Error("Failed to parse AI response");
-    }
-
-    if (!Array.isArray(analysisResults)) {
-      throw new Error(`AI returned invalid response (not an array)`);
-    }
-
-    console.log(`   ✓ Parsed ${analysisResults.length} results\n`);
+    console.log(`\n   ✓ All ${batches.length} batches processed: ${allAnalysisResults.length} total results\n`);
     console.log(`   Processing replacements...\n`);
 
     // Apply replacements to XML
@@ -190,13 +212,15 @@ Example output: [
     const appliedFields: any[] = [];
     const seenValues = new Map<string, string>();
 
-    for (let i = 0; i < analysisResults.length; i++) {
-      const analysis = analysisResults[i];
-      const originalItem = textsToAnalyze[i];
+    for (let i = 0; i < allAnalysisResults.length; i++) {
+      const analysis = allAnalysisResults[i];
+      const originalItem = textsToAnalyze.find(t => t.index === analysis.originalIndex);
+      if (!originalItem) continue;
+      
       const originalText = originalItem.text;
 
       if (!analysis.isVariable) {
-        console.log(`   ${i + 1}/${analysisResults.length}: "${originalText.slice(0, 40)}" - Static text`);
+        console.log(`   ${i + 1}/${allAnalysisResults.length}: "${originalText.slice(0, 40)}" - Static text`);
         continue;
       }
 
@@ -205,7 +229,7 @@ Example output: [
 
       // Skip duplicates
       if (seenValues.has(originalText)) {
-        console.log(`   ${i + 1}/${analysisResults.length}: "${originalText.slice(0, 40)}" - ⏭️  SKIP (duplicate)`);
+        console.log(`   ${i + 1}/${allAnalysisResults.length}: "${originalText.slice(0, 40)}" - ⏭️  SKIP (duplicate)`);
         continue;
       }
 
@@ -224,15 +248,15 @@ Example output: [
           run_formatting: originalItem.formatting || null,
         });
 
-        console.log(`   ${i + 1}/${analysisResults.length}: ✅ "${originalText.slice(0, 40)}" → ${tag}`);
+        console.log(`   ${i + 1}/${allAnalysisResults.length}: ✅ "${originalText.slice(0, 40)}" → ${tag}`);
       } else {
-        console.log(`   ${i + 1}/${analysisResults.length}: ⚠️  "${originalText.slice(0, 40)}" - Not found in XML`);
+        console.log(`   ${i + 1}/${allAnalysisResults.length}: ⚠️  "${originalText.slice(0, 40)}" - Not found in XML`);
       }
     }
 
     console.log(`\n📊 ANALYSIS COMPLETE`);
     console.log(`   Applied: ${appliedCount} fields`);
-    console.log(`   Total analyzed: ${analysisResults.length}`);
+    console.log(`   Total analyzed: ${allAnalysisResults.length}`);
 
     // Save fields to database
     if (appliedFields.length > 0) {
@@ -277,7 +301,8 @@ Example output: [
       JSON.stringify({
         success: true,
         appliedCount,
-        totalAnalyzed: analysisResults.length,
+        totalAnalyzed: allAnalysisResults.length,
+        batchesProcessed: batches.length,
         fields: appliedFields.map(f => ({
           name: f.field_name,
           value: f.field_value,
