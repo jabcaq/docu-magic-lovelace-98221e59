@@ -38,12 +38,13 @@ serve(async (req) => {
     const file = formData.get("file") as File;
     const documentName = formData.get("name") as string;
     const documentType = formData.get("type") as string;
+    const analysisApproach = (formData.get("analysisApproach") as string) || "runs";
 
     if (!file) {
       throw new Error("No file provided");
     }
 
-    console.log("Processing file:", file.name, "size:", file.size);
+    console.log("Processing file:", file.name, "size:", file.size, "analysis approach:", analysisApproach);
 
     // Upload file to storage
     const filePath = `${user.id}/${Date.now()}_${file.name}`;
@@ -73,7 +74,7 @@ serve(async (req) => {
     const xmlContent = await xmlFile.async("string");
     console.log("XML extraction complete, length:", xmlContent.length);
 
-    // Create document record with XML content
+    // Create document record with XML content and analysis approach
     const { data: document, error: docError } = await supabase
       .from("documents")
       .insert({
@@ -84,7 +85,8 @@ serve(async (req) => {
         xml_content: xmlContent,
         html_cache: null, // Will be generated on-demand by render-document
         status: "pending",
-        auto_analyze: false // Prevent DB trigger from firing; we'll run analysis manually
+        auto_analyze: false, // Prevent DB trigger from firing; we'll run analysis manually
+        analysis_approach: analysisApproach
       })
       .select()
       .single();
@@ -96,42 +98,57 @@ serve(async (req) => {
 
     console.log("Document created successfully:", document.id);
 
-    // For Word documents, trigger processing pipeline
+    // For Word documents, trigger processing pipeline based on approach
     try {
-      console.log("Step 1: Extracting runs for document:", document.id);
-      
-      const { error: runsError } = await supabase.functions.invoke("extract-openxml-runs", {
-        body: { documentId: document.id },
-        headers: { Authorization: authHeader }
-      });
+      if (analysisApproach === 'xml_ai') {
+        console.log("Using XML + AI analysis approach for document:", document.id);
+        
+        const { error: xmlAiError } = await supabase.functions.invoke("analyze-document-xml-ai", {
+          body: { documentId: document.id },
+          headers: { Authorization: authHeader }
+        });
 
-      if (runsError) {
-        console.error('Failed to extract runs:', runsError);
-        throw runsError;
-      }
+        if (xmlAiError) {
+          console.error('Failed to analyze with XML AI:', xmlAiError);
+          throw xmlAiError;
+        }
+      } else {
+        // Default: runs approach
+        console.log("Step 1: Extracting runs for document:", document.id);
+        
+        const { error: runsError } = await supabase.functions.invoke("extract-openxml-runs", {
+          body: { documentId: document.id },
+          headers: { Authorization: authHeader }
+        });
 
-      console.log("Step 2: Analyzing document fields for document:", document.id);
-      
-      const { error: analyzeError } = await supabase.functions.invoke("analyze-document-fields", {
-        body: { documentId: document.id },
-        headers: { Authorization: authHeader }
-      });
+        if (runsError) {
+          console.error('Failed to extract runs:', runsError);
+          throw runsError;
+        }
 
-      if (analyzeError) {
-        console.error('Failed to analyze document:', analyzeError);
-        throw analyzeError;
-      }
+        console.log("Step 2: Analyzing document fields for document:", document.id);
+        
+        const { error: analyzeError } = await supabase.functions.invoke("analyze-document-fields", {
+          body: { documentId: document.id },
+          headers: { Authorization: authHeader }
+        });
 
-      console.log("Step 3: Rebuilding XML for document:", document.id);
-      
-      const { error: rebuildError } = await supabase.functions.invoke("rebuild-document-xml", {
-        body: { documentId: document.id },
-        headers: { Authorization: authHeader }
-      });
+        if (analyzeError) {
+          console.error('Failed to analyze document:', analyzeError);
+          throw analyzeError;
+        }
 
-      if (rebuildError) {
-        console.error('Failed to rebuild XML:', rebuildError);
-        throw rebuildError;
+        console.log("Step 3: Rebuilding XML for document:", document.id);
+        
+        const { error: rebuildError } = await supabase.functions.invoke("rebuild-document-xml", {
+          body: { documentId: document.id },
+          headers: { Authorization: authHeader }
+        });
+
+        if (rebuildError) {
+          console.error('Failed to rebuild XML:', rebuildError);
+          throw rebuildError;
+        }
       }
 
       console.log('Document processing pipeline completed successfully');
