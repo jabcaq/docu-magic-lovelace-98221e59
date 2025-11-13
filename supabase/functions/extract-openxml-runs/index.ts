@@ -65,7 +65,13 @@ serve(async (req) => {
       throw new Error("Document not found");
     }
 
-    if (document.type !== "word") {
+    // Check if it's a Word document (handle both "word" and "Dokument Word" types)
+    const isWordDocument = document.type === "word" || 
+                          document.type.toLowerCase().includes("word") ||
+                          document.storage_path.toLowerCase().endsWith(".docx") ||
+                          document.storage_path.toLowerCase().endsWith(".doc");
+    
+    if (!isWordDocument) {
       throw new Error("Only Word documents are supported for OpenXML run extraction");
     }
 
