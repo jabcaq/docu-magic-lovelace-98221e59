@@ -180,6 +180,16 @@ Focus on finding all {{...}} patterns in the XML text content.`
       }
     }
 
+    // Render document HTML
+    console.log("Rendering document HTML...");
+    const renderResponse = await supabase.functions.invoke("render-document", {
+      body: { documentId },
+    });
+
+    if (renderResponse.error) {
+      console.error("Failed to render document:", renderResponse.error);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
