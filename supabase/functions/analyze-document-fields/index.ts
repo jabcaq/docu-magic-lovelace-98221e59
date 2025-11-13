@@ -20,7 +20,6 @@ function replaceInWT(xml: string, searchText: string, replacement: string): { su
   });
   return { success: replaced, xml: newXml };
 }
-// (HTML replacement helper removed - XML is handled via replaceInWT)
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -84,40 +83,48 @@ serve(async (req) => {
       runsForAI = texts.map(t => ({ text: t }));
     }
 
-    console.log(`Processing ${runsForAI.length} runs for AI analysis`);
-    
-    // Log first few runs with formatting for debugging
-    console.log("Sample runs (first 5):");
-    runsForAI.slice(0, 5).forEach((run, idx) => {
-      console.log(`  Run ${idx + 1}:`, {
-        text: run.text,
-        formatting: run.formatting || 'none'
-      });
-    });
+    console.log(`\n🔍 STARTING RUN-BY-RUN ANALYSIS`);
+    console.log(`   Total runs to analyze: ${runsForAI.length}`);
+    console.log(`   This will make up to ${runsForAI.length} AI requests...\n`);
 
-    // Call Lovable AI to analyze and suggest fields
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${lovableApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          {
-            role: "system",
-            content: `You are an AI assistant specialized in analyzing automotive documents for translation services. These documents (registration certificates, titles, invoices, customs declarations) have been used for a specific vehicle/situation and need to become reusable templates for future translations.
+    // Process each run individually through AI
+    let xml = document.xml_content;
+    let appliedCount = 0;
+    const appliedFields: any[] = [];
+    const skippedFields: any[] = [];
+    const seenValues = new Map<string, string>(); // Track values we've already tagged
 
-CONTEXT: Tlumaczka.pl translation bureau processes automotive documents from abroad (USA, Netherlands, Germany, France). Each document contains vehicle-specific and client-specific data that must be tagged for template creation.
+    for (let i = 0; i < runsForAI.length; i++) {
+      const run = runsForAI[i];
+      const text = run.text.trim();
+      
+      // Skip empty or very short runs
+      if (!text || text.length < 3) {
+        continue;
+      }
 
-Your task:
-1. Identify ALL variable fields that differ between vehicles/clients/transactions
-2. Suggest clear, descriptive variable names in English using camelCase
-3. Return EXACT text fragments (at least 3 characters long) from the document
-4. **DETECT DUPLICATES**: If you see the same value appearing multiple times (e.g., same VIN, same name, same number), tag it ONLY ONCE with ONE variable name
-5. **DETECT INCOMPLETE VALUES**: For addresses, include street + number together (e.g., "SMOORSTRAAT 24" not just "SMOORSTRAAT")
-6. **AVOID HARDCODED VALUES**: Tag ALL data that appears to be specific to this document instance
+      // Skip if we've already tagged this exact value
+      if (seenValues.has(text)) {
+        console.log(`   ${i + 1}/${runsForAI.length}: "${text.slice(0, 30)}..." - ⏭️  SKIP (duplicate of {{${seenValues.get(text)}}})`);
+        continue;
+      }
+
+      console.log(`   ${i + 1}/${runsForAI.length}: 🔎 "${text.slice(0, 50)}${text.length > 50 ? '...' : ''}"`);
+
+      try {
+        // Ask AI about this specific run
+        const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${lovableApiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages: [
+              {
+                role: "system",
+                content: `You are analyzing a SINGLE text fragment from an automotive document (registration certificate, title, invoice, customs declaration). Decide if this fragment contains VARIABLE data that should be tagged as a template field.
 
 AUTOMOTIVE-SPECIFIC CATEGORIES:
 - vin: Vehicle Identification Numbers (17-character codes)
@@ -130,170 +137,122 @@ AUTOMOTIVE-SPECIFIC CATEGORIES:
 - location_data: Cities, countries, postal codes, dealership locations
 - transaction_ids: Invoice numbers, document numbers, reference codes
 
-CRITICAL DUPLICATE DETECTION:
-- If you see "WBADT43452G123456" multiple times → tag it ONCE as "vinNumber"
-- If you see "12-02-2025" in multiple places → tag it ONCE as appropriate variable (e.g., "declarationDate")
-- If you see "BAUM ANDRZEJ" twice → tag it ONCE as "importerName"
-- Use the SAME variable name for identical values appearing in different locations
+WHAT TO TAG AS VARIABLE:
+✅ Specific vehicle data (VIN, plate, make/model, engine specs)
+✅ Owner information (names, addresses with street numbers)
+✅ Dates, amounts, transaction IDs
+✅ Any data specific to THIS vehicle/owner/transaction
+✅ Complete addresses with building numbers (e.g., "SMOORSTRAAT 24")
 
-ADDRESS COMPLETENESS:
-- INCOMPLETE: "SMOORSTRAAT" → Missing building number
-- COMPLETE: "SMOORSTRAAT 24" → Good! Tag as "agentStreet"
-- INCOMPLETE: "PIATKOWIEC" → Missing number
-- COMPLETE: "PIATKOWIEC 44" → Good! Tag as "importerStreet"
+WHAT NOT TO TAG:
+❌ Form labels ("Marka:", "VIN:", "Owner:", "Date:")
+❌ Column headers ("Make", "Model", "Description")
+❌ Legal text, disclaimers, instructions
+❌ Static formatting text, punctuation marks
+❌ Incomplete addresses without numbers (e.g., just "SMOORSTRAAT")
+❌ Single letters or numbers without context
 
-IMPORTANT RULES:
-- Tag ALL data that varies between different vehicles or owners
-- Don't tag: static labels, form field names, legal disclaimers, column headers
-- Minimum 3 characters per fragment
-- Use descriptive names: "vinNumber", "engineCapacityCcm", "firstRegistrationDate", "buyerFullName"
-- Prioritize complete values over partial matches
-- Recognize multi-language terminology (e.g., "Motor/Engine/Silnik" all mean engine)
-- ONE variable per unique value (even if it appears multiple times in document)
-
-Example good tags:
-- "WBA12345678901234" → vinNumber (even if appears 2x in doc, tag once)
-- "ABC-1234" → registrationPlate  
-- "Jan Kowalski" → ownerName
-- "2.0 TDI" → engineType
-- "15.03.2023" → firstRegistrationDate
-- "€25,000" → purchasePrice
-- "SMOORSTRAAT 24" → agentStreet (complete address with number)
-- "3.085,000" → grossMass (if it's vehicle mass, not label)`
-          },
-          {
-            role: "user",
-            content: `Analyze these text runs from an automotive document (registration certificate, title, invoice, or customs declaration). This document was used for a specific vehicle and will become a template for future translations.
-
-Identify ALL fields that vary between different vehicles, owners, or transactions. Tag complete values, not labels.
-            
-Runs:
-${JSON.stringify(runsForAI, null, 2)}
-
-Return format:
+RESPONSE FORMAT (valid JSON only):
 {
-  "suggestions": [
-    {
-      "text": "exact text from run (minimum 3 characters)",
-      "variableName": "suggestedVariableName",
-      "category": "vin|registration_plate|vehicle_data|vehicle_ids|owner_data|financial_data|dates|location_data|transaction_ids|other"
-    }
-  ]
-}`
-          }
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "suggest_document_fields",
-              description: "Return suggested variable fields found in the document",
-              parameters: {
-                type: "object",
-                properties: {
-                  suggestions: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        text: { type: "string", description: "Exact text from document (minimum 3 characters)" },
-                        variableName: { type: "string", description: "Suggested variable name in camelCase" },
-                        category: { 
-                          type: "string", 
-                          enum: ["vin", "registration_plate", "vehicle_data", "vehicle_ids", "owner_data", "financial_data", "dates", "location_data", "transaction_ids", "other"],
-                          description: "Category of the field - use automotive-specific categories for vehicle documents"
-                        }
-                      },
-                      required: ["text", "variableName", "category"],
-                      additionalProperties: false
-                    }
-                  }
-                },
-                required: ["suggestions"],
-                additionalProperties: false
+  "isVariable": true/false,
+  "variableName": "camelCaseEnglishName",
+  "category": "one_of_categories_above",
+  "reason": "brief explanation why this is/isn't a variable"
+}
+
+Examples:
+- "WBA12345678901234" → {"isVariable": true, "variableName": "vinNumber", "category": "vin", "reason": "17-character VIN"}
+- "Marka:" → {"isVariable": false, "reason": "Form label"}
+- "Jan Kowalski" → {"isVariable": true, "variableName": "ownerName", "category": "owner_data", "reason": "Person name"}
+- "SMOORSTRAAT" → {"isVariable": false, "reason": "Incomplete address - missing building number"}
+- "SMOORSTRAAT 24" → {"isVariable": true, "variableName": "agentStreet", "category": "location_data", "reason": "Complete street address"}`
+              },
+              {
+                role: "user",
+                content: `Analyze this text fragment:
+
+Text: "${text}"
+${run.formatting ? `Formatting: ${JSON.stringify(run.formatting, null, 2)}` : ''}
+
+Is this variable data that should be tagged? Respond with valid JSON only.`
               }
-            }
-          }
-        ],
-        tool_choice: { type: "function", function: { name: "suggest_document_fields" } }
-      }),
-    });
-
-    if (!aiResponse.ok) {
-      if (aiResponse.status === 429) {
-        throw new Error("Rate limit exceeded. Please try again later.");
-      }
-      if (aiResponse.status === 402) {
-        throw new Error("Payment required. Please add credits to your workspace.");
-      }
-      const errorText = await aiResponse.text();
-      console.error("AI Gateway error:", aiResponse.status, errorText);
-      throw new Error("AI analysis failed");
-    }
-
-    const aiData = await aiResponse.json();
-    console.log("AI response:", JSON.stringify(aiData, null, 2));
-
-    // Extract suggestions from tool call
-    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall) {
-      throw new Error("AI did not return suggestions");
-    }
-
-    const suggestions = JSON.parse(toolCall.function.arguments).suggestions;
-    
-    // Filter out suggestions that are too short
-    const filteredSuggestions = suggestions.filter((s: any) => s.text.length >= 3);
-    
-    console.log(`\n📊 AI ANALYSIS RESULTS:`);
-    console.log(`   Total suggestions: ${suggestions.length}`);
-    console.log(`   Valid suggestions (>= 3 chars): ${filteredSuggestions.length}`);
-    console.log(`\n💡 AI SUGGESTIONS:`);
-    filteredSuggestions.forEach((s: any, idx: number) => {
-      console.log(`   ${idx + 1}. [${s.category}] "${s.text}" → {{${s.variableName}}}`);
-    });
-
-    // Now automatically apply these suggestions to the XML
-    let xml = document.xml_content;
-    let appliedCount = 0;
-    const appliedFields: any[] = [];
-    const skippedFields: any[] = [];
-
-    console.log(`\n🔄 APPLYING SUGGESTIONS TO XML:`);
-
-    for (const suggestion of filteredSuggestions) {
-      const { text, variableName, category } = suggestion;
-      
-      // Find the matching run to get formatting
-      const matchingRun = runsForAI.find(r => r.text.includes(text));
-      const formatting = matchingRun?.formatting || {};
-      
-      const fieldId = crypto.randomUUID();
-      const tag = `{{${variableName}}}`;
-      
-      console.log(`   Attempting: "${text}" → ${tag}`);
-      
-      const result = replaceInWT(xml, text, tag);
-      
-      if (result.success) {
-        xml = result.xml;
-        
-        // Save to document_fields with formatting
-        await supabase.from("document_fields").insert({
-          document_id: documentId,
-          field_name: variableName,
-          field_value: text,
-          field_tag: tag,
-          position_in_html: appliedCount, // Sequential position
-          run_formatting: formatting,
+            ],
+          }),
         });
+
+        if (!aiResponse.ok) {
+          if (aiResponse.status === 429) {
+            console.log(`      ⚠️  Rate limit hit - waiting 2s...`);
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            continue;
+          }
+          console.log(`      ❌ AI API error: ${aiResponse.status}`);
+          continue;
+        }
+
+        const aiData = await aiResponse.json();
+        const aiContent = aiData.choices?.[0]?.message?.content;
         
-        appliedCount++;
-        appliedFields.push({ text, tag, formatting, category });
-        console.log(`   ✅ Success! Applied with formatting:`, formatting);
-      } else {
-        skippedFields.push({ text, tag, category, reason: 'not found in XML' });
-        console.log(`   ❌ Skipped: not found in XML content`);
+        if (!aiContent) {
+          console.log(`      ❌ No AI response content`);
+          continue;
+        }
+
+        // Parse AI response
+        let analysis;
+        try {
+          // Try to extract JSON from markdown code blocks if present
+          const jsonMatch = aiContent.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/) || 
+                           aiContent.match(/(\{[\s\S]*\})/);
+          const jsonStr = jsonMatch ? jsonMatch[1] : aiContent;
+          analysis = JSON.parse(jsonStr);
+        } catch (e) {
+          console.log(`      ❌ Failed to parse AI JSON: ${aiContent.slice(0, 100)}`);
+          continue;
+        }
+
+        // Check if AI says this is a variable
+        if (!analysis.isVariable) {
+          console.log(`      ℹ️  NOT variable - ${analysis.reason || 'static content'}`);
+          continue;
+        }
+
+        // AI identified this as a variable - apply it!
+        const variableName = analysis.variableName;
+        const category = analysis.category || 'other';
+        const tag = `{{${variableName}}}`;
+
+        console.log(`      ✨ VARIABLE: ${tag} [${category}]`);
+        console.log(`         ${analysis.reason}`);
+
+        const result = replaceInWT(xml, text, tag);
+
+        if (result.success) {
+          xml = result.xml;
+          
+          // Save to document_fields with formatting
+          await supabase.from("document_fields").insert({
+            document_id: documentId,
+            field_name: variableName,
+            field_value: text,
+            field_tag: tag,
+            position_in_html: appliedCount,
+            run_formatting: run.formatting || {},
+          });
+          
+          appliedCount++;
+          appliedFields.push({ text, tag, category, formatting: run.formatting });
+          seenValues.set(text, variableName); // Remember we tagged this value
+          
+          console.log(`      ✅ Applied successfully!\n`);
+        } else {
+          skippedFields.push({ text, tag, category, reason: 'not found in XML' });
+          console.log(`      ❌ Failed - text not found in XML\n`);
+        }
+
+      } catch (error) {
+        console.log(`      ❌ Error: ${error instanceof Error ? error.message : 'unknown'}\n`);
+        continue;
       }
     }
 
@@ -307,30 +266,30 @@ Return format:
       })
       .eq("id", documentId);
 
-    console.log(`\n📈 SUMMARY:`);
-    console.log(`   ✅ Applied: ${appliedCount} fields`);
-    console.log(`   ❌ Skipped: ${skippedFields.length} fields`);
+    console.log(`\n📊 ANALYSIS COMPLETE:`);
+    console.log(`   ✅ Successfully applied: ${appliedCount} fields`);
+    console.log(`   ⏭️  Skipped (duplicates): ${seenValues.size - appliedCount}`);
+    console.log(`   ❌ Failed to apply: ${skippedFields.length}`);
     
     if (appliedFields.length > 0) {
-      console.log(`\n✨ Successfully applied fields:`);
-      appliedFields.forEach(f => {
-        console.log(`   • ${f.tag} [${f.category}]`);
-      });
-    }
-    
-    if (skippedFields.length > 0) {
-      console.log(`\n⚠️  Skipped fields:`);
-      skippedFields.forEach(f => {
-        console.log(`   • ${f.tag} [${f.category}] - ${f.reason}`);
+      console.log(`\n✨ Applied fields by category:`);
+      const byCategory = appliedFields.reduce((acc, f) => {
+        acc[f.category] = (acc[f.category] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      Object.entries(byCategory).forEach(([cat, count]) => {
+        console.log(`   • ${cat}: ${count}`);
       });
     }
 
     return new Response(
       JSON.stringify({
         success: true,
-        suggestions: filteredSuggestions,
         appliedCount: appliedCount,
-        totalSuggestions: filteredSuggestions.length
+        totalRuns: runsForAI.length,
+        skippedDuplicates: seenValues.size - appliedCount,
+        failedToApply: skippedFields.length,
+        fields: appliedFields
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
