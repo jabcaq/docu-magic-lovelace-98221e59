@@ -83,34 +83,51 @@ serve(async (req) => {
       runsForAI = texts.map(t => ({ text: t }));
     }
 
-    // Prepare texts array for AI analysis
+    // Prepare texts array for AI analysis - filter out XML tags
     const textsToAnalyze = runsForAI
       .map((run, index) => ({
         index,
         text: run.text.trim(),
         formatting: run.formatting
       }))
-      .filter(item => item.text.length >= 3);
+      .filter(item => {
+        const text = item.text;
+        // Skip very short texts
+        if (text.length < 3) return false;
+        // Skip XML tags
+        if (text.startsWith('<w:') || text.startsWith('</w:')) return false;
+        // Skip pure XML content
+        if (text.match(/^<[^>]+>$/)) return false;
+        return true;
+      });
 
     console.log(`\n🔍 ANALYZING DOCUMENT`);
     console.log(`   Total runs: ${runsForAI.length}`);
     console.log(`   Sending to AI: ${textsToAnalyze.length} texts\n`);
 
-    const systemPrompt = `Analyze automotive document texts. Return JSON array with same length.
+    const systemPrompt = `Analyze automotive document texts. Return JSON array with EXACTLY same length as input.
+
+CRITICAL: Array length MUST match input length exactly!
 
 For each text, return:
 { "text": "original OR {{tag}}", "isVariable": true/false, "variableName": "camelCase", "category": "type" }
 
 VARIABLES to tag:
-- Names, addresses → {{ownerName}}, {{address}}
-- VIN, plates → {{vinNumber}}, {{plate}}  
-- Dates → {{date}}, {{issueDate}}
-- Vehicle info → {{make}}, {{model}}, {{year}}
-- Numbers → {{price}}, {{weight}}
+- Person names → {{ownerName}}, {{driverName}}
+- Full addresses → {{address}}, {{cityPostal}}
+- VIN (17 chars) → {{vinNumber}}
+- License plates → {{plateNumber}}
+- Dates → {{issueDate}}, {{expiryDate}}
+- Vehicle: make/model/year → {{vehicleMake}}, {{vehicleModel}}, {{year}}
+- Money amounts → {{price}}, {{taxAmount}}
+- Weights/measures → {{weight}}, {{capacity}}
 
-STATIC (don't tag):
-- Labels, headers, instructions
-- Company names
+NEVER tag:
+- Labels/headers ("Name:", "VIN:", "Date:")
+- XML tags or HTML
+- Single numbers/letters without context
+- Partial addresses (just street name)
+- Instructions/legal text
 
 Categories: vin, owner_data, vehicle_details, dates, financial, location, other
 
@@ -164,7 +181,19 @@ Categories: vin, owner_data, vehicle_details, dates, financial, location, other
     }
 
     if (!Array.isArray(analysisResults)) {
+      console.error("AI response is not an array");
       throw new Error("AI returned invalid response");
+    }
+
+    if (analysisResults.length !== textsToAnalyze.length) {
+      console.error(`Length mismatch: expected ${textsToAnalyze.length}, got ${analysisResults.length}`);
+      // Try to match by truncating or padding
+      if (analysisResults.length > textsToAnalyze.length) {
+        console.log(`   Truncating results from ${analysisResults.length} to ${textsToAnalyze.length}`);
+        analysisResults = analysisResults.slice(0, textsToAnalyze.length);
+      } else {
+        throw new Error(`AI returned too few results: ${analysisResults.length} instead of ${textsToAnalyze.length}`);
+      }
     }
 
     console.log(`   ✓ Received ${analysisResults.length} results\n`);
@@ -178,6 +207,12 @@ Categories: vin, owner_data, vehicle_details, dates, financial, location, other
     for (let i = 0; i < analysisResults.length; i++) {
       const analysis = analysisResults[i];
       const originalItem = textsToAnalyze[i];
+      
+      if (!originalItem || !analysis) {
+        console.log(`   ⚠️  Missing data at index ${i}`);
+        continue;
+      }
+      
       const originalText = originalItem.text;
 
       if (!analysis.isVariable) continue;
