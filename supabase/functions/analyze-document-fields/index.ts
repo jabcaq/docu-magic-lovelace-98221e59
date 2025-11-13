@@ -174,9 +174,16 @@ Output: ["Owner:", "{{ownerName}}", "VIN:", "{{vinNumber}}", "{{issueDate}}"]`;
     }
 
     console.log(`   ✓ Validated: ${processedTexts.length} texts\n`);
-    console.log("   Applying replacements...\n");
 
-    // Find changes and apply to XML
+    // Create new runs with processed texts
+    const processedRuns = runs.map((run, i) => ({
+      text: processedTexts[i],
+      formatting: run.formatting
+    }));
+
+    console.log("   Building document from processed runs...\n");
+
+    // Build XML from processed runs - replace each run's text
     let xml = document.xml_content;
     const appliedFields: any[] = [];
     const seenTags = new Set<string>();
@@ -188,7 +195,7 @@ Output: ["Owner:", "{{ownerName}}", "VIN:", "{{vinNumber}}", "{{issueDate}}"]`;
 
       // Check if AI changed the text (found a variable)
       if (originalText !== processedText && processedText.includes('{{') && processedText.includes('}}')) {
-        // Extract tag name and category from {{tagName}}
+        // Extract tag name from {{tagName}}
         const tagMatch = processedText.match(/\{\{(\w+)\}\}/);
         if (!tagMatch) continue;
 
@@ -233,7 +240,7 @@ Output: ["Owner:", "{{ownerName}}", "VIN:", "{{vinNumber}}", "{{issueDate}}"]`;
       }
     }
 
-    console.log(`\n📊 Analysis complete: ${replacementCount} variables found\n`);
+    console.log(`\n📊 Analysis complete: ${replacementCount} variables found`);
 
     // Save to database
     if (appliedFields.length > 0) {
@@ -257,11 +264,12 @@ Output: ["Owner:", "{{ownerName}}", "VIN:", "{{vinNumber}}", "{{issueDate}}"]`;
       console.log(`   ✓ Saved ${appliedFields.length} fields to database`);
     }
 
-    // Update document
+    // Update document with new XML and processed runs
     const { error: updateError } = await supabase
       .from("documents")
       .update({
         xml_content: xml,
+        runs_metadata: processedRuns, // Save processed runs with {{tags}}
         html_cache: null,
         status: "verified",
       })
@@ -272,7 +280,7 @@ Output: ["Owner:", "{{ownerName}}", "VIN:", "{{vinNumber}}", "{{issueDate}}"]`;
       throw updateError;
     }
 
-    console.log(`   ✓ Document updated\n`);
+    console.log(`   ✓ Document updated with processed runs\n`);
 
     return new Response(
       JSON.stringify({
