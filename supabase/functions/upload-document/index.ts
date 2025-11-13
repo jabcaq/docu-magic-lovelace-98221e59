@@ -79,7 +79,7 @@ serve(async (req) => {
       .insert({
         user_id: user.id,
         name: documentName || file.name,
-        type: documentType || "Dokument Word",
+        type: documentType || "word",
         storage_path: filePath,
         xml_content: xmlContent,
         html_cache: null, // Will be generated on-demand by render-document
