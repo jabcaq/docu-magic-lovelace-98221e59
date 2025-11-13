@@ -30,6 +30,7 @@ interface DocumentField {
   label: string;
   value: string;
   tag: string;
+  isNew?: boolean; // Mark fields added via quality fixes
 }
 
 interface DocumentData {
@@ -57,6 +58,7 @@ const VerifyDocument = () => {
   const [showQualityDialog, setShowQualityDialog] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isReprocessing, setIsReprocessing] = useState(false);
+  const [isApplyingFixes, setIsApplyingFixes] = useState(false);
 
   // Fetch document data using React Query
   const { data: document, isLoading, error, refetch } = useQuery({
@@ -102,13 +104,23 @@ const VerifyDocument = () => {
 
       if (fieldsError) throw fieldsError;
 
+      // Check for recently created fields (within last 5 minutes)
+      const now = new Date();
+      const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+
       // Convert fields to the format expected by the UI
-      const fields: DocumentField[] = fieldsData?.map((field) => ({
-        id: field.id,
-        label: field.field_name,
-        value: field.field_value,
-        tag: field.field_tag,
-      })) || [];
+      const fields: DocumentField[] = fieldsData?.map((field) => {
+        const createdAt = new Date(field.created_at);
+        const isNew = createdAt > fiveMinutesAgo;
+        
+        return {
+          id: field.id,
+          label: field.field_name,
+          value: field.field_value,
+          tag: field.field_tag,
+          isNew, // Mark newly added fields
+        };
+      }) || [];
 
       // Initialize edited fields
       const initialEditedFields: Record<string, string> = {};
@@ -453,6 +465,50 @@ const VerifyDocument = () => {
     }
   };
 
+  const handleApplyFixes = async () => {
+    if (!documentId || !qualityAnalysis) return;
+
+    try {
+      setIsApplyingFixes(true);
+      toast({
+        title: "Stosuję poprawki...",
+        description: "AI przetwarza dokument z uwzględnieniem sugestii",
+      });
+
+      const { data, error } = await supabase.functions.invoke("apply-quality-fixes", {
+        body: { 
+          documentId,
+          qualityIssues: qualityAnalysis.issues 
+        },
+      });
+
+      if (error) throw error;
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      // Refresh document data
+      await refetch();
+      setPreviewRefreshKey(prev => prev + 1);
+      setShowQualityDialog(false);
+
+      toast({
+        title: "Poprawki zastosowane!",
+        description: `Dodano ${data.newFieldsCount} nowych zmiennych (na zielono)`,
+      });
+    } catch (error) {
+      console.error("Error applying fixes:", error);
+      toast({
+        title: "Błąd",
+        description: error instanceof Error ? error.message : "Nie udało się zastosować poprawek",
+        variant: "destructive",
+      });
+    } finally {
+      setIsApplyingFixes(false);
+    }
+  };
+
   const handleReprocess = async () => {
     if (!documentId) return;
 
@@ -737,6 +793,7 @@ const VerifyDocument = () => {
                   onEdit={handleEditField}
                   autoFocus={index === 0}
                   isHighlighted={highlightedFieldId === field.id}
+                  isNew={field.isNew}
                 />
               ))}
             </div>
@@ -855,6 +912,29 @@ const VerifyDocument = () => {
               </div>
             )}
           </ScrollArea>
+
+          {qualityAnalysis && qualityAnalysis.issues.length > 0 && (
+            <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={() => setShowQualityDialog(false)}
+              >
+                Zamknij
+              </Button>
+              <Button
+                onClick={handleApplyFixes}
+                disabled={isApplyingFixes}
+                className="gap-2"
+              >
+                {isApplyingFixes ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4" />
+                )}
+                Zastosuj poprawki
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
