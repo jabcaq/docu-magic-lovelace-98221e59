@@ -45,5 +45,8 @@ verify_jwt = true
 [functions.analyze-document-quality]
 verify_jwt = true
 
+[functions.apply-quality-fixes]
+verify_jwt = true
+
 [functions.rebuild-document-xml]
 verify_jwt = true

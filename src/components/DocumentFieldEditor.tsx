@@ -10,6 +10,7 @@ interface DocumentField {
   label: string;
   value: string;
   tag: string;
+  isNew?: boolean;
 }
 
 interface DocumentFieldEditorProps {
@@ -22,6 +23,7 @@ interface DocumentFieldEditorProps {
   onEdit?: (fieldId: string, newLabel: string, newTag: string) => void;
   autoFocus?: boolean;
   isHighlighted?: boolean;
+  isNew?: boolean;
 }
 
 const DocumentFieldEditor = ({
@@ -34,6 +36,7 @@ const DocumentFieldEditor = ({
   onEdit,
   autoFocus = false,
   isHighlighted = false,
+  isNew = false,
 }: DocumentFieldEditorProps) => {
   const [isTouched, setIsTouched] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -101,10 +104,19 @@ const DocumentFieldEditor = ({
               </div>
               <Badge
                 variant="outline"
-                className="text-[9px] sm:text-[10px] font-mono bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800"
+                className={`text-[9px] sm:text-[10px] font-mono ${
+                  isNew 
+                    ? "bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800" 
+                    : "bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800"
+                }`}
               >
                 {field.tag}
               </Badge>
+              {isNew && (
+                <Badge variant="secondary" className="text-[9px] ml-1">
+                  NOWE
+                </Badge>
+              )}
             </>
           )}
         </div>

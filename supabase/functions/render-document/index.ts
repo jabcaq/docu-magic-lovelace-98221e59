@@ -51,19 +51,29 @@ serve(async (req) => {
       throw new Error("Document has no runs_metadata");
     }
 
-    // Get all document fields to get field IDs for tags
+    // Get all document fields to get field IDs for tags + check which are new
     const { data: fields, error: fieldsError } = await supabase
       .from("document_fields")
-      .select("id, field_tag")
+      .select("id, field_tag, created_at")
       .eq("document_id", documentId);
 
     if (fieldsError) throw fieldsError;
 
+    // Check for recently created fields (within last 5 minutes)
+    const now = new Date();
+    const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+    const newFieldTags = new Set(
+      (fields || [])
+        .filter(f => new Date(f.created_at) > fiveMinutesAgo)
+        .map(f => f.field_tag)
+    );
+
     console.log("Document runs count:", document.runs_metadata.length);
     console.log("Found fields:", fields?.length || 0);
+    console.log("New fields (last 5 min):", newFieldTags.size);
 
     // Generate HTML from runs
-    let html = convertRunsToHTML(document.runs_metadata, fields || []);
+    let html = convertRunsToHTML(document.runs_metadata, fields || [], newFieldTags);
 
     // Cache the HTML for faster future loads
     await supabase
@@ -115,14 +125,21 @@ interface ProcessedRun {
 }
 
 // Convert runs to HTML with formatting
-function convertRunsToHTML(runs: ProcessedRun[], fields: Array<{id: string; field_tag: string}>): string {
+function convertRunsToHTML(
+  runs: ProcessedRun[], 
+  fields: Array<{id: string; field_tag: string; created_at: string}>,
+  newFieldTags: Set<string>
+): string {
   const styles = `
     <style>
       body { font-family: 'Calibri', 'Arial', sans-serif; line-height: 1.6; padding: 20px; max-width: 100%; margin: 0 auto; }
       p { margin: 12px 0; text-align: justify; word-wrap: break-word; }
       .doc-variable { background-color: #fef08a; border: 2px solid #facc15; padding: 2px 8px; border-radius: 4px; display: inline; font-weight: 500; white-space: pre-wrap; cursor: pointer; transition: all 0.2s ease; }
       .doc-variable:hover { background-color: #fde047; transform: scale(1.01); }
+      .doc-variable-new { background-color: #bbf7d0; border: 2px solid #4ade80; padding: 2px 8px; border-radius: 4px; display: inline; font-weight: 500; white-space: pre-wrap; cursor: pointer; transition: all 0.2s ease; }
+      .doc-variable-new:hover { background-color: #86efac; transform: scale(1.01); }
       .doc-tag-badge { display: inline-block; background-color: #3b82f6; color: white; font-size: 9px; padding: 2px 5px; border-radius: 3px; margin-left: 4px; font-family: 'Courier New', monospace; font-weight: normal; white-space: nowrap; }
+      .doc-tag-badge-new { display: inline-block; background-color: #10b981; color: white; font-size: 9px; padding: 2px 5px; border-radius: 3px; margin-left: 4px; font-family: 'Courier New', monospace; font-weight: normal; white-space: nowrap; }
     </style>
   `;
 
@@ -156,16 +173,20 @@ function convertRunsToHTML(runs: ProcessedRun[], fields: Array<{id: string; fiel
       for (const tag of tagMatch) {
         const unescapedTag = tag.replace(/&lt;/g, '<').replace(/&gt;/g, '>');
         const fieldId = tagMap.get(unescapedTag);
+        const isNew = newFieldTags.has(unescapedTag);
+        
+        const variableClass = isNew ? "doc-variable-new" : "doc-variable";
+        const badgeClass = isNew ? "doc-tag-badge-new" : "doc-tag-badge";
         
         if (fieldId) {
           styledText = styledText.replace(
             tag,
-            `<span class="doc-variable" data-field-id="${fieldId}" data-tag="${unescapedTag}" style="${style}">${tag}<span class="doc-tag-badge">${unescapedTag}</span></span>`
+            `<span class="${variableClass}" data-field-id="${fieldId}" data-tag="${unescapedTag}" style="${style}">${tag}<span class="${badgeClass}">${unescapedTag}</span></span>`
           );
         } else {
           styledText = styledText.replace(
             tag,
-            `<span class="doc-variable" data-tag="${unescapedTag}" style="${style}">${tag}</span>`
+            `<span class="${variableClass}" data-tag="${unescapedTag}" style="${style}">${tag}</span>`
           );
         }
       }
