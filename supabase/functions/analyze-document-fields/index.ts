@@ -156,12 +156,18 @@ Output: ["Owner:", "{{ownerName}}", "VIN:", "{{vinNumber}}", "{{issueDate}}"]`;
       throw new Error("AI response is not an array");
     }
 
+    // Normalize length if AI response doesn't match input
     if (processedTexts.length !== originalTexts.length) {
-      console.error(`Length mismatch! Expected: ${originalTexts.length}, Got: ${processedTexts.length}`);
-      throw new Error(`AI returned wrong array length: ${processedTexts.length} instead of ${originalTexts.length}`);
+      console.error(`Length mismatch! Expected: ${originalTexts.length}, Got: ${processedTexts.length} - normalizing instead of failing`);
+      const normalized: string[] = [];
+      for (let i = 0; i < originalTexts.length; i++) {
+        const v = processedTexts[i];
+        normalized.push(typeof v === 'string' ? v : originalTexts[i]);
+      }
+      processedTexts = normalized;
     }
 
-    console.log(`   ✓ Validated: ${processedTexts.length} texts\n`);
+    console.log(`   ✓ Proceeding with ${processedTexts.length} texts after validation/normalization\n`);
 
     // Create new runs with processed texts
     const processedRuns = runs.map((run, i) => ({
