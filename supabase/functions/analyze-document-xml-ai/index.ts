@@ -164,9 +164,9 @@ Focus on finding all {{...}} patterns in the XML text content.`
     if (fields.length > 0) {
       const fieldsToInsert = fields.map((field: any, index: number) => ({
         document_id: documentId,
-        tag: field.tag,
-        label: field.label || field.tag,
-        value: field.suggestedValue || "",
+        field_tag: field.tag,
+        field_name: field.label || field.tag,
+        field_value: field.suggestedValue || "",
         position_in_html: index,
       }));
 
