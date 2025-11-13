@@ -1,7 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import JSZip from "https://esm.sh/jszip@3.10.1";
-import { DOMParser, Element } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -137,24 +136,45 @@ async function extractOpenXMLRuns(file: Blob): Promise<ExtractedRun[]> {
     }
 
     const xmlContent = await documentXml.async("text");
-    
-    // Parse XML and extract runs
-    const parser = new DOMParser();
-    const xmlDoc = parser.parseFromString(xmlContent, "text/xml");
 
-    if (!xmlDoc) {
-      throw new Error("Failed to parse XML document");
-    }
+    // String-based parsing to avoid DOMParser limitations in edge runtime
+    const runsRegex = /<w:r\b[\s\S]*?<\/w:r>/g;
+    const tRegex = /<w:t[^>]*>([\s\S]*?)<\/w:t>/g;
 
-    // Find all <w:r> (run) elements
-    const runElements = xmlDoc.getElementsByTagNameNS("http://schemas.openxmlformats.org/wordprocessingml/2006/main", "r");
+    const decodeXml = (s: string) => s
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&apos;/g, "'")
+      .replace(/&amp;/g, '&');
 
-    for (let i = 0; i < runElements.length; i++) {
-      const runElement = runElements[i];
-      const run = parseRun(runElement);
-      
-      if (run && run.text.trim()) {
-        runs.push(run);
+    const runMatches = xmlContent.match(runsRegex) || [];
+
+    for (const runXml of runMatches) {
+      // Extract formatting flags
+      const formatting: RunFormatting = {};
+      if (/<w:b\b[^>]*\/>|<w:b\b[^>]*>/.test(runXml)) formatting.bold = true;
+      if (/<w:i\b[^>]*\/>|<w:i\b[^>]*>/.test(runXml)) formatting.italic = true;
+      if (/<w:u\b[^>]*\/>|<w:u\b[^>]*>/.test(runXml)) formatting.underline = true;
+
+      const szMatch = runXml.match(/<w:sz[^>]*w:val="(\d+)"/);
+      if (szMatch) formatting.fontSize = parseInt(szMatch[1]) / 2; // half-points
+
+      const fontMatch = runXml.match(/<w:rFonts[^>]*w:ascii="([^"]+)"/);
+      if (fontMatch) formatting.fontFamily = fontMatch[1];
+
+      const colorMatch = runXml.match(/<w:color[^>]*w:val="([^"]+)"/);
+      if (colorMatch && colorMatch[1] !== 'auto') formatting.color = `#${colorMatch[1]}`;
+
+      // Extract all text pieces in this run
+      let text = '';
+      const tMatches = [...runXml.matchAll(tRegex)];
+      for (const m of tMatches) {
+        text += decodeXml(m[1] || '');
+      }
+
+      if (text.trim()) {
+        runs.push({ text, formatting });
       }
     }
 
@@ -165,70 +185,3 @@ async function extractOpenXMLRuns(file: Blob): Promise<ExtractedRun[]> {
   }
 }
 
-function parseRun(runElement: Element): ExtractedRun | null {
-  const formatting: RunFormatting = {};
-  let text = "";
-
-  // Parse formatting properties (w:rPr)
-  const rPr = runElement.getElementsByTagNameNS("http://schemas.openxmlformats.org/wordprocessingml/2006/main", "rPr")[0];
-  
-  if (rPr) {
-    // Bold
-    const bold = rPr.getElementsByTagNameNS("http://schemas.openxmlformats.org/wordprocessingml/2006/main", "b")[0];
-    if (bold) {
-      formatting.bold = true;
-    }
-
-    // Italic
-    const italic = rPr.getElementsByTagNameNS("http://schemas.openxmlformats.org/wordprocessingml/2006/main", "i")[0];
-    if (italic) {
-      formatting.italic = true;
-    }
-
-    // Underline
-    const underline = rPr.getElementsByTagNameNS("http://schemas.openxmlformats.org/wordprocessingml/2006/main", "u")[0];
-    if (underline) {
-      formatting.underline = true;
-    }
-
-    // Font size (w:sz)
-    const sz = rPr.getElementsByTagNameNS("http://schemas.openxmlformats.org/wordprocessingml/2006/main", "sz")[0];
-    if (sz) {
-      const val = sz.getAttribute("w:val");
-      if (val) {
-        formatting.fontSize = parseInt(val) / 2; // Half-points to points
-      }
-    }
-
-    // Font family (w:rFonts)
-    const rFonts = rPr.getElementsByTagNameNS("http://schemas.openxmlformats.org/wordprocessingml/2006/main", "rFonts")[0];
-    if (rFonts) {
-      const ascii = rFonts.getAttribute("w:ascii");
-      if (ascii) {
-        formatting.fontFamily = ascii;
-      }
-    }
-
-    // Color (w:color)
-    const color = rPr.getElementsByTagNameNS("http://schemas.openxmlformats.org/wordprocessingml/2006/main", "color")[0];
-    if (color) {
-      const val = color.getAttribute("w:val");
-      if (val && val !== "auto") {
-        formatting.color = `#${val}`;
-      }
-    }
-  }
-
-  // Extract text content (w:t elements)
-  const textElements = runElement.getElementsByTagNameNS("http://schemas.openxmlformats.org/wordprocessingml/2006/main", "t");
-  
-  for (let i = 0; i < textElements.length; i++) {
-    text += textElements[i].textContent || "";
-  }
-
-  if (!text.trim()) {
-    return null;
-  }
-
-  return { text, formatting };
-}
