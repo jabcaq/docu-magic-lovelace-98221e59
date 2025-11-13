@@ -220,6 +220,7 @@ Output: ["Owner:", "{{ownerName}}", "VIN:", "{{vinNumber}}", "{{issueDate}}"]`;
           field_tag: tag,
           category,
           run_formatting: runs[i].formatting || null,
+          position_in_html: i,
         });
 
         console.log(`   ${i + 1}: ✅ "${originalText.slice(0, 40)}" → ${tag}`);
@@ -236,6 +237,7 @@ Output: ["Owner:", "{{ownerName}}", "VIN:", "{{vinNumber}}", "{{issueDate}}"]`;
         field_value: f.field_value,
         field_tag: f.field_tag,
         run_formatting: f.run_formatting,
+        position_in_html: f.position_in_html,
       }));
 
       const { error: insertError } = await supabase
