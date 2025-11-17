@@ -60,6 +60,7 @@ export type Database = {
       }
       documents: {
         Row: {
+          analysis_approach: string | null
           auto_analyze: boolean | null
           created_at: string
           html_cache: string | null
@@ -75,6 +76,7 @@ export type Database = {
           xml_content: string | null
         }
         Insert: {
+          analysis_approach?: string | null
           auto_analyze?: boolean | null
           created_at?: string
           html_cache?: string | null
@@ -90,6 +92,7 @@ export type Database = {
           xml_content?: string | null
         }
         Update: {
+          analysis_approach?: string | null
           auto_analyze?: boolean | null
           created_at?: string
           html_cache?: string | null
