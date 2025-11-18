@@ -59,3 +59,6 @@ verify_jwt = true
 
 [functions.identify-variables]
 verify_jwt = true
+
+[functions.rebuild-docx-with-variables]
+verify_jwt = true
