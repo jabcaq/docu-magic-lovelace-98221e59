@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts";
 
 const corsHeaders = {
@@ -37,7 +37,7 @@ serve(async (req) => {
     // Get the field details before deletion
     const { data: field, error: fieldError } = await supabase
       .from("document_fields")
-      .select("field_tag")
+      .select("field_tag, field_value")
       .eq("id", fieldId)
       .single();
 
