@@ -114,6 +114,73 @@ const TestRuns = () => {
     }
   };
 
+  const handleRebuildDocx = async () => {
+    if (!processedTexts || processedTexts.length === 0) {
+      toast({
+        title: "Błąd",
+        description: "Najpierw zidentyfikuj zmienne",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!file) {
+      toast({
+        title: "Błąd",
+        description: "Brak pliku",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Upload file again for rebuild
+      const filePath = `test/${Date.now()}_${file.name}`;
+      const { error: uploadError } = await supabase.storage
+        .from("documents")
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data, error } = await supabase.functions.invoke('rebuild-docx-with-variables', {
+        body: { 
+          storagePath: filePath,
+          newRunTexts: processedTexts 
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.base64 && data.filename) {
+        // Download the file
+        const link = document.createElement('a');
+        link.href = `data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,${data.base64}`;
+        link.download = data.filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        toast({
+          title: "Sukces",
+          description: "Dokument został przebudowany i pobrany",
+        });
+      }
+
+      // Cleanup temp file
+      await supabase.storage.from("documents").remove([filePath]);
+    } catch (error) {
+      console.error('Error rebuilding document:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się przebudować dokumentu",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background p-8">
       <div className="max-w-6xl mx-auto space-y-6">
@@ -170,6 +237,22 @@ const TestRuns = () => {
                       </>
                     ) : (
                       'Identify Variables'
+                    )}
+                  </Button>
+                )}
+                {processedTexts.length > 0 && (
+                  <Button
+                    onClick={handleRebuildDocx}
+                    disabled={loading}
+                    variant="default"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Rebuilding...
+                      </>
+                    ) : (
+                      'Rebuild DOCX'
                     )}
                   </Button>
                 )}
