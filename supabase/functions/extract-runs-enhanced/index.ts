@@ -40,7 +40,22 @@ serve(async (req) => {
       .from('documents')
       .download(storagePath);
 
-    if (downloadError) throw downloadError;
+    if (downloadError) {
+      console.error('Download error:', downloadError);
+      throw new Error(`Failed to download file: ${downloadError.message}`);
+    }
+
+    if (!fileData) {
+      throw new Error('No file data received from storage');
+    }
+
+    // Log file info for debugging
+    console.log(`Downloaded file size: ${fileData.size} bytes`);
+    console.log(`File type: ${fileData.type}`);
+
+    if (fileData.size === 0) {
+      throw new Error('Downloaded file is empty');
+    }
 
     const runs = await extractRunsFromDocx(fileData);
 
@@ -60,86 +75,104 @@ serve(async (req) => {
 });
 
 async function extractRunsFromDocx(file: Blob): Promise<ExtractedRun[]> {
-  const JSZip = (await import("https://esm.sh/jszip@3.10.1")).default;
-  const zip = new JSZip();
-  const content = await zip.loadAsync(await file.arrayBuffer());
+  try {
+    const JSZip = (await import("https://esm.sh/jszip@3.10.1")).default;
+    
+    // Convert blob to array buffer
+    const arrayBuffer = await file.arrayBuffer();
+    console.log(`Processing file buffer of size: ${arrayBuffer.byteLength} bytes`);
+    
+    if (arrayBuffer.byteLength === 0) {
+      throw new Error('File buffer is empty');
+    }
+    
+    // Load the ZIP file
+    const zip = new JSZip();
+    const content = await zip.loadAsync(arrayBuffer);
+    console.log('ZIP file loaded successfully');
   
-  const documentXml = await content.file("word/document.xml")?.async("text");
-  if (!documentXml) throw new Error("No document.xml found");
+    const documentXml = await content.file("word/document.xml")?.async("text");
+    if (!documentXml) throw new Error("No document.xml found");
+    
+    console.log(`document.xml size: ${documentXml.length} characters`);
 
-  const parser = new XMLParser({
-    ignoreAttributes: false,
-    attributeNamePrefix: "@_",
-    textNodeName: "#text",
-  });
+    const parser = new XMLParser({
+      ignoreAttributes: false,
+      attributeNamePrefix: "@_",
+      textNodeName: "#text",
+    });
 
-  const parsed = parser.parse(documentXml);
-  const body = parsed["w:document"]?.["w:body"];
-  if (!body) throw new Error("No body found in document");
+    const parsed = parser.parse(documentXml);
+    const body = parsed["w:document"]?.["w:body"];
+    if (!body) throw new Error("No body found in document");
 
-  const runs: ExtractedRun[] = [];
-  const paragraphs = Array.isArray(body["w:p"]) ? body["w:p"] : [body["w:p"]];
+    const runs: ExtractedRun[] = [];
+    const paragraphs = Array.isArray(body["w:p"]) ? body["w:p"] : [body["w:p"]];
 
-  paragraphs.forEach((paragraph: any, paraIndex: number) => {
-    if (!paragraph) return;
+    paragraphs.forEach((paragraph: any, paraIndex: number) => {
+      if (!paragraph) return;
 
-    const paraRuns = Array.isArray(paragraph["w:r"]) 
-      ? paragraph["w:r"] 
-      : paragraph["w:r"] ? [paragraph["w:r"]] : [];
+      const paraRuns = Array.isArray(paragraph["w:r"]) 
+        ? paragraph["w:r"] 
+        : paragraph["w:r"] ? [paragraph["w:r"]] : [];
 
-    paraRuns.forEach((run: any) => {
-      if (!run) return;
+      paraRuns.forEach((run: any) => {
+        if (!run) return;
 
-      // Extract text
-      const textElements = Array.isArray(run["w:t"]) 
-        ? run["w:t"] 
-        : run["w:t"] ? [run["w:t"]] : [];
-      
-      const text = textElements
-        .map((t: any) => typeof t === 'string' ? t : t["#text"] || "")
-        .join("");
+        // Extract text
+        const textElements = Array.isArray(run["w:t"]) 
+          ? run["w:t"] 
+          : run["w:t"] ? [run["w:t"]] : [];
+        
+        const text = textElements
+          .map((t: any) => typeof t === 'string' ? t : t["#text"] || "")
+          .join("");
 
-      // Extract formatting
-      const rPr = run["w:rPr"];
-      const formatting: RunFormatting = {};
+        // Extract formatting
+        const rPr = run["w:rPr"];
+        const formatting: RunFormatting = {};
 
-      if (rPr) {
-        formatting.bold = !!rPr["w:b"];
-        formatting.italic = !!rPr["w:i"];
-        formatting.underline = !!rPr["w:u"];
+        if (rPr) {
+          formatting.bold = !!rPr["w:b"];
+          formatting.italic = !!rPr["w:i"];
+          formatting.underline = !!rPr["w:u"];
 
-        // Font size (in half-points)
-        const sz = rPr["w:sz"];
-        if (sz) {
-          const sizeVal = sz["@_w:val"];
-          if (sizeVal) {
-            formatting.fontSize = `${parseInt(sizeVal) / 2}pt`;
+          // Font size (in half-points)
+          const sz = rPr["w:sz"];
+          if (sz) {
+            const sizeVal = sz["@_w:val"];
+            if (sizeVal) {
+              formatting.fontSize = `${parseInt(sizeVal) / 2}pt`;
+            }
+          }
+
+          // Font family
+          const rFonts = rPr["w:rFonts"];
+          if (rFonts) {
+            formatting.fontFamily = rFonts["@_w:ascii"] || rFonts["@_w:cs"];
+          }
+
+          // Color
+          const color = rPr["w:color"];
+          if (color) {
+            const colorVal = color["@_w:val"];
+            if (colorVal && colorVal !== "auto") {
+              formatting.color = `#${colorVal}`;
+            }
           }
         }
 
-        // Font family
-        const rFonts = rPr["w:rFonts"];
-        if (rFonts) {
-          formatting.fontFamily = rFonts["@_w:ascii"] || rFonts["@_w:cs"];
-        }
-
-        // Color
-        const color = rPr["w:color"];
-        if (color) {
-          const colorVal = color["@_w:val"];
-          if (colorVal && colorVal !== "auto") {
-            formatting.color = `#${colorVal}`;
-          }
-        }
-      }
-
-      runs.push({
-        text,
-        formatting,
-        paragraphIndex: paraIndex,
+        runs.push({
+          text,
+          formatting,
+          paragraphIndex: paraIndex,
+        });
       });
     });
-  });
 
-  return runs;
+    return runs;
+  } catch (error) {
+    console.error('Error in extractRunsFromDocx:', error);
+    throw new Error(`Failed to extract runs from DOCX: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 }
