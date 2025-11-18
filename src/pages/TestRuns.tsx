@@ -39,26 +39,53 @@ const TestRuns = () => {
     if (!file) return;
 
     setLoading(true);
+    let filePath = '';
     try {
-      // Upload file to storage
-      const filePath = `test/${Date.now()}_${file.name}`;
-      const { error: uploadError } = await supabase.storage
-        .from("documents")
-        .upload(filePath, file);
+      // Validate file type
+      if (!file.name.endsWith('.docx')) {
+        throw new Error('Proszę wybrać plik .docx');
+      }
 
-      if (uploadError) throw uploadError;
+      // Upload file to storage
+      filePath = `test/${Date.now()}_${file.name.replace(/[()]/g, '')}`;
+      console.log('Uploading file to:', filePath);
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("documents")
+        .upload(filePath, file, {
+          contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          upsert: true
+        });
+
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        throw uploadError;
+      }
+
+      console.log('File uploaded successfully:', uploadData);
+
+      // Wait a moment for storage to sync
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       // Call enhanced extraction function
+      console.log('Calling extract-runs-enhanced with path:', filePath);
       const { data, error } = await supabase.functions.invoke("extract-runs-enhanced", {
         body: { storagePath: filePath },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Function error:', error);
+        throw error;
+      }
 
-      setRuns(data.runs || []);
+      if (!data || !data.runs) {
+        throw new Error('Brak danych z funkcji ekstrakcji');
+      }
+
+      setRuns(data.runs);
       toast({
         title: "Sukces",
-        description: `Wyekstrahowano ${data.runs?.length || 0} runs`,
+        description: `Wyekstrahowano ${data.runs.length} runs`,
       });
 
       // Cleanup temp file
@@ -67,9 +94,18 @@ const TestRuns = () => {
       console.error("Extraction error:", error);
       toast({
         title: "Błąd",
-        description: "Nie udało się wyekstrahować runs",
+        description: error instanceof Error ? error.message : "Nie udało się wyekstrahować runs",
         variant: "destructive",
       });
+      
+      // Try to cleanup on error
+      if (filePath) {
+        try {
+          await supabase.storage.from("documents").remove([filePath]);
+        } catch (cleanupError) {
+          console.error('Cleanup error:', cleanupError);
+        }
+      }
     } finally {
       setLoading(false);
     }
