@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import Documents from "./pages/Documents";
 import VerifyDocument from "./pages/VerifyDocument";
+import TestRuns from "./pages/TestRuns";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -43,6 +44,14 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <VerifyDocument />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/test-runs"
+            element={
+              <ProtectedRoute>
+                <TestRuns />
               </ProtectedRoute>
             }
           />
