@@ -29,9 +29,23 @@ KRYTYCZNE ZASADY:
 - Format zmiennych: {{nazwa_zmiennej}} (małe litery, podkreślenia zamiast spacji)
 - Nie dodawaj ŻADNYCH dodatkowych wyjaśnień, komentarzy ani tekstu przed/po wyniku
 - Zachowaj puste linie jako puste linie
-- Jeśli linia zawiera tylko etykietę (np. "Data:"), zostaw ją bez zmian
+- Jeśli linia zawiera tylko etykietę (np. "Data:"), zostaw ją bez zmians
 
-KATEGORIE DANYCH DO ZAMIANY:
+❌ NIGDY NIE ZAMIENIAJ TYCH WARTOŚCI STAŁYCH (są identyczne we wszystkich dokumentach):
+- "MLG INTERNATIONAL S.A." / "Panama City" (nadawca/eksporter)
+- "MARLOG CAR HANDLING BV" / "SMOORSTRAAT 24" / "NL-4705 AA ROOSENDAAL" (przedstawiciel)
+- "NL006223527" (numer celny przedstawiciela)
+- "IM" / "A" (rodzaj deklaracji)
+- "NL000396" (urząd celny)
+- "1" (jako liczba artykułów/pozycji)
+- "87032490000000000000" lub "87032390000000000000" (kod towarowy CN)
+- "PL" (jako kod kraju przeznaczenia)
+- "10" (jako stawka cła)
+- "21" (jako stawka VAT)
+- "Skrytka pocztowa 3070" / "6401 DN Heerlen" (adres sprzeciwu)
+- "EUR" (symbol waluty, ale zamieniaj kwoty)
+
+✅ KATEGORIE DANYCH DO ZAMIANY:
 
 1. NUMERY REFERENCYJNE I CELNE (alfanumeryczne, często z myślnikami):
    "25NL7PU1EYHFR8FDR4" → "{{numer_referencyjny}}"
