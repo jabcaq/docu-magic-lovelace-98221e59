@@ -22,6 +22,8 @@ const TestRuns = () => {
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [runs, setRuns] = useState<ExtractedRun[]>([]);
+  const [processedTexts, setProcessedTexts] = useState<string[]>([]);
+  const [identifying, setIdentifying] = useState(false);
   const { toast } = useToast();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -29,6 +31,7 @@ const TestRuns = () => {
     if (selectedFile) {
       setFile(selectedFile);
       setRuns([]);
+      setProcessedTexts([]);
     }
   };
 
@@ -72,6 +75,45 @@ const TestRuns = () => {
     }
   };
 
+  const handleIdentifyVariables = async () => {
+    if (runs.length === 0) {
+      toast({
+        title: "Błąd",
+        description: "Najpierw wyekstrahuj runs",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIdentifying(true);
+    try {
+      const runTexts = runs.map(r => r.text);
+      
+      const { data, error } = await supabase.functions.invoke('identify-variables', {
+        body: { runTexts }
+      });
+
+      if (error) throw error;
+
+      if (data.processedTexts) {
+        setProcessedTexts(data.processedTexts);
+        toast({
+          title: "Sukces",
+          description: `Zidentyfikowano zmienne w ${data.count} runs`,
+        });
+      }
+    } catch (error) {
+      console.error('Error identifying variables:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się zidentyfikować zmiennych",
+        variant: "destructive",
+      });
+    } finally {
+      setIdentifying(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background p-8">
       <div className="max-w-6xl mx-auto space-y-6">
@@ -98,96 +140,148 @@ const TestRuns = () => {
                 className="flex-1"
                 id="file-input"
               />
-              <Button
-                onClick={handleExtract}
-                disabled={!file || loading}
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Extracting...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="mr-2 h-4 w-4" />
-                    Extract Runs
-                  </>
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleExtract}
+                  disabled={!file || loading}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Extracting...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="mr-2 h-4 w-4" />
+                      Extract Runs
+                    </>
+                  )}
+                </Button>
+                {runs.length > 0 && (
+                  <Button
+                    onClick={handleIdentifyVariables}
+                    disabled={identifying}
+                    variant="secondary"
+                  >
+                    {identifying ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Identifying...
+                      </>
+                    ) : (
+                      'Identify Variables'
+                    )}
+                  </Button>
                 )}
-              </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
 
         {runs.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Extracted Runs ({runs.length})</CardTitle>
-              <CardDescription>
-                Lista wszystkich runs z dokumentu
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2 max-h-[600px] overflow-y-auto">
-                {runs.map((run, index) => (
-                  <div
-                    key={index}
-                    className="p-3 border border-border rounded-lg bg-card"
-                  >
-                    <div className="flex items-start gap-4">
-                      <span className="text-xs text-muted-foreground font-mono w-12">
-                        #{index}
-                      </span>
-                      <div className="flex-1">
-                        <p
-                          className="text-sm mb-2"
-                          style={{
-                            fontWeight: run.formatting.bold ? "bold" : "normal",
-                            fontStyle: run.formatting.italic ? "italic" : "normal",
-                            textDecoration: run.formatting.underline ? "underline" : "none",
-                            fontSize: run.formatting.fontSize || "14px",
-                            fontFamily: run.formatting.fontFamily || "inherit",
-                            color: run.formatting.color || "inherit",
-                          }}
-                        >
-                          {run.text || "<empty>"}
-                        </p>
-                        <div className="flex gap-2 flex-wrap">
-                          <span className="text-xs px-2 py-1 bg-secondary rounded">
-                            Para: {run.paragraphIndex}
-                          </span>
-                          {run.formatting.bold && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Original Runs ({runs.length})</CardTitle>
+                <CardDescription>
+                  Runs z formatowaniem wyekstraktowane za pomocą OpenXML
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2 max-h-[600px] overflow-y-auto">
+                  {runs.map((run, index) => (
+                    <div
+                      key={index}
+                      className="p-3 border border-border rounded-lg bg-card"
+                    >
+                      <div className="flex items-start gap-4">
+                        <span className="text-xs text-muted-foreground font-mono w-12">
+                          #{index}
+                        </span>
+                        <div className="flex-1">
+                          <p
+                            className="text-sm mb-2"
+                            style={{
+                              fontWeight: run.formatting.bold ? "bold" : "normal",
+                              fontStyle: run.formatting.italic ? "italic" : "normal",
+                              textDecoration: run.formatting.underline ? "underline" : "none",
+                              fontSize: run.formatting.fontSize || "14px",
+                              fontFamily: run.formatting.fontFamily || "inherit",
+                              color: run.formatting.color || "inherit",
+                            }}
+                          >
+                            {run.text || "<empty>"}
+                          </p>
+                          <div className="flex gap-2 flex-wrap">
                             <span className="text-xs px-2 py-1 bg-secondary rounded">
-                              Bold
+                              Para: {run.paragraphIndex}
                             </span>
-                          )}
-                          {run.formatting.italic && (
-                            <span className="text-xs px-2 py-1 bg-secondary rounded">
-                              Italic
-                            </span>
-                          )}
-                          {run.formatting.underline && (
-                            <span className="text-xs px-2 py-1 bg-secondary rounded">
-                              Underline
-                            </span>
-                          )}
-                          {run.formatting.fontSize && (
-                            <span className="text-xs px-2 py-1 bg-secondary rounded">
-                              {run.formatting.fontSize}
-                            </span>
-                          )}
-                          {run.formatting.fontFamily && (
-                            <span className="text-xs px-2 py-1 bg-secondary rounded">
-                              {run.formatting.fontFamily}
-                            </span>
-                          )}
+                            {run.formatting.bold && (
+                              <span className="text-xs px-2 py-1 bg-secondary rounded">
+                                Bold
+                              </span>
+                            )}
+                            {run.formatting.italic && (
+                              <span className="text-xs px-2 py-1 bg-secondary rounded">
+                                Italic
+                              </span>
+                            )}
+                            {run.formatting.underline && (
+                              <span className="text-xs px-2 py-1 bg-secondary rounded">
+                                Underline
+                              </span>
+                            )}
+                            {run.formatting.fontSize && (
+                              <span className="text-xs px-2 py-1 bg-secondary rounded">
+                                {run.formatting.fontSize}
+                              </span>
+                            )}
+                            {run.formatting.fontFamily && (
+                              <span className="text-xs px-2 py-1 bg-secondary rounded">
+                                {run.formatting.fontFamily}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {processedTexts.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>With Variables ({processedTexts.length})</CardTitle>
+                  <CardDescription>
+                    Dynamiczne dane zamienione na zmienne
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2 max-h-[600px] overflow-y-auto">
+                    {processedTexts.map((text, index) => (
+                      <div
+                        key={index}
+                        className="p-3 border border-border rounded-lg bg-card"
+                      >
+                        <div className="flex items-start gap-4">
+                          <span className="text-xs text-muted-foreground font-mono w-12">
+                            #{index}
+                          </span>
+                          <div className="flex-1">
+                            <p className="font-mono text-sm bg-muted/50 p-2 rounded whitespace-pre-wrap">
+                              {text || "<empty>"}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         )}
       </div>
     </div>
