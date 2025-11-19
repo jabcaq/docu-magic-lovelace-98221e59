@@ -35,7 +35,7 @@ const Dashboard = () => {
       {/* Main Content */}
       <main className="w-full px-6 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full max-w-md grid-cols-3 mx-auto">
+          <TabsList className="grid w-full max-w-2xl grid-cols-4 mx-auto">
             <TabsTrigger value="templater" className="gap-2">
               <FileText className="h-4 w-4" />
               Templater
@@ -47,6 +47,10 @@ const Dashboard = () => {
             <TabsTrigger value="search" className="gap-2">
               <Search className="h-4 w-4" />
               Search
+            </TabsTrigger>
+            <TabsTrigger value="test" className="gap-2">
+              <Settings className="h-4 w-4" />
+              Test
             </TabsTrigger>
           </TabsList>
 
@@ -83,6 +87,23 @@ const Dashboard = () => {
                 </p>
                 <Button className="mt-4" disabled>
                   Coming Soon
+                </Button>
+              </div>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="test" className="space-y-6">
+            <Card className="p-8 text-center">
+              <div className="max-w-md mx-auto space-y-4">
+                <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                  <Settings className="h-8 w-8 text-primary" />
+                </div>
+                <h3 className="text-xl font-semibold">Test Runs</h3>
+                <p className="text-muted-foreground">
+                  Test document processing and variable extraction
+                </p>
+                <Button className="mt-4" onClick={() => window.location.href = '/test-runs'}>
+                  Go to Test Page
                 </Button>
               </div>
             </Card>
