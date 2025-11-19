@@ -42,39 +42,31 @@ const TestXmlAi = () => {
 
     setIsProcessing(true);
     try {
-      // Upload file to Supabase Storage
-      const sanitizedFileName = file.name.replace(/[()]/g, '');
-      const timestamp = Date.now();
-      const fileName = `test-xml/${timestamp}-${sanitizedFileName}`;
-
-      console.log("Uploading file:", fileName);
+      console.log("Converting file to base64...");
       
-      const { error: uploadError } = await supabase.storage
-        .from('documents')
-        .upload(fileName, file, {
-          contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-          upsert: true
-        });
-
-      if (uploadError) {
-        console.error("Upload error:", uploadError);
-        throw uploadError;
-      }
+      // Convert file to base64
+      const arrayBuffer = await file.arrayBuffer();
+      const base64 = btoa(
+        new Uint8Array(arrayBuffer).reduce(
+          (data, byte) => data + String.fromCharCode(byte),
+          ""
+        )
+      );
 
       toast({
-        title: "File uploaded",
-        description: "Processing and sending to webhook...",
+        title: "Processing...",
+        description: "Extracting XML and sending to webhook...",
       });
 
-      // Wait a bit for storage sync
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Call edge function to extract XML and send to webhook
-      console.log("Calling extract-and-send-xml function");
+      // Call edge function with base64 file data
+      console.log("Calling extract-and-send-xml function with file data");
       const { data, error: functionError } = await supabase.functions.invoke(
         'extract-and-send-xml',
         {
-          body: { storagePath: fileName }
+          body: { 
+            fileData: base64,
+            fileName: file.name
+          }
         }
       );
 
@@ -90,8 +82,6 @@ const TestXmlAi = () => {
         description: "XML extracted and sent to webhook successfully",
       });
 
-      // Cleanup
-      await supabase.storage.from('documents').remove([fileName]);
       setFile(null);
       
     } catch (error) {

@@ -28,33 +28,29 @@ Deno.serve(async (req) => {
       throw new Error("Unauthorized");
     }
 
-    const { storagePath } = await req.json();
+    const { fileData: base64FileData, fileName } = await req.json();
 
-    console.log("Extracting XML from DOCX:", { storagePath });
+    console.log("Extracting XML from DOCX:", { fileName });
 
-    // Download DOCX from storage
-    const { data: fileData, error: downloadError } = await supabase.storage
-      .from("documents")
-      .download(storagePath);
-
-    if (downloadError) {
-      console.error("Download error:", downloadError);
-      throw new Error(`Failed to download file: ${downloadError.message}`);
+    if (!base64FileData) {
+      throw new Error("No file data provided");
     }
 
-    if (!fileData || fileData.size === 0) {
-      throw new Error("Downloaded file is empty or invalid");
+    // Decode base64 to binary
+    const binaryString = atob(base64FileData);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
     }
 
-    console.log("File downloaded, size:", fileData.size);
+    console.log("File decoded, size:", bytes.length);
 
     // Import JSZip dynamically
     const JSZip = (await import("https://esm.sh/jszip@3.10.1")).default;
     
-    const arrayBuffer = await fileData.arrayBuffer();
-    console.log("ArrayBuffer size:", arrayBuffer.byteLength);
+    console.log("Loading ZIP from bytes");
 
-    const zip = await JSZip.loadAsync(arrayBuffer);
+    const zip = await JSZip.loadAsync(bytes.buffer);
     const documentXml = await zip.file("word/document.xml")?.async("string");
     
     if (!documentXml) {
@@ -75,7 +71,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         xml: documentXml,
-        fileName: storagePath.split('/').pop(),
+        fileName: fileName,
         timestamp: new Date().toISOString()
       }),
     });
