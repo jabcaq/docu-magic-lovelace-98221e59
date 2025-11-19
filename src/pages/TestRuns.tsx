@@ -123,26 +123,39 @@ const TestRuns = () => {
 
     setIdentifying(true);
     try {
-      const runTexts = runs.map(r => r.text);
+      // Przygotuj dane z numerami i tekstem
+      const runsData = runs.map((run, index) => ({
+        number: index,
+        text: run.text
+      }));
+
+      // Wyślij na webhook
+      const webhookUrl = "https://kamil109-20109.wykr.es/webhook/d2861022-c147-4f9c-9225-ec66f9481d76";
       
-      const { data, error } = await supabase.functions.invoke('identify-variables', {
-        body: { runTexts }
+      const response = await fetch(webhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          runs: runsData,
+          timestamp: new Date().toISOString()
+        }),
       });
 
-      if (error) throw error;
-
-      if (data.processedTexts) {
-        setProcessedTexts(data.processedTexts);
-        toast({
-          title: "Sukces",
-          description: `Zidentyfikowano zmienne w ${data.count} runs`,
-        });
+      if (!response.ok) {
+        throw new Error(`Webhook error: ${response.status}`);
       }
+
+      toast({
+        title: "Sukces",
+        description: `Wysłano ${runsData.length} runs na webhook`,
+      });
     } catch (error) {
-      console.error('Error identifying variables:', error);
+      console.error('Error sending to webhook:', error);
       toast({
         title: "Błąd",
-        description: "Nie udało się zidentyfikować zmiennych",
+        description: "Nie udało się wysłać danych na webhook",
         variant: "destructive",
       });
     } finally {
