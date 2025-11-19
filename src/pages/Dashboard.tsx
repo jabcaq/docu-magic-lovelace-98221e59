@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, Upload, Search, Settings } from "lucide-react";
 import WordTemplater from "@/components/WordTemplater";
+import TestXmlAi from "@/components/TestXmlAi";
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState("templater");
@@ -35,7 +36,7 @@ const Dashboard = () => {
       {/* Main Content */}
       <main className="w-full px-6 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full max-w-2xl grid-cols-4 mx-auto">
+          <TabsList className="grid w-full max-w-3xl grid-cols-5 mx-auto">
             <TabsTrigger value="templater" className="gap-2">
               <FileText className="h-4 w-4" />
               Templater
@@ -51,6 +52,10 @@ const Dashboard = () => {
             <TabsTrigger value="test" className="gap-2">
               <Settings className="h-4 w-4" />
               Test
+            </TabsTrigger>
+            <TabsTrigger value="xml-ai" className="gap-2">
+              <FileText className="h-4 w-4" />
+              XML + AI
             </TabsTrigger>
           </TabsList>
 
@@ -107,6 +112,10 @@ const Dashboard = () => {
                 </Button>
               </div>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="xml-ai" className="space-y-6">
+            <TestXmlAi />
           </TabsContent>
         </Tabs>
       </main>
