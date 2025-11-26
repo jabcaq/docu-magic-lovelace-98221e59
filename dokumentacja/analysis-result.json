@@ -1,0 +1,1646 @@
+{
+  "analyzedFiles": 14,
+  "totalConstants": 470,
+  "totalVariables": 219,
+  "constants": [
+    {
+      "value": "Data:",
+      "type": "TEXT",
+      "occurrences": 13,
+      "percentage": 93,
+      "files": [
+        "152502_HOL_(1)_AUDI_2018_CELNE-2-DOK.docx",
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "154785_HOL_CHEVROLET_2017_CELNE-2-DOK.docx",
+        "154808_HOL_BMW_2018_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155414_HOL_ALFA_2017_CELNE-2-DOK.docx",
+        "155553_HOL_AUDI_2016_CELNE-2-DOK.docx",
+        "155581_HOL_(2)_2017_BMW_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "N935",
+      "type": "TEXT",
+      "occurrences": 13,
+      "percentage": 93,
+      "files": [
+        "152502_HOL_(1)_AUDI_2018_CELNE-2-DOK.docx",
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "154785_HOL_CHEVROLET_2017_CELNE-2-DOK.docx",
+        "154808_HOL_BMW_2018_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155414_HOL_ALFA_2017_CELNE-2-DOK.docx",
+        "155553_HOL_AUDI_2016_CELNE-2-DOK.docx",
+        "155581_HOL_(2)_2017_BMW_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "Zgłaszający",
+      "type": "TEXT",
+      "occurrences": 13,
+      "percentage": 93,
+      "files": [
+        "152502_HOL_(1)_AUDI_2018_CELNE-2-DOK.docx",
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "154785_HOL_CHEVROLET_2017_CELNE-2-DOK.docx",
+        "154808_HOL_BMW_2018_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155414_HOL_ALFA_2017_CELNE-2-DOK.docx",
+        "155553_HOL_AUDI_2016_CELNE-2-DOK.docx",
+        "155581_HOL_(2)_2017_BMW_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "EUR",
+      "type": "TEXT",
+      "occurrences": 12,
+      "percentage": 86,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "154785_HOL_CHEVROLET_2017_CELNE-2-DOK.docx",
+        "154808_HOL_BMW_2018_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155414_HOL_ALFA_2017_CELNE-2-DOK.docx",
+        "155553_HOL_AUDI_2016_CELNE-2-DOK.docx",
+        "155581_HOL_(2)_2017_BMW_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "10",
+      "type": "TEXT",
+      "occurrences": 11,
+      "percentage": 79,
+      "files": [
+        "152502_HOL_(1)_AUDI_2018_CELNE-2-DOK.docx",
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "154785_HOL_CHEVROLET_2017_CELNE-2-DOK.docx",
+        "154808_HOL_BMW_2018_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155414_HOL_ALFA_2017_CELNE-2-DOK.docx",
+        "155553_HOL_AUDI_2016_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "21",
+      "type": "TEXT",
+      "occurrences": 11,
+      "percentage": 79,
+      "files": [
+        "152502_HOL_(1)_AUDI_2018_CELNE-2-DOK.docx",
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "154785_HOL_CHEVROLET_2017_CELNE-2-DOK.docx",
+        "154808_HOL_BMW_2018_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(2)_2017_BMW_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "DR",
+      "type": "TEXT",
+      "occurrences": 11,
+      "percentage": 79,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "154785_HOL_CHEVROLET_2017_CELNE-2-DOK.docx",
+        "154808_HOL_BMW_2018_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155414_HOL_ALFA_2017_CELNE-2-DOK.docx",
+        "155581_HOL_(2)_2017_BMW_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "[kod kreskowy]",
+      "type": "TEXT",
+      "occurrences": 10,
+      "percentage": 71,
+      "files": [
+        "152502_HOL_(1)_AUDI_2018_CELNE-2-DOK.docx",
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "154785_HOL_CHEVROLET_2017_CELNE-2-DOK.docx",
+        "154808_HOL_BMW_2018_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "PL",
+      "type": "TEXT",
+      "occurrences": 10,
+      "percentage": 71,
+      "files": [
+        "152502_HOL_(1)_AUDI_2018_CELNE-2-DOK.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "154785_HOL_CHEVROLET_2017_CELNE-2-DOK.docx",
+        "154808_HOL_BMW_2018_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155414_HOL_ALFA_2017_CELNE-2-DOK.docx",
+        "155553_HOL_AUDI_2016_CELNE-2-DOK.docx",
+        "155581_HOL_(2)_2017_BMW_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "792",
+      "type": "TEXT",
+      "occurrences": 10,
+      "percentage": 71,
+      "files": [
+        "152502_HOL_(1)_AUDI_2018_CELNE-2-DOK.docx",
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "154785_HOL_CHEVROLET_2017_CELNE-2-DOK.docx",
+        "154808_HOL_BMW_2018_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "Należne",
+      "type": "TEXT",
+      "occurrences": 10,
+      "percentage": 71,
+      "files": [
+        "152502_HOL_(1)_AUDI_2018_CELNE-2-DOK.docx",
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "154785_HOL_CHEVROLET_2017_CELNE-2-DOK.docx",
+        "154808_HOL_BMW_2018_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "Kod",
+      "type": "TEXT",
+      "occurrences": 10,
+      "percentage": 71,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "154785_HOL_CHEVROLET_2017_CELNE-2-DOK.docx",
+        "154808_HOL_BMW_2018_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx",
+        "Citroen Berlingo Dokument.docx"
+      ]
+    },
+    {
+      "value": "zgłoszenia",
+      "type": "TEXT",
+      "occurrences": 10,
+      "percentage": 71,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155414_HOL_ALFA_2017_CELNE-2-DOK.docx",
+        "155553_HOL_AUDI_2016_CELNE-2-DOK.docx",
+        "155581_HOL_(2)_2017_BMW_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "Nazwa:",
+      "type": "TEXT",
+      "occurrences": 10,
+      "percentage": 71,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155414_HOL_ALFA_2017_CELNE-2-DOK.docx",
+        "155553_HOL_AUDI_2016_CELNE-2-DOK.docx",
+        "155581_HOL_(2)_2017_BMW_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "Adres:",
+      "type": "TEXT",
+      "occurrences": 10,
+      "percentage": 71,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155414_HOL_ALFA_2017_CELNE-2-DOK.docx",
+        "155553_HOL_AUDI_2016_CELNE-2-DOK.docx",
+        "155581_HOL_(2)_2017_BMW_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "Skrytka pocztowa 3070",
+      "type": "ADDRESS",
+      "occurrences": 10,
+      "percentage": 71,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155414_HOL_ALFA_2017_CELNE-2-DOK.docx",
+        "155553_HOL_AUDI_2016_CELNE-2-DOK.docx",
+        "155581_HOL_(2)_2017_BMW_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "6401 DN Heerlen",
+      "type": "ADDRESS",
+      "occurrences": 10,
+      "percentage": 71,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155414_HOL_ALFA_2017_CELNE-2-DOK.docx",
+        "155553_HOL_AUDI_2016_CELNE-2-DOK.docx",
+        "155581_HOL_(2)_2017_BMW_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "VAT",
+      "type": "TEXT",
+      "occurrences": 10,
+      "percentage": 71,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155414_HOL_ALFA_2017_CELNE-2-DOK.docx",
+        "155553_HOL_AUDI_2016_CELNE-2-DOK.docx",
+        "155581_HOL_(2)_2017_BMW_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "00",
+      "type": "TEXT",
+      "occurrences": 9,
+      "percentage": 64,
+      "files": [
+        "152502_HOL_(1)_AUDI_2018_CELNE-2-DOK.docx",
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154785_HOL_CHEVROLET_2017_CELNE-2-DOK.docx",
+        "154808_HOL_BMW_2018_CELNE-2-DOK.docx",
+        "155414_HOL_ALFA_2017_CELNE-2-DOK.docx",
+        "155553_HOL_AUDI_2016_CELNE-2-DOK.docx",
+        "155581_HOL_(2)_2017_BMW_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx"
+      ]
+    },
+    {
+      "value": "IM",
+      "type": "TEXT",
+      "occurrences": 9,
+      "percentage": 64,
+      "files": [
+        "152502_HOL_(1)_AUDI_2018_CELNE-2-DOK.docx",
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "154808_HOL_BMW_2018_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "US",
+      "type": "TEXT",
+      "occurrences": 8,
+      "percentage": 57,
+      "files": [
+        "152502_HOL_(1)_AUDI_2018_CELNE-2-DOK.docx",
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "154785_HOL_CHEVROLET_2017_CELNE-2-DOK.docx",
+        "154808_HOL_BMW_2018_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155553_HOL_AUDI_2016_CELNE-2-DOK.docx",
+        "155581_HOL_(2)_2017_BMW_CELNE-2-DOK.docx"
+      ]
+    },
+    {
+      "value": "Zabezpieczenie",
+      "type": "TEXT",
+      "occurrences": 8,
+      "percentage": 57,
+      "files": [
+        "152502_HOL_(1)_AUDI_2018_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "154785_HOL_CHEVROLET_2017_CELNE-2-DOK.docx",
+        "154808_HOL_BMW_2018_CELNE-2-DOK.docx",
+        "155414_HOL_ALFA_2017_CELNE-2-DOK.docx",
+        "155553_HOL_AUDI_2016_CELNE-2-DOK.docx",
+        "155581_HOL_(2)_2017_BMW_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "NL",
+      "type": "TEXT",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152502_HOL_(1)_AUDI_2018_CELNE-2-DOK.docx",
+        "154785_HOL_CHEVROLET_2017_CELNE-2-DOK.docx",
+        "154808_HOL_BMW_2018_CELNE-2-DOK.docx",
+        "155414_HOL_ALFA_2017_CELNE-2-DOK.docx",
+        "155553_HOL_AUDI_2016_CELNE-2-DOK.docx",
+        "155581_HOL_(2)_2017_BMW_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx"
+      ]
+    },
+    {
+      "value": "Miejsce towarów",
+      "type": "TEXT",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152502_HOL_(1)_AUDI_2018_CELNE-2-DOK.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "154785_HOL_CHEVROLET_2017_CELNE-2-DOK.docx",
+        "154808_HOL_BMW_2018_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "160",
+      "type": "TEXT",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152502_HOL_(1)_AUDI_2018_CELNE-2-DOK.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "154785_HOL_CHEVROLET_2017_CELNE-2-DOK.docx",
+        "154808_HOL_BMW_2018_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "Y923",
+      "type": "TEXT",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152502_HOL_(1)_AUDI_2018_CELNE-2-DOK.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "154785_HOL_CHEVROLET_2017_CELNE-2-DOK.docx",
+        "154808_HOL_BMW_2018_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "Artykuł:",
+      "type": "TEXT",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152502_HOL_(1)_AUDI_2018_CELNE-2-DOK.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "154785_HOL_CHEVROLET_2017_CELNE-2-DOK.docx",
+        "154808_HOL_BMW_2018_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "WSPÓLNOTA EUROPEJSKA",
+      "type": "TEXT",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "RODZAJ DEKLARACJI (1)",
+      "type": "ADDRESS",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "EGZEMPLARZ  TRANSPORTOWY  IMPORTU",
+      "type": "CAPS_NAME",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "Wskaźnik ABO (S32)",
+      "type": "ADDRESS",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "Dot. aukcji (S00)",
+      "type": "ADDRESS",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "Łącznie",
+      "type": "TEXT",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "opakowanie",
+      "type": "TEXT",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "Data wydania:",
+      "type": "TEXT",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "Urząd Celny:",
+      "type": "TEXT",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "Kod sposobu płatności kosztów transportu (S29)",
+      "type": "ADDRESS",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "kraju",
+      "type": "TEXT",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "(15)",
+      "type": "TEXT",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "Kod kraju przeznaczenia (17)",
+      "type": "ADDRESS",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "Kody państw, przez które dokonywany jest transport (S13)",
+      "type": "ADDRESS",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "Numer zamknięcia celnego (S28)",
+      "type": "ADDRESS",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "Marki i numer – Nr(y) kontenera(ów) – Liczba i rodzaj",
+      "type": "TEXT",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "opis towarów",
+      "type": "TEXT",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "N821",
+      "type": "TEXT",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154808_HOL_BMW_2018_CELNE-2-DOK.docx",
+        "155414_HOL_ALFA_2017_CELNE-2-DOK.docx",
+        "155553_HOL_AUDI_2016_CELNE-2-DOK.docx",
+        "155581_HOL_(2)_2017_BMW_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx"
+      ]
+    },
+    {
+      "value": "E  KONTROLA PRZEZ URZĄD  WYSYŁAJĄCY/WYWOZU",
+      "type": "TEXT",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "Wynik:",
+      "type": "TEXT",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "Zastosowane opieczętowanie:",
+      "type": "TEXT",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "Liczba:",
+      "type": "TEXT",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "Termin (",
+      "type": "TEXT",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "KONTROLA PRZEZ URZĄD  WYJŚCIA",
+      "type": "CAPS_NAME",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "(K)",
+      "type": "TEXT",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "Data przybycia:",
+      "type": "TEXT",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "Kontrola opieczętowania:",
+      "type": "TEXT",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "Uwagi:",
+      "type": "TEXT",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "07",
+      "type": "TEXT",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "154785_HOL_CHEVROLET_2017_CELNE-2-DOK.docx",
+        "154808_HOL_BMW_2018_CELNE-2-DOK.docx",
+        "155553_HOL_AUDI_2016_CELNE-2-DOK.docx"
+      ]
+    },
+    {
+      "value": "Miejscowość:",
+      "type": "TEXT",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "Numer deklaracji:",
+      "type": "TEXT",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "Liczba artykułów: 1",
+      "type": "ADDRESS",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "Data akceptacji:",
+      "type": "TEXT",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "Przedstawiciel",
+      "type": "TEXT",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "Zawsze podawaj powód swojego sprzeciwu i numer tej deklaracji. Twój sprzeciw mus",
+      "type": "TEXT",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "2025",
+      "type": "TEXT",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155414_HOL_ALFA_2017_CELNE-2-DOK.docx",
+        "155553_HOL_AUDI_2016_CELNE-2-DOK.docx"
+      ]
+    },
+    {
+      "value": "Podstawa opodatkowania:",
+      "type": "TEXT",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "Stawka:",
+      "type": "TEXT",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "23",
+      "type": "TEXT",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "154785_HOL_CHEVROLET_2017_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155414_HOL_ALFA_2017_CELNE-2-DOK.docx",
+        "155581_HOL_(2)_2017_BMW_CELNE-2-DOK.docx"
+      ]
+    },
+    {
+      "value": "Importer",
+      "type": "TEXT",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155414_HOL_ALFA_2017_CELNE-2-DOK.docx",
+        "155553_HOL_AUDI_2016_CELNE-2-DOK.docx",
+        "155581_HOL_(2)_2017_BMW_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "VIN:",
+      "type": "TEXT",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "154808_HOL_BMW_2018_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155414_HOL_ALFA_2017_CELNE-2-DOK.docx",
+        "155581_HOL_(2)_2017_BMW_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "Czas:",
+      "type": "TEXT",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155414_HOL_ALFA_2017_CELNE-2-DOK.docx",
+        "155553_HOL_AUDI_2016_CELNE-2-DOK.docx",
+        "155581_HOL_(2)_2017_BMW_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "Numer celny:",
+      "type": "TEXT",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155414_HOL_ALFA_2017_CELNE-2-DOK.docx",
+        "155553_HOL_AUDI_2016_CELNE-2-DOK.docx",
+        "155581_HOL_(2)_2017_BMW_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "Środek:",
+      "type": "TEXT",
+      "occurrences": 7,
+      "percentage": 50,
+      "files": [
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155414_HOL_ALFA_2017_CELNE-2-DOK.docx",
+        "155553_HOL_AUDI_2016_CELNE-2-DOK.docx",
+        "155581_HOL_(2)_2017_BMW_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "1/1",
+      "type": "TEXT",
+      "occurrences": 6,
+      "percentage": 43,
+      "files": [
+        "152502_HOL_(1)_AUDI_2018_CELNE-2-DOK.docx",
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154785_HOL_CHEVROLET_2017_CELNE-2-DOK.docx",
+        "154808_HOL_BMW_2018_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx"
+      ]
+    },
+    {
+      "value": "Referencje:",
+      "type": "TEXT",
+      "occurrences": 6,
+      "percentage": 43,
+      "files": [
+        "152502_HOL_(1)_AUDI_2018_CELNE-2-DOK.docx",
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154808_HOL_BMW_2018_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "kg",
+      "type": "TEXT",
+      "occurrences": 6,
+      "percentage": 43,
+      "files": [
+        "152502_HOL_(1)_AUDI_2018_CELNE-2-DOK.docx",
+        "154785_HOL_CHEVROLET_2017_CELNE-2-DOK.docx",
+        "154808_HOL_BMW_2018_CELNE-2-DOK.docx",
+        "155414_HOL_ALFA_2017_CELNE-2-DOK.docx",
+        "155553_HOL_AUDI_2016_CELNE-2-DOK.docx",
+        "155581_HOL_(2)_2017_BMW_CELNE-2-DOK.docx"
+      ]
+    },
+    {
+      "value": "Artykuł",
+      "type": "TEXT",
+      "occurrences": 6,
+      "percentage": 43,
+      "files": [
+        "152502_HOL_(1)_AUDI_2018_CELNE-2-DOK.docx",
+        "154785_HOL_CHEVROLET_2017_CELNE-2-DOK.docx",
+        "154808_HOL_BMW_2018_CELNE-2-DOK.docx",
+        "155414_HOL_ALFA_2017_CELNE-2-DOK.docx",
+        "155553_HOL_AUDI_2016_CELNE-2-DOK.docx",
+        "155581_HOL_(2)_2017_BMW_CELNE-2-DOK.docx"
+      ]
+    },
+    {
+      "value": "DAMAGED",
+      "type": "CAPS_NAME",
+      "occurrences": 6,
+      "percentage": 43,
+      "files": [
+        "152502_HOL_(1)_AUDI_2018_CELNE-2-DOK.docx",
+        "154785_HOL_CHEVROLET_2017_CELNE-2-DOK.docx",
+        "154808_HOL_BMW_2018_CELNE-2-DOK.docx",
+        "155414_HOL_ALFA_2017_CELNE-2-DOK.docx",
+        "155553_HOL_AUDI_2016_CELNE-2-DOK.docx",
+        "155581_HOL_(2)_2017_BMW_CELNE-2-DOK.docx"
+      ]
+    },
+    {
+      "value": "Wartość",
+      "type": "TEXT",
+      "occurrences": 6,
+      "percentage": 43,
+      "files": [
+        "152502_HOL_(1)_AUDI_2018_CELNE-2-DOK.docx",
+        "154785_HOL_CHEVROLET_2017_CELNE-2-DOK.docx",
+        "154808_HOL_BMW_2018_CELNE-2-DOK.docx",
+        "155414_HOL_ALFA_2017_CELNE-2-DOK.docx",
+        "155553_HOL_AUDI_2016_CELNE-2-DOK.docx",
+        "155581_HOL_(2)_2017_BMW_CELNE-2-DOK.docx"
+      ]
+    },
+    {
+      "value": "000",
+      "type": "TEXT",
+      "occurrences": 6,
+      "percentage": 43,
+      "files": [
+        "152502_HOL_(1)_AUDI_2018_CELNE-2-DOK.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "154785_HOL_CHEVROLET_2017_CELNE-2-DOK.docx",
+        "154808_HOL_BMW_2018_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx"
+      ]
+    },
+    {
+      "value": "100",
+      "type": "TEXT",
+      "occurrences": 6,
+      "percentage": 43,
+      "files": [
+        "152502_HOL_(1)_AUDI_2018_CELNE-2-DOK.docx",
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154785_HOL_CHEVROLET_2017_CELNE-2-DOK.docx",
+        "154808_HOL_BMW_2018_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx"
+      ]
+    },
+    {
+      "value": "Dokumenty",
+      "type": "TEXT",
+      "occurrences": 6,
+      "percentage": 43,
+      "files": [
+        "152502_HOL_(1)_AUDI_2018_CELNE-2-DOK.docx",
+        "154785_HOL_CHEVROLET_2017_CELNE-2-DOK.docx",
+        "154808_HOL_BMW_2018_CELNE-2-DOK.docx",
+        "155414_HOL_ALFA_2017_CELNE-2-DOK.docx",
+        "155553_HOL_AUDI_2016_CELNE-2-DOK.docx",
+        "155581_HOL_(2)_2017_BMW_CELNE-2-DOK.docx"
+      ]
+    },
+    {
+      "value": "Numer celny",
+      "type": "TEXT",
+      "occurrences": 6,
+      "percentage": 43,
+      "files": [
+        "152502_HOL_(1)_AUDI_2018_CELNE-2-DOK.docx",
+        "154785_HOL_CHEVROLET_2017_CELNE-2-DOK.docx",
+        "154808_HOL_BMW_2018_CELNE-2-DOK.docx",
+        "155414_HOL_ALFA_2017_CELNE-2-DOK.docx",
+        "155553_HOL_AUDI_2016_CELNE-2-DOK.docx",
+        "155581_HOL_(2)_2017_BMW_CELNE-2-DOK.docx"
+      ]
+    },
+    {
+      "value": "Urząd Skarbowy",
+      "type": "PERSON_NAME",
+      "occurrences": 6,
+      "percentage": 43,
+      "files": [
+        "152502_HOL_(1)_AUDI_2018_CELNE-2-DOK.docx",
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154785_HOL_CHEVROLET_2017_CELNE-2-DOK.docx",
+        "154808_HOL_BMW_2018_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx"
+      ]
+    },
+    {
+      "value": "STANY ZJEDNOCZONE",
+      "type": "CAPS_NAME",
+      "occurrences": 6,
+      "percentage": 43,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "155414_HOL_ALFA_2017_CELNE-2-DOK.docx",
+        "155553_HOL_AUDI_2016_CELNE-2-DOK.docx",
+        "155581_HOL_(2)_2017_BMW_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx"
+      ]
+    },
+    {
+      "value": "25NL",
+      "type": "TEXT",
+      "occurrences": 6,
+      "percentage": 43,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154785_HOL_CHEVROLET_2017_CELNE-2-DOK.docx",
+        "154808_HOL_BMW_2018_CELNE-2-DOK.docx",
+        "155414_HOL_ALFA_2017_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "wysyłki",
+      "type": "TEXT",
+      "occurrences": 6,
+      "percentage": 43,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx"
+      ]
+    },
+    {
+      "value": "25",
+      "type": "TEXT",
+      "occurrences": 6,
+      "percentage": 43,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "155414_HOL_ALFA_2017_CELNE-2-DOK.docx",
+        "155553_HOL_AUDI_2016_CELNE-2-DOK.docx",
+        "155581_HOL_(2)_2017_BMW_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx"
+      ]
+    },
+    {
+      "value": "0000",
+      "type": "TEXT",
+      "occurrences": 6,
+      "percentage": 43,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx"
+      ]
+    },
+    {
+      "value": "ark",
+      "type": "TEXT",
+      "occurrences": 6,
+      "percentage": 43,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx"
+      ]
+    },
+    {
+      "value": "A00",
+      "type": "TEXT",
+      "occurrences": 6,
+      "percentage": 43,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "155414_HOL_ALFA_2017_CELNE-2-DOK.docx",
+        "155553_HOL_AUDI_2016_CELNE-2-DOK.docx",
+        "155581_HOL_(2)_2017_BMW_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx"
+      ]
+    },
+    {
+      "value": "08",
+      "type": "TEXT",
+      "occurrences": 6,
+      "percentage": 43,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "154785_HOL_CHEVROLET_2017_CELNE-2-DOK.docx",
+        "155414_HOL_ALFA_2017_CELNE-2-DOK.docx",
+        "155581_HOL_(2)_2017_BMW_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "KONIEC",
+      "type": "CAPS_NAME",
+      "occurrences": 6,
+      "percentage": 43,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "155414_HOL_ALFA_2017_CELNE-2-DOK.docx",
+        "155553_HOL_AUDI_2016_CELNE-2-DOK.docx",
+        "155581_HOL_(2)_2017_BMW_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx"
+      ]
+    },
+    {
+      "value": "09",
+      "type": "TEXT",
+      "occurrences": 6,
+      "percentage": 43,
+      "files": [
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "154808_HOL_BMW_2018_CELNE-2-DOK.docx",
+        "155553_HOL_AUDI_2016_CELNE-2-DOK.docx",
+        "155581_HOL_(2)_2017_BMW_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx"
+      ]
+    },
+    {
+      "value": "MRN",
+      "type": "TEXT",
+      "occurrences": 6,
+      "percentage": 43,
+      "files": [
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155553_HOL_AUDI_2016_CELNE-2-DOK.docx",
+        "155581_HOL_(2)_2017_BMW_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": ",00",
+      "type": "TEXT",
+      "occurrences": 6,
+      "percentage": 43,
+      "files": [
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "154785_HOL_CHEVROLET_2017_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx",
+        "Citroen Berlingo Dokument.docx"
+      ]
+    },
+    {
+      "value": "-202",
+      "type": "TEXT",
+      "occurrences": 6,
+      "percentage": 43,
+      "files": [
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(2)_2017_BMW_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    },
+    {
+      "value": "[słowo w innym języku niż niderlandzki]:",
+      "type": "TEXT",
+      "occurrences": 5,
+      "percentage": 36,
+      "files": [
+        "152502_HOL_(1)_AUDI_2018_CELNE-2-DOK.docx",
+        "154785_HOL_CHEVROLET_2017_CELNE-2-DOK.docx",
+        "154808_HOL_BMW_2018_CELNE-2-DOK.docx",
+        "155414_HOL_ALFA_2017_CELNE-2-DOK.docx",
+        "155553_HOL_AUDI_2016_CELNE-2-DOK.docx"
+      ]
+    },
+    {
+      "value": "03",
+      "type": "TEXT",
+      "occurrences": 5,
+      "percentage": 36,
+      "files": [
+        "152502_HOL_(1)_AUDI_2018_CELNE-2-DOK.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "155414_HOL_ALFA_2017_CELNE-2-DOK.docx",
+        "Citroen Berlingo Dokument.docx"
+      ]
+    },
+    {
+      "value": "Eksporter",
+      "type": "TEXT",
+      "occurrences": 5,
+      "percentage": 36,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "155553_HOL_AUDI_2016_CELNE-2-DOK.docx",
+        "155581_HOL_(2)_2017_BMW_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx"
+      ]
+    },
+    {
+      "value": "Łącznie kwota(y)",
+      "type": "TEXT",
+      "occurrences": 5,
+      "percentage": 36,
+      "files": [
+        "152599_HOL_DODGE_2016_CELNE.docx",
+        "154312_HOL_VOLVO_2018_CELNE.docx",
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155581_HOL_(3)_LAND_2013_CELNE-2-DOK.docx"
+      ]
+    },
+    {
+      "value": "24",
+      "type": "TEXT",
+      "occurrences": 5,
+      "percentage": 36,
+      "files": [
+        "154537_HOL_(2)_RAM_2014_CELNE-2-DOK.docx",
+        "154638_HOL_DODGE_2023_CELNE-2-DOK.docx",
+        "155043_HOL_MASERATI_2019_CELNE-2-DOK.docx",
+        "155414_HOL_ALFA_2017_CELNE-2-DOK.docx",
+        "157470_HOL_MINI_2023_CELNE-DOK.docx"
+      ]
+    }
+  ],
+  "variableTypes": {
+    "ADDRESS": 108,
+    "CAPS_NAME": 53,
+    "CODE": 15,
+    "DATE": 6,
+    "MONEY": 6,
+    "MRN": 9,
+    "PERSON_NAME": 4,
+    "POSTAL_CODE": 5,
+    "REFERENCE": 2,
+    "VIN": 11
+  },
+  "exclusionList": [
+    "Data:",
+    "N935",
+    "Zgłaszający",
+    "EUR",
+    "[kod kreskowy]",
+    "792",
+    "Należne",
+    "Kod",
+    "zgłoszenia",
+    "Nazwa:",
+    "Adres:",
+    "Skrytka pocztowa 3070",
+    "6401 DN Heerlen",
+    "VAT",
+    "Zabezpieczenie",
+    "Miejsce towarów",
+    "160",
+    "Y923",
+    "Artykuł:",
+    "WSPÓLNOTA EUROPEJSKA",
+    "RODZAJ DEKLARACJI (1)",
+    "EGZEMPLARZ  TRANSPORTOWY  IMPORTU",
+    "Wskaźnik ABO (S32)",
+    "Dot. aukcji (S00)",
+    "Łącznie",
+    "opakowanie",
+    "Data wydania:",
+    "Urząd Celny:",
+    "Kod sposobu płatności kosztów transportu (S29)",
+    "kraju",
+    "(15)",
+    "Kod kraju przeznaczenia (17)",
+    "Kody państw, przez które dokonywany jest transport (S13)",
+    "Numer zamknięcia celnego (S28)",
+    "Marki i numer – Nr(y) kontenera(ów) – Liczba i rodzaj",
+    "opis towarów",
+    "N821",
+    "E  KONTROLA PRZEZ URZĄD  WYSYŁAJĄCY/WYWOZU",
+    "Wynik:",
+    "Zastosowane opieczętowanie:",
+    "Liczba:",
+    "Termin (",
+    "KONTROLA PRZEZ URZĄD  WYJŚCIA",
+    "(K)",
+    "Data przybycia:",
+    "Kontrola opieczętowania:",
+    "Uwagi:",
+    "Miejscowość:",
+    "Numer deklaracji:",
+    "Liczba artykułów: 1",
+    "Data akceptacji:",
+    "Przedstawiciel",
+    "Zawsze podawaj powód swojego sprzeciwu i numer tej deklaracji. Twój sprzeciw mus",
+    "2025",
+    "Podstawa opodatkowania:",
+    "Stawka:",
+    "Importer",
+    "VIN:",
+    "Czas:",
+    "Numer celny:",
+    "Środek:",
+    "1/1",
+    "Referencje:",
+    "Artykuł",
+    "DAMAGED",
+    "Wartość",
+    "000",
+    "100",
+    "Dokumenty",
+    "Numer celny",
+    "Urząd Skarbowy",
+    "STANY ZJEDNOCZONE",
+    "25NL",
+    "wysyłki",
+    "0000",
+    "ark",
+    "A00",
+    "KONIEC",
+    "MRN",
+    ",00",
+    "-202",
+    "[słowo w innym języku niż niderlandzki]:",
+    "Eksporter",
+    "Łącznie kwota(y)",
+    "OPŁATA CELNA"
+  ]
+}

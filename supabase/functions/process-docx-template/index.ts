@@ -344,48 +344,110 @@ async function analyzeWithAI(
   lovableKey: string | undefined
 ): Promise<string[]> {
   
-  const systemPrompt = `Jesteś ekspertem od analizy dokumentów samochodowych, celnych i administracyjnych.
+  const systemPrompt = `Jesteś ekspertem od analizy dokumentów celnych, samochodowych i administracyjnych.
 
-ZADANIE: Zwróć DOKŁADNIE ten sam array tekstów, ale zamień dane zmienne na placeholdery {{nazwaZmiennej}}.
+ZADANIE: Zwróć DOKŁADNIE ten sam array tekstów, ale zamień TYLKO dane zmienne na placeholdery {{nazwaZmiennej}}.
 
-DANE DO ZAMIANY (→ przykładowe tagi):
-- Imiona i nazwiska → {{ownerName}}, {{buyerName}}, {{driverName}}
-- Pełne adresy z numerami → {{ownerAddress}}, {{companyAddress}}
-- Numery VIN (17 znaków) → {{vinNumber}}
-- Tablice rejestracyjne → {{plateNumber}}
-- Daty (różne formaty) → {{issueDate}}, {{expiryDate}}, {{birthDate}}
-- Marka, model pojazdu → {{vehicleMake}}, {{vehicleModel}}
-- Rok produkcji → {{vehicleYear}}
-- Kwoty z walutą → {{totalAmount}}, {{taxAmount}}, {{netPrice}}
-- Numery dokumentów (faktury, polisy) → {{invoiceNumber}}, {{policyNumber}}
-- Numery referencyjne celne → {{mrnNumber}}, {{customsReference}}
-- Miasta, kraje → {{city}}, {{country}}
-- Pojemność silnika, moc → {{engineCapacity}}, {{enginePower}}
-- Masa pojazdu → {{vehicleWeight}}, {{grossWeight}}
-- Numer nadwozia/silnika → {{engineNumber}}, {{bodyNumber}}
+═══════════════════════════════════════════════════════════════════════
+⚠️ KRYTYCZNE: WARTOŚCI STAŁE - NIGDY NIE ZAMIENIAJ (powtarzają się identycznie we wszystkich dokumentach):
+═══════════════════════════════════════════════════════════════════════
 
-NIE ZAMIENIAJ:
-- Nagłówków sekcji ("VIN:", "Data:", "Właściciel:")
-- Pojedynczych słów bez kontekstu
-- Etykiet i instrukcji
-- Nazw stałych firm w nagłówkach dokumentów
-- Jednostek miar (kg, cm³, kW)
-- Pojedynczych liter/cyfr bez kontekstu
+STAŁE FIRMY/PRZEDSTAWICIELE (występują w każdym dokumencie):
+- "MARLOG CAR HANDLING BV", "MARLOG CAR HANDLING"
+- "SMOORSTRAAT 24", "SMOORSTRAAT"
+- "ROOSENDAAL", "NL-4705 AA ROOSENDAAL"
+- "NL006223527", "006223527" (numer celny przedstawiciela)
+- "LEAN CUSTOMS B.V."
+- "MLG INTERNATIONAL S.A."
 
+STAŁE NAGŁÓWKI/ETYKIETY (formularze):
+- "Data:", "Nazwa:", "Adres:", "Miejscowość:", "Numer celny:"
+- "Zgłaszający", "Przedstawiciel", "Nadawca/Eksporter"
+- "VIN:", "MRN:", "Numer deklaracji:", "Artykuł:"
+- "WSPÓLNOTA EUROPEJSKA", "EGZEMPLARZ TRANSPORTOWY IMPORTU"
+- "KONTROLA PRZEZ URZĄD WYJŚCIA", "KONTROLA PO WYŁADOWANIU"
+- "Należne", "Do zapłaty", "Zabezpieczenie", "Łącznie"
+
+STAŁE KODY I NUMERY (identyczne we wszystkich dokumentach):
+- "87032490", "87032490000000000000", "8703239000", "87032390000000000000" (kody towarowe)
+- "N935", "N821", "Y923", "792", "160" (kody formularzy)
+- "EUR", "PL", "NL", "DE", "BE" (kody krajów/walut)
+- "10", "21" (stawki VAT/cła)
+- "IM", "A", "IM-A" (typy deklaracji)
+- "[kod kreskowy]"
+
+STAŁE ADRESY URZĘDÓW:
+- "Skrytka pocztowa 3070", "6401 DN Heerlen"
+- "Urząd Skarbowy/Urząd Celny"
+
+═══════════════════════════════════════════════════════════════════════
+✅ DANE ZMIENNE - ZAMIENIAJ NA {{tagi}} (różnią się między dokumentami):
+═══════════════════════════════════════════════════════════════════════
+
+1. VIN (17 znaków, unikalne) → {{vinNumber}}
+   Przykłady: "WAUENCF57JA005040", "1C4SDJH91PC687665", "WMZ83BR06P3R14626"
+
+2. MRN (numer celny, format: 2cyfry+2litery+reszta) → {{mrnNumber}}
+   Przykłady: "25NL7PU1EYHFR8FDR4", "25BE000000709313J0"
+
+3. DATY (różne formaty) → {{issueDate}}, {{acceptanceDate}}
+   Przykłady: "09-07-2025", "2025-04-21", "14.01.2025"
+
+4. KWOTY Z WALUTĄ → {{customsValue}}, {{vatAmount}}, {{dutyAmount}}, {{totalAmount}}
+   Przykłady: "9.775,81 EUR", "2.258,21 EUR", "977,58 EUR"
+
+5. IMIONA I NAZWISKA KLIENTÓW → {{declarantName}}, {{ownerName}}, {{buyerName}}
+   Przykłady: "KUBICZ DANIEL", "Jan Kowalski", "TOMASZ DUDA"
+
+6. ADRESY KLIENTÓW → {{declarantAddress}}, {{ownerAddress}}
+   Przykłady: "DOROTOWSKA 2/20", "ul. Zielona 15", "WOLKA KLUCKA 233"
+
+7. MIASTA KLIENTÓW → {{declarantCity}}, {{ownerCity}}
+   Przykłady: "WARSZAWA", "MNIOW", "WADOWICE GORNE"
+
+8. KODY POCZTOWE KLIENTÓW → {{postalCode}}
+   Przykłady: "00-123", "26-080", "28-210"
+
+9. NUMERY REFERENCYJNE (unikalne) → {{referenceNumber}}, {{shipmentNumber}}
+   Przykłady: "MCH-SI-078956", "687665"
+
+10. OPIS POJAZDU → {{vehicleDescription}}
+    Przykłady: "2023 DODGE DURANGO VIN: 1C4SDJH91PC687665", "2018 AUDI A5 VIN: WAUENCF57JA005040"
+
+11. NUMERY KONTENERÓW (4 litery + 7 cyfr) → {{containerNumber}}
+    Przykłady: "BEAU5658460", "TCNU7942617", "MSMU5801360", "EISU9394456"
+
+    KOMBINACJA KONTENER / VIN → {{containerVin}}
+    Przykłady: "BEAU5658460 / WAUENCF57JA005040", "MSMU5801360 / 3C6RR7KT6EG245165"
+
+12. NAZWY STATKÓW → {{vesselName}}
+    Przykłady: "MSC CORUNA", "MSC BHAVYA V", "COSCO HOPE", "EVER FOREVER", "MAERSK SEVILLE"
+
+13. NUMERY PRZESYŁEK → {{shipmentNumber}}
+    Przykłady: "MCH-SI-062127", "MCH-SI-078956", "687665"
+
+14. NUMERY BOOKING/BL → {{bookingNumber}}
+    Przykłady: "EGLV400500241810", "MEDUOJ809542"
+
+15. NUMERY POZWOLEŃ (różne od stałych) → {{permitNumber}}
+
+═══════════════════════════════════════════════════════════════════════
 ZASADY:
+═══════════════════════════════════════════════════════════════════════
 1. Zwróć JSON array: ["tekst lub {{tag}}", "tekst lub {{tag}}", ...]
-2. MUSI być DOKŁADNIE tyle samo elementów co w input
+2. MUSI być DOKŁADNIE tyle samo elementów co input
 3. MUSI być w TEJ SAMEJ kolejności
-4. Jeśli tekst NIE jest zmienną → zwróć go bez zmian
-5. Jeśli tekst JEST zmienną → zwróć {{camelCaseNazwa}}
+4. Jeśli tekst jest STAŁY (z listy powyżej) → zwróć BEZ ZMIAN
+5. Jeśli tekst jest ZMIENNY → zwróć {{camelCaseTag}}
 6. Używaj angielskich nazw tagów w camelCase
+7. NIE zamieniaj pojedynczych liter, cyfr 1-2 znakowych, etykiet z dwukropkiem
 
 PRZYKŁADY:
-Input: ["Data wystawienia:", "15.03.2024", "VIN:", "WVWZZZ3CZWE123456", "Cena brutto:", "25 000,00 EUR"]
-Output: ["Data wystawienia:", "{{issueDate}}", "VIN:", "{{vinNumber}}", "Cena brutto:", "{{grossPrice}}"]
+Input: ["Data akceptacji:", "09-07-2025", "MARLOG CAR HANDLING BV", "KUBICZ DANIEL"]
+Output: ["Data akceptacji:", "{{acceptanceDate}}", "MARLOG CAR HANDLING BV", "{{declarantName}}"]
 
-Input: ["MARLOG CAR HANDLING BV", "Jan Kowalski", "ul. Zielona 15/3", "00-123", "Warszawa"]
-Output: ["MARLOG CAR HANDLING BV", "{{buyerName}}", "{{streetAddress}}", "{{postalCode}}", "{{city}}"]`;
+Input: ["VIN:", "WMZ83BR06P3R14626", "Wartość:", "9.775,81 EUR", "NL006223527"]
+Output: ["VIN:", "{{vinNumber}}", "Wartość:", "{{customsValue}}", "NL006223527"]`;
 
   const userPrompt = `Przeanalizuj te ${texts.length} tekstów z dokumentu i zwróć JSON array z placeholderami:
 

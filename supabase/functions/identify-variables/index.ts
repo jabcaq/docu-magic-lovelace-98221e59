@@ -29,21 +29,39 @@ KRYTYCZNE ZASADY:
 - Format zmiennych: {{nazwa_zmiennej}} (małe litery, podkreślenia zamiast spacji)
 - Nie dodawaj ŻADNYCH dodatkowych wyjaśnień, komentarzy ani tekstu przed/po wyniku
 - Zachowaj puste linie jako puste linie
-- Jeśli linia zawiera tylko etykietę (np. "Data:"), zostaw ją bez zmians
+- Jeśli linia zawiera tylko etykietę (np. "Data:"), zostaw ją bez zmian
 
-❌ NIGDY NIE ZAMIENIAJ TYCH WARTOŚCI STAŁYCH (są identyczne we wszystkich dokumentach):
-- "MLG INTERNATIONAL S.A." / "Panama City" (nadawca/eksporter)
-- "MARLOG CAR HANDLING BV" / "SMOORSTRAAT 24" / "NL-4705 AA ROOSENDAAL" (przedstawiciel)
-- "NL006223527" (numer celny przedstawiciela)
-- "IM" / "A" (rodzaj deklaracji)
-- "NL000396" (urząd celny)
-- "1" (jako liczba artykułów/pozycji)
-- "87032490000000000000" lub "87032390000000000000" (kod towarowy CN)
-- "PL" (jako kod kraju przeznaczenia)
-- "10" (jako stawka cła)
-- "21" (jako stawka VAT)
-- "Skrytka pocztowa 3070" / "6401 DN Heerlen" (adres sprzeciwu)
-- "EUR" (symbol waluty, ale zamieniaj kwoty)
+═══════════════════════════════════════════════════════════════════════
+❌ NIGDY NIE ZAMIENIAJ TYCH WARTOŚCI STAŁYCH (powtarzają się identycznie we wszystkich dokumentach):
+═══════════════════════════════════════════════════════════════════════
+
+STAŁE FIRMY/PRZEDSTAWICIELE:
+- "MARLOG CAR HANDLING BV", "MARLOG CAR HANDLING", "SMOORSTRAAT 24", "SMOORSTRAAT"
+- "ROOSENDAAL", "NL-4705 AA ROOSENDAAL", "4705 AA"
+- "NL006223527", "006223527" (numer celny przedstawiciela)
+- "LEAN CUSTOMS B.V.", "MLG INTERNATIONAL S.A.", "Panama City"
+
+STAŁE KODY I NUMERY FORMULARZY:
+- "87032490", "87032490000000000000", "8703239000", "87032390000000000000" (kody towarowe)
+- "N935", "N821", "Y923", "792", "160" (kody formularzy)
+- "NL000396", "NL000396/" (urząd celny)
+- "10", "21" (stawki VAT/cła)
+- "IM", "A", "IM-A" (typy deklaracji)
+- "EUR", "PL", "NL", "DE", "BE", "US" (kody krajów/walut)
+- "[kod kreskowy]"
+
+STAŁE NAGŁÓWKI I ETYKIETY:
+- Wszystkie teksty kończące się dwukropkiem
+- "Zgłaszający", "Przedstawiciel", "Nadawca/Eksporter"
+- "WSPÓLNOTA EUROPEJSKA", "EGZEMPLARZ TRANSPORTOWY IMPORTU"
+- "Należne", "Do zapłaty", "Zabezpieczenie", "Łącznie"
+
+STAŁE ADRESY URZĘDÓW:
+- "Skrytka pocztowa 3070", "6401 DN Heerlen"
+- "Urząd Skarbowy/Urząd Celny"
+
+STAŁE POZWOLENIA (powtarzają się):
+- "NLDPONL000566-2021-D-ZIA82479"
 
 ✅ KATEGORIE DANYCH DO ZAMIANY:
 

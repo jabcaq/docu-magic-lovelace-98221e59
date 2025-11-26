@@ -74,41 +74,70 @@ Deno.serve(async (req) => {
     console.log("   Original runs have formatting:", runs.some(r => r.formatting));
 
     // AI Prompt - zwróć te same teksty, ale zmień zmienne na {{tags}}
-    const systemPrompt = `You are analyzing text fragments from automotive documents.
+    const systemPrompt = `You are analyzing text fragments from customs/automotive documents.
 
-TASK: Return EXACTLY THE SAME array of texts, but replace variable data with {{tagName}} placeholders.
+TASK: Return EXACTLY THE SAME array of texts, but replace ONLY VARIABLE data with {{tagName}} placeholders.
 
-INPUT: Array of text strings
-OUTPUT: Array of strings - SAME LENGTH, SAME ORDER
+═══════════════════════════════════════════════════════════════════════
+⚠️ CRITICAL: CONSTANT VALUES - NEVER REPLACE (identical across all documents):
+═══════════════════════════════════════════════════════════════════════
 
-WHAT TO REPLACE with {{tagName}}:
-- Person names → {{ownerName}}, {{contactPerson}}
-- Addresses (complete, with numbers) → {{ownerAddress}}, {{companyAddress}}
-- VIN (17 characters) → {{vinNumber}}
-- License plates → {{plateNumber}}
-- Dates → {{issueDate}}, {{birthDate}}, {{expiryDate}}
-- Vehicle: make, model, year → {{vehicleMake}}, {{vehicleModel}}, {{vehicleYear}}
-- Money amounts with currency → {{insuranceAmount}}, {{purchasePrice}}
-- Document numbers → {{policyNumber}}, {{invoiceNumber}}, {{mrnNumber}}
-- Cities/locations → {{city}}, {{country}}
+CONSTANT COMPANIES/REPRESENTATIVES:
+- "MARLOG CAR HANDLING BV", "MARLOG CAR HANDLING", "SMOORSTRAAT 24", "ROOSENDAAL"
+- "NL006223527", "006223527" (customs number - always same)
+- "LEAN CUSTOMS B.V.", "MLG INTERNATIONAL S.A."
 
-NEVER REPLACE:
-- Section headers ("Owner:", "VIN:", "Date:")
-- Single words without context
-- Partial info (just street name without number)
-- Labels, instructions
-- Company names in headers
+CONSTANT CODES AND NUMBERS:
+- "87032490", "87032490000000000000", "8703239000" (tariff codes)
+- "N935", "N821", "Y923", "792", "160" (form codes)
+- "10", "21" (VAT/duty rates)
+- "IM", "A", "IM-A" (declaration types)
+- "EUR", "PL", "NL", "DE", "BE", "US" (country/currency codes)
+- "NL000396" (customs office)
+- "[kod kreskowy]"
+
+CONSTANT HEADERS/LABELS:
+- Any text ending with ":"
+- "Zgłaszający", "Przedstawiciel", "WSPÓLNOTA EUROPEJSKA"
+
+CONSTANT ADDRESSES:
+- "Skrytka pocztowa 3070", "6401 DN Heerlen"
+- "NL-4705 AA ROOSENDAAL", "4705 AA"
+
+═══════════════════════════════════════════════════════════════════════
+✅ VARIABLE DATA - REPLACE with {{tags}} (differs between documents):
+═══════════════════════════════════════════════════════════════════════
+
+1. VIN (17 chars) → {{vinNumber}}
+2. MRN (customs ref, e.g. "25NL7PU1EYHFR8FDR4") → {{mrnNumber}}
+3. Dates → {{issueDate}}, {{acceptanceDate}}
+4. Money amounts → {{customsValue}}, {{vatAmount}}, {{dutyAmount}}
+5. Client names → {{declarantName}}, {{ownerName}}
+6. Client addresses → {{declarantAddress}}
+7. Client cities → {{declarantCity}}
+8. Postal codes → {{postalCode}}
+9. Reference numbers (unique) → {{referenceNumber}}
+10. Vehicle description (with year, make, VIN) → {{vehicleDescription}}
+11. Container numbers (4 letters + 7 digits) → {{containerNumber}}
+    Examples: "BEAU5658460", "TCNU7942617", "MSMU5801360"
+12. Vessel/ship names → {{vesselName}}
+    Examples: "MSC CORUNA", "COSCO HOPE", "EVER FOREVER"
+13. Shipment numbers → {{shipmentNumber}}
+    Examples: "MCH-SI-062127", "687665"
+14. Booking/BL numbers → {{bookingNumber}}
+    Examples: "EGLV400500241810", "MEDUOJ809542"
 
 RULES:
 1. Return JSON array: ["text or {{tag}}", "text or {{tag}}", ...]
 2. MUST be EXACTLY same length as input
 3. MUST be EXACTLY same order
-4. If text is NOT a variable → return it unchanged
-5. If text IS a variable → return {{camelCaseEnglishName}}
+4. If text is CONSTANT (from list above) → return UNCHANGED
+5. If text is VARIABLE → return {{camelCaseTag}}
+6. Single chars/digits, labels with ":" → return UNCHANGED
 
 Example:
-Input: ["Owner:", "Jan Kowalski", "VIN:", "1C4SDJH91PC687665", "09-07-2025"]
-Output: ["Owner:", "{{ownerName}}", "VIN:", "{{vinNumber}}", "{{issueDate}}"]`;
+Input: ["Data:", "09-07-2025", "MARLOG CAR HANDLING BV", "KUBICZ DANIEL", "NL006223527"]
+Output: ["Data:", "{{issueDate}}", "MARLOG CAR HANDLING BV", "{{declarantName}}", "NL006223527"]`;
 
     const userPrompt = `Analyze these ${originalTexts.length} texts:\n${JSON.stringify(originalTexts)}`;
 

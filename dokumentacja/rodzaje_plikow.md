@@ -1,5 +1,46 @@
 # Dokumentacja systemu DocuMagic
 
+## Analiza wzorców - stałe vs zmienne (z 14 dokumentów celnych)
+
+### ⚠️ WARTOŚCI STAŁE (nie zamieniać na zmienne!)
+
+Te wartości powtarzają się identycznie w wielu dokumentach:
+
+| Kategoria | Wartości stałe |
+|-----------|---------------|
+| **Firmy/Przedstawiciele** | MARLOG CAR HANDLING BV, SMOORSTRAAT 24, ROOSENDAAL, NL006223527, LEAN CUSTOMS B.V. |
+| **Kody towarowe** | 87032490, 8703239000, 87032490000000000000 |
+| **Kody formularzy** | N935, N821, Y923, 792, 160 |
+| **Stawki/Kody** | 10, 21, IM, A, EUR, PL, NL |
+| **Adresy urzędów** | Skrytka pocztowa 3070, 6401 DN Heerlen |
+| **Pozwolenia** | NLDPONL000566-2021-D-ZIA82479 |
+
+### ✅ WARTOŚCI ZMIENNE (zamieniać na {{tagi}})
+
+| Typ | Przykłady | Tag |
+|-----|-----------|-----|
+| **TRANSPORT/LOGISTYKA** | | |
+| Numery kontenerów | BEAU5658460, TCNU7942617, MSMU5801360 | `{{containerNumber}}` |
+| Nazwy statków | MSC CORUNA, COSCO HOPE, EVER FOREVER | `{{vesselName}}` |
+| Kontener + VIN | BEAU5658460 / WAUENCF57JA005040 | `{{containerVin}}` |
+| Booking/BL | EGLV400500241810, MEDUOJ809542 | `{{bookingNumber}}` |
+| Nr przesyłki | MCH-SI-062127, 687665 | `{{shipmentNumber}}` |
+| **POJAZD** | | |
+| VIN | WAUENCF57JA005040, 1C4SDJH91PC687665 | `{{vinNumber}}` |
+| Opis pojazdu | 2023 DODGE DURANGO VIN: 1C4SDJH91PC687665 | `{{vehicleDescription}}` |
+| **DOKUMENTY** | | |
+| MRN | 25NL7PU1EYHFR8FDR4, 25BE000000709313J0 | `{{mrnNumber}}` |
+| Daty | 09-07-2025, 2025-04-21, 14.01.2025 | `{{issueDate}}` |
+| Kwoty EUR | 9.775,81 EUR, 2.258,21 EUR, 977,58 EUR | `{{amount}}` |
+| Referencje | MCH-SI-078956 | `{{referenceNumber}}` |
+| **DANE OSOBOWE/ADRESOWE** | | |
+| Osoby | KUBICZ DANIEL, TOMASZ DUDA | `{{personName}}` |
+| Adresy | DOROTOWSKA 2/20, WOLKA KLUCKA 233 | `{{streetAddress}}` |
+| Miasta | WARSZAWA, SLUPSK, MNIOW | `{{city}}` |
+| Kody pocztowe | 00-123, 26-080, 76-200 | `{{postalCode}}` |
+
+---
+
 ## Rodzaje dokumentów realizowane przez tłumacza.pl
 
 ### Dokumenty samochodowe
