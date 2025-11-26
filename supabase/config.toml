@@ -62,3 +62,9 @@ verify_jwt = true
 
 [functions.rebuild-docx-with-variables]
 verify_jwt = true
+
+[functions.process-docx-template]
+verify_jwt = true
+
+[functions.extract-and-send-xml]
+verify_jwt = true
