@@ -6,6 +6,26 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+/**
+ * Safely replace variable tags with values in XML
+ * Preserves XML structure by properly escaping values
+ */
+function safeReplaceInXml(xml: string, tag: string, value: string): string {
+  // Escape the value for XML
+  const escapedValue = value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+  
+  // Escape the tag for regex
+  const escapedTag = tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  
+  // Replace all occurrences (case-insensitive)
+  return xml.replace(new RegExp(escapedTag, 'gi'), escapedValue);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -74,7 +94,9 @@ Deno.serve(async (req) => {
       throw new Error("documentId is required");
     }
 
-    console.log("Downloading document:", documentId);
+    console.log("=== Download Document ===");
+    console.log("Document ID:", documentId);
+    console.log("Mode:", mode);
 
     // Get document data with XML content
     const { data: document, error: docError } = await supabase
@@ -89,10 +111,6 @@ Deno.serve(async (req) => {
     if (!document.storage_path) {
       throw new Error("Document has no storage path");
     }
-    
-    if (!document.xml_content) {
-      throw new Error("Document has no XML content");
-    }
 
     // Get all document fields with their values
     const { data: fields, error: fieldsError } = await supabase
@@ -102,7 +120,7 @@ Deno.serve(async (req) => {
 
     if (fieldsError) throw fieldsError;
 
-    console.log("Found fields:", fields?.length || 0);
+    console.log("✓ Found", fields?.length || 0, "fields");
 
     // Download the original DOCX file from storage
     const { data: fileData, error: downloadError } = await supabase
@@ -119,48 +137,60 @@ Deno.serve(async (req) => {
       throw new Error("No file data received");
     }
 
-    console.log("File downloaded successfully, size:", fileData.size);
+    console.log("✓ Original file downloaded, size:", fileData.size);
 
-    // Load DOCX as ZIP from storage (need the structure, styles, etc.)
+    // Load DOCX as ZIP from storage (preserves all styles, media, etc.)
     const arrayBuffer = await fileData.arrayBuffer();
     const zip = await JSZip.loadAsync(arrayBuffer);
 
-    console.log("Using XML content from database");
-    console.log("Mode:", mode);
+    // Determine which XML to use as base
+    let baseXml: string;
+    
+    if (document.xml_content) {
+      // Use the processed XML from database (has {{tags}})
+      baseXml = document.xml_content;
+      console.log("✓ Using processed XML from database");
+    } else {
+      // Fallback: extract from original DOCX
+      const docXml = zip.file("word/document.xml");
+      if (!docXml) {
+        throw new Error("Invalid DOCX: document.xml not found");
+      }
+      baseXml = await docXml.async("text");
+      console.log("✓ Using XML from original DOCX");
+    }
 
-    // Start with the XML content from the database (which has tags)
-    let modifiedXml = document.xml_content;
+    let finalXml = baseXml;
     
     if (mode === "filled" && fields && fields.length > 0) {
-      // Replace tags with actual values
+      // Replace {{tags}} with actual values
+      console.log("→ Replacing tags with values...");
+      
       for (const field of fields) {
-        if (!field.field_tag || !field.field_value) continue;
+        if (!field.field_tag) continue;
         
-        // Simple text replacement of tags with values
-        const tagPattern = new RegExp(
-          field.field_tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
-          "gi"
-        );
-        
-        modifiedXml = modifiedXml.replace(tagPattern, field.field_value);
-        
-        console.log(`Replaced "${field.field_tag}" with "${field.field_value}"`);
+        const value = field.field_value || "";
+        finalXml = safeReplaceInXml(finalXml, field.field_tag, value);
+        console.log(`   ${field.field_tag} → "${value.substring(0, 30)}${value.length > 30 ? '...' : ''}"`);
       }
+      
+      console.log("✓ All replacements complete");
+    } else if (mode === "template") {
+      // Keep tags as-is - already in the XML
+      console.log("✓ Template mode - keeping {{tags}} intact");
     }
-    // For template mode, keep the tags as-is (already in xml_content)
 
-    console.log("Modified document.xml length:", modifiedXml.length);
+    console.log("→ Generating DOCX file...");
 
-    // Update the document.xml in the ZIP
-    zip.file("word/document.xml", modifiedXml);
+    // Update the document.xml in the ZIP (preserves everything else)
+    zip.file("word/document.xml", finalXml);
 
     // Generate new DOCX file
     const modifiedDocx = await zip.generateAsync({ 
-      type: "base64"
+      type: "base64",
+      compression: "DEFLATE",
+      compressionOptions: { level: 6 }
     });
-
-    // Already in base64 format
-    const base64 = modifiedDocx;
 
     // Create filename based on mode
     const originalName = document.name || "document.docx";
@@ -168,17 +198,20 @@ Deno.serve(async (req) => {
     const suffix = mode === "template" ? "_szablon" : "_wypelniony";
     const filename = `${nameWithoutExt}${suffix}.docx`;
 
+    console.log("✓ Generated:", filename);
+
     return new Response(
       JSON.stringify({ 
-        base64,
-        filename
+        base64: modifiedDocx,
+        filename,
+        fieldsReplaced: mode === "filled" ? (fields?.length || 0) : 0
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
   } catch (error) {
-    console.error("Error in download-document:", error);
+    console.error("❌ Error in download-document:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return new Response(
       JSON.stringify({ error: errorMessage }),

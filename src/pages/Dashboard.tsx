@@ -2,12 +2,13 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Upload, Search, Settings } from "lucide-react";
+import { FileText, Upload, Search, Settings, Sparkles } from "lucide-react";
 import WordTemplater from "@/components/WordTemplater";
 import TestXmlAi from "@/components/TestXmlAi";
+import DocxTemplateProcessor from "@/components/DocxTemplateProcessor";
 
 const Dashboard = () => {
-  const [activeTab, setActiveTab] = useState("templater");
+  const [activeTab, setActiveTab] = useState("generator");
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5">
@@ -36,7 +37,11 @@ const Dashboard = () => {
       {/* Main Content */}
       <main className="w-full px-6 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full max-w-3xl grid-cols-5 mx-auto">
+          <TabsList className="grid w-full max-w-4xl grid-cols-6 mx-auto">
+            <TabsTrigger value="generator" className="gap-2">
+              <Sparkles className="h-4 w-4" />
+              Generator
+            </TabsTrigger>
             <TabsTrigger value="templater" className="gap-2">
               <FileText className="h-4 w-4" />
               Templater
@@ -58,6 +63,10 @@ const Dashboard = () => {
               XML + AI
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="generator" className="space-y-6">
+            <DocxTemplateProcessor />
+          </TabsContent>
 
           <TabsContent value="templater" className="space-y-6">
             <WordTemplater />

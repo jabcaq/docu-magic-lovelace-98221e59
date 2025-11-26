@@ -98,61 +98,66 @@ Deno.serve(async (req) => {
     console.log("Document created successfully:", document.id);
 
     // For Word documents, trigger processing pipeline based on approach
-    try {
-      if (analysisApproach === 'xml_ai') {
-        console.log("Using XML + AI analysis approach for document:", document.id);
-        
-        const { error: xmlAiError } = await supabase.functions.invoke("analyze-document-xml-ai", {
-          body: { documentId: document.id },
-          headers: { Authorization: authHeader }
-        });
+    // Skip if manual mode (used by process-docx-template)
+    if (analysisApproach !== 'manual') {
+      try {
+        if (analysisApproach === 'xml_ai') {
+          console.log("Using XML + AI analysis approach for document:", document.id);
+          
+          const { error: xmlAiError } = await supabase.functions.invoke("analyze-document-xml-ai", {
+            body: { documentId: document.id },
+            headers: { Authorization: authHeader }
+          });
 
-        if (xmlAiError) {
-          console.error('Failed to analyze with XML AI:', xmlAiError);
-          throw xmlAiError;
+          if (xmlAiError) {
+            console.error('Failed to analyze with XML AI:', xmlAiError);
+            throw xmlAiError;
+          }
+        } else {
+          // Default: runs approach
+          console.log("Step 1: Extracting runs for document:", document.id);
+          
+          const { error: runsError } = await supabase.functions.invoke("extract-openxml-runs", {
+            body: { documentId: document.id },
+            headers: { Authorization: authHeader }
+          });
+
+          if (runsError) {
+            console.error('Failed to extract runs:', runsError);
+            throw runsError;
+          }
+
+          console.log("Step 2: Analyzing document fields for document:", document.id);
+          
+          const { error: analyzeError } = await supabase.functions.invoke("analyze-document-fields", {
+            body: { documentId: document.id },
+            headers: { Authorization: authHeader }
+          });
+
+          if (analyzeError) {
+            console.error('Failed to analyze document:', analyzeError);
+            throw analyzeError;
+          }
+
+          console.log("Step 3: Rebuilding XML for document:", document.id);
+          
+          const { error: rebuildError } = await supabase.functions.invoke("rebuild-document-xml", {
+            body: { documentId: document.id },
+            headers: { Authorization: authHeader }
+          });
+
+          if (rebuildError) {
+            console.error('Failed to rebuild XML:', rebuildError);
+            throw rebuildError;
+          }
         }
-      } else {
-        // Default: runs approach
-        console.log("Step 1: Extracting runs for document:", document.id);
-        
-        const { error: runsError } = await supabase.functions.invoke("extract-openxml-runs", {
-          body: { documentId: document.id },
-          headers: { Authorization: authHeader }
-        });
 
-        if (runsError) {
-          console.error('Failed to extract runs:', runsError);
-          throw runsError;
-        }
-
-        console.log("Step 2: Analyzing document fields for document:", document.id);
-        
-        const { error: analyzeError } = await supabase.functions.invoke("analyze-document-fields", {
-          body: { documentId: document.id },
-          headers: { Authorization: authHeader }
-        });
-
-        if (analyzeError) {
-          console.error('Failed to analyze document:', analyzeError);
-          throw analyzeError;
-        }
-
-        console.log("Step 3: Rebuilding XML for document:", document.id);
-        
-        const { error: rebuildError } = await supabase.functions.invoke("rebuild-document-xml", {
-          body: { documentId: document.id },
-          headers: { Authorization: authHeader }
-        });
-
-        if (rebuildError) {
-          console.error('Failed to rebuild XML:', rebuildError);
-          throw rebuildError;
-        }
+        console.log('Document processing pipeline completed successfully');
+      } catch (pipelineError) {
+        console.error('Error during document processing pipeline:', pipelineError);
       }
-
-      console.log('Document processing pipeline completed successfully');
-    } catch (pipelineError) {
-      console.error('Error during document processing pipeline:', pipelineError);
+    } else {
+      console.log('Manual mode - skipping automatic analysis pipeline');
     }
 
     return new Response(
