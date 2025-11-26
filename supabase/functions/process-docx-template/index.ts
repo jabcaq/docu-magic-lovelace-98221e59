@@ -429,7 +429,19 @@ STAŁE ADRESY URZĘDÓW:
 14. NUMERY BOOKING/BL → {{bookingNumber}}
     Przykłady: "EGLV400500241810", "MEDUOJ809542"
 
-15. NUMERY POZWOLEŃ (różne od stałych) → {{permitNumber}}
+15. EKSPORTERZY/NADAWCY (firmy zagraniczne) → {{exporterName}}
+    Przykłady: "MANHATTAN AUTO SALES LLC", "SPEED CANADA", "COPART INC"
+    
+16. ŚRODEK TRANSPORTU → {{transportType}}
+    Przykłady: "TRUCK", "TRAILER"
+
+17. MASA BRUTTO (kg) → {{grossWeight}}
+    Przykłady: "1.650,000", "2.100,000"
+
+18. WARTOŚĆ STATYSTYCZNA → {{statisticalValue}}
+    Przykłady: "9.775,81", "12.500,00"
+
+19. NUMERY POZWOLEŃ (różne od stałych) → {{permitNumber}}
 
 ═══════════════════════════════════════════════════════════════════════
 ZASADY:

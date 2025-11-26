@@ -144,6 +144,17 @@ function detectVariables(texts) {
       tag = '{{bookingNumber}}';
     }
     
+    // Exporter companies (foreign companies with LLC, INC, CORP, etc.)
+    else if (/^[A-Z][A-Z\s\.,]+\s+(LLC|INC|CORP|LTD|CO|GMBH)$/i.test(trimmed) && 
+             !CONSTANTS_TO_IGNORE.has(trimmed)) {
+      tag = '{{exporterName}}';
+    }
+    
+    // Transport type - TRUCK
+    else if (trimmed === 'TRUCK' || trimmed === 'TRAILER' || trimmed === 'WAGON') {
+      tag = '{{transportType}}';
+    }
+    
     // VIN (17 chars, excluding I, O, Q)
     else if (/^[A-HJ-NPR-Z0-9]{17}$/i.test(trimmed)) {
       tag = '{{vinNumber}}';
@@ -158,6 +169,11 @@ function detectVariables(texts) {
     else if (/^\d{1,2}[-./]\d{1,2}[-./]\d{2,4}$/.test(trimmed) ||
              /^\d{4}[-./]\d{1,2}[-./]\d{1,2}$/.test(trimmed)) {
       tag = '{{issueDate}}';
+    }
+    
+    // Gross weight (format: 1565,000 or 1.650,000)
+    else if (/^\d{1,4}[.,]\d{3}$/.test(trimmed) && trimmed.endsWith('000')) {
+      tag = '{{grossWeight}}';
     }
     
     // Money with EUR

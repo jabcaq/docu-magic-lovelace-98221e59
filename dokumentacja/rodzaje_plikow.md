@@ -17,27 +17,47 @@ Te wartości powtarzają się identycznie w wielu dokumentach:
 
 ### ✅ WARTOŚCI ZMIENNE (zamieniać na {{tagi}})
 
-| Typ | Przykłady | Tag |
-|-----|-----------|-----|
-| **TRANSPORT/LOGISTYKA** | | |
-| Numery kontenerów | BEAU5658460, TCNU7942617, MSMU5801360 | `{{containerNumber}}` |
-| Nazwy statków | MSC CORUNA, COSCO HOPE, EVER FOREVER | `{{vesselName}}` |
-| Kontener + VIN | BEAU5658460 / WAUENCF57JA005040 | `{{containerVin}}` |
-| Booking/BL | EGLV400500241810, MEDUOJ809542 | `{{bookingNumber}}` |
-| Nr przesyłki | MCH-SI-062127, 687665 | `{{shipmentNumber}}` |
-| **POJAZD** | | |
-| VIN | WAUENCF57JA005040, 1C4SDJH91PC687665 | `{{vinNumber}}` |
-| Opis pojazdu | 2023 DODGE DURANGO VIN: 1C4SDJH91PC687665 | `{{vehicleDescription}}` |
-| **DOKUMENTY** | | |
-| MRN | 25NL7PU1EYHFR8FDR4, 25BE000000709313J0 | `{{mrnNumber}}` |
-| Daty | 09-07-2025, 2025-04-21, 14.01.2025 | `{{issueDate}}` |
-| Kwoty EUR | 9.775,81 EUR, 2.258,21 EUR, 977,58 EUR | `{{amount}}` |
-| Referencje | MCH-SI-078956 | `{{referenceNumber}}` |
-| **DANE OSOBOWE/ADRESOWE** | | |
-| Osoby | KUBICZ DANIEL, TOMASZ DUDA | `{{personName}}` |
-| Adresy | DOROTOWSKA 2/20, WOLKA KLUCKA 233 | `{{streetAddress}}` |
-| Miasta | WARSZAWA, SLUPSK, MNIOW | `{{city}}` |
-| Kody pocztowe | 00-123, 26-080, 76-200 | `{{postalCode}}` |
+| Typ | Przykłady | Tag | Wykryte |
+|-----|-----------|-----|---------|
+| **TRANSPORT/LOGISTYKA** | | | |
+| Numery kontenerów | BEAU5658460, TCNU7942617, MSMU5801360 | `{{containerNumber}}` | 14 |
+| Nazwy statków | MSC CORUNA, COSCO HOPE, EVER FOREVER | `{{vesselName}}` | 4 |
+| Kontener + VIN | BEAU5658460 / WAUENCF57JA005040 | `{{containerVin}}` | 2 |
+| Booking/BL | EGLV400500241810, MEDUOJ809542 | `{{bookingNumber}}` | 1 |
+| Nr przesyłki | MCH-SI-062127, 687665 | `{{shipmentNumber}}` | 25 |
+| Środek transportu | TRUCK, TRAILER | `{{transportType}}` | 3 |
+| **EKSPORTER/NADAWCA** | | | |
+| Firmy zagraniczne | MANHATTAN AUTO SALES LLC, SPEED CANADA, COPART INC | `{{exporterName}}` | 5 |
+| **WARTOŚCI LICZBOWE** | | | |
+| Masa brutto (kg) | 1565,000 / 1.650,000 | `{{grossWeight}}` | 4 |
+| **POJAZD** | | | |
+| VIN | WAUENCF57JA005040, 1C4SDJH91PC687665 | `{{vinNumber}}` | 18 |
+| Opis pojazdu | 2023 DODGE DURANGO VIN: 1C4SDJH91PC687665 | `{{vehicleDescription}}` | 6 |
+| **DOKUMENTY** | | | |
+| MRN | 25NL7PU1EYHFR8FDR4, 25BE000000709313J0 | `{{mrnNumber}}` | 19 |
+| Daty | 09-07-2025, 2025-04-21, 14.01.2025 | `{{issueDate}}` | 18 |
+| Kwoty EUR | 9.775,81 EUR, 2.258,21 EUR, 977,58 EUR | `{{amount}}` | 10 |
+| Referencje | MCH-SI-078956 | `{{referenceNumber}}` | 1 |
+| **DANE OSOBOWE/ADRESOWE** | | | |
+| Importer/Odbiorca | KUBICZ DANIEL, TOMASZ DUDA | `{{personName}}` | 65 |
+| Adresy | DOROTOWSKA 2/20, WOLKA KLUCKA 233 | `{{streetAddress}}` | 38 |
+| Miasta | WARSZAWA, SLUPSK, MNIOW | `{{city}}` | 84 |
+| Kody pocztowe | 00-123, 26-080, 76-200 | `{{postalCode}}` | 32 |
+
+**Razem wykrytych zmiennych:** 349 w 14 dokumentach (śr. 24.9/dokument)
+
+### 📊 Zgodność z analizą Gemini
+
+Wszystkie kategorie z analizy Gemini są teraz wykrywane:
+- ✅ Numer deklaracji / MRN → `{{mrnNumber}}`
+- ✅ Data wydania/akceptacji → `{{issueDate}}`
+- ✅ Nadawca/Eksporter → `{{exporterName}}`
+- ✅ Importer/Odbiorca → `{{personName}}`
+- ✅ Opis towarów + VIN → `{{vehicleDescription}}`, `{{vinNumber}}`
+- ✅ Identyfikacja środka transportu → `{{vesselName}}`, `{{transportType}}`
+- ✅ Numer kontenera → `{{containerNumber}}`
+- ✅ Masa brutto → `{{grossWeight}}`
+- ✅ Wartości finansowe → `{{amount}}`
 
 ---
 
