@@ -71,3 +71,6 @@ verify_jwt = true
 
 [functions.ocr-analyze-document]
 verify_jwt = true
+
+[functions.ocr-layout-parsing]
+verify_jwt = true
