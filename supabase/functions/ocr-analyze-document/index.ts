@@ -356,28 +356,51 @@ FORMAT ODPOWIEDZI:
     }
 
     console.log('Gemini response received, parsing...');
+    console.log('Response length:', extractedText.length);
+    console.log('Response preview (first 500 chars):', extractedText.slice(0, 500));
 
     // Parsuj odpowiedź JSON
     let ocrResult;
     try {
-      // Usuń markdown jeśli obecny
-      const jsonText = extractedText
-        .replace(/```json\n?/g, '')
-        .replace(/\n?```/g, '')
+      // Usuń markdown code blocks i whitespace
+      let jsonText = extractedText
+        .replace(/^[\s\S]*?```json\s*/i, '') // Usuń wszystko przed ```json
+        .replace(/```[\s\S]*$/i, '')          // Usuń ``` i wszystko po nim
         .trim();
+      
+      // Jeśli nadal zaczyna się od ```, usuń
+      if (jsonText.startsWith('```')) {
+        jsonText = jsonText.replace(/^```\w*\s*/, '').replace(/\s*```$/, '').trim();
+      }
+      
+      // Znajdź pierwszy { i ostatni }
+      const firstBrace = jsonText.indexOf('{');
+      const lastBrace = jsonText.lastIndexOf('}');
+      
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        jsonText = jsonText.slice(firstBrace, lastBrace + 1);
+      }
+      
+      console.log('Cleaned JSON preview:', jsonText.slice(0, 200));
       ocrResult = JSON.parse(jsonText);
     } catch (parseError) {
-      console.error('Failed to parse Gemini response:', extractedText);
+      console.error('First parse attempt failed:', parseError);
+      console.error('Full response:', extractedText);
       
-      // Próba ekstrakcji JSON z odpowiedzi
-      const jsonMatch = extractedText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        try {
-          ocrResult = JSON.parse(jsonMatch[0]);
-        } catch {
-          throw new Error('Failed to parse OCR results');
+      // Próba ekstrakcji JSON z odpowiedzi - znajdź obiekt JSON
+      try {
+        const firstBrace = extractedText.indexOf('{');
+        const lastBrace = extractedText.lastIndexOf('}');
+        
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+          const jsonCandidate = extractedText.slice(firstBrace, lastBrace + 1);
+          console.log('Extracted JSON candidate length:', jsonCandidate.length);
+          ocrResult = JSON.parse(jsonCandidate);
+        } else {
+          throw new Error('No JSON object found in response');
         }
-      } else {
+      } catch (secondError) {
+        console.error('Second parse attempt failed:', secondError);
         throw new Error('Failed to parse OCR results');
       }
     }
