@@ -109,7 +109,7 @@ Deno.serve(async (req) => {
     
     // Step 1: Call AI to identify variables (text-based analysis)
     console.log("→ Step 1: Text-based AI analysis...");
-    const processedTexts = await analyzeWithAI(
+    const { processedTexts, aiResponse } = await analyzeWithAI(
       texts, 
       openRouterApiKey
     );
@@ -306,7 +306,8 @@ Deno.serve(async (req) => {
         variableCount: allVariables.length,
         textBasedCount: variables.length,
         visualCount: visualVariables.length,
-        totalTextNodes: textNodes.length
+        totalTextNodes: textNodes.length,
+        aiResponse: aiResponse // Dodajemy odpowiedź z Gemini
       }),
       {
         status: 200,
@@ -439,7 +440,7 @@ function encodeXmlEntities(text: string): string {
 async function analyzeWithAI(
   texts: string[],
   openRouterKey: string
-): Promise<string[]> {
+): Promise<{ processedTexts: string[]; aiResponse: string }> {
   
   const systemPrompt = `Jesteś ekspertem od analizy dokumentów celnych, samochodowych i administracyjnych.
 
@@ -588,7 +589,7 @@ ${JSON.stringify(texts, null, 2)}`;
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error(`AI API error (${provider}):`, response.status, errorText);
+    console.error(`AI API error (OpenRouter):`, response.status, errorText);
     throw new Error(`AI API error: ${response.status}`);
   }
 
@@ -634,6 +635,6 @@ ${JSON.stringify(texts, null, 2)}`;
     processedTexts = normalized;
   }
 
-  return processedTexts;
+  return { processedTexts, aiResponse: content };
 }
 

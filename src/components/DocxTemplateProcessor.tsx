@@ -6,16 +6,28 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { 
   Upload, 
   FileText, 
   Download, 
   Sparkles, 
   CheckCircle2, 
   Loader2,
-  ArrowRight
+  ArrowRight,
+  Info,
+  Eye,
+  XCircle,
+  Circle
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { Progress } from "@/components/ui/progress";
 
 interface ExtractedVariable {
   name: string;
@@ -32,6 +44,7 @@ interface ProcessingResult {
   variableCount?: number;
   textBasedCount?: number;
   visualCount?: number;
+  aiResponse?: string; // Odpowiedź z Gemini
   error?: string;
 }
 
@@ -45,6 +58,9 @@ const DocxTemplateProcessor = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStep, setProcessingStep] = useState("");
   const [result, setResult] = useState<ProcessingResult | null>(null);
+  const [showProgressDialog, setShowProgressDialog] = useState(false);
+  const [showAiDetailsDialog, setShowAiDetailsDialog] = useState(false);
+  const [progressSteps, setProgressSteps] = useState<Array<{label: string; status: "pending" | "loading" | "success" | "error"}>>([]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -76,7 +92,18 @@ const DocxTemplateProcessor = () => {
 
     try {
       setIsUploading(true);
-      setProcessingStep("Wysyłanie pliku...");
+      setShowProgressDialog(true);
+      
+      // Inicjalizuj kroki postępu
+      setProgressSteps([
+        { label: "Wysyłanie pliku...", status: "loading" },
+        { label: "Analiza tekstowa z Gemini 2.5 Pro", status: "pending" },
+        { label: "Zastosowanie zmiennych z analizy tekstowej", status: "pending" },
+        { label: "Konwersja na obrazy stron", status: "pending" },
+        { label: "Weryfikacja wizualna z Gemini 2.5 Pro", status: "pending" },
+        { label: "Zastosowanie zmiennych z weryfikacji wizualnej", status: "pending" },
+        { label: "Generowanie finalnego szablonu", status: "pending" },
+      ]);
 
       // Get session
       const { data: { session } } = await supabase.auth.getSession();
@@ -103,7 +130,13 @@ const DocxTemplateProcessor = () => {
       setDocumentId(uploadedDocId);
       setIsUploading(false);
       setIsProcessing(true);
-      setProcessingStep("Analizuję dokument z AI...");
+      
+      // Aktualizuj kroki
+      setProgressSteps(prev => [
+        { ...prev[0], status: "success" },
+        { ...prev[1], status: "loading" },
+        ...prev.slice(2)
+      ]);
 
       // Step 2: Process with new template function (uses OpenRouter automatically)
       const processResponse = await supabase.functions.invoke("process-docx-template", {
@@ -122,8 +155,16 @@ const DocxTemplateProcessor = () => {
         throw new Error(processData.error || "Błąd przetwarzania");
       }
 
+      // Aktualizuj wszystkie kroki na sukces
+      setProgressSteps(prev => prev.map(step => ({ ...step, status: "success" as const })));
+
       setResult(processData);
       setProcessingStep("");
+
+      // Zamknij dialog po chwili
+      setTimeout(() => {
+        setShowProgressDialog(false);
+      }, 1000);
 
       toast({
         title: "Sukces! 🎉",
@@ -133,6 +174,11 @@ const DocxTemplateProcessor = () => {
     } catch (error) {
       console.error("Processing error:", error);
       const errorMessage = error instanceof Error ? error.message : "Nieznany błąd";
+      
+      // Oznacz aktualny krok jako błąd
+      setProgressSteps(prev => prev.map((step, idx) => 
+        step.status === "loading" ? { ...step, status: "error" as const } : step
+      ));
       
       toast({
         title: "Błąd przetwarzania",
@@ -339,6 +385,16 @@ const DocxTemplateProcessor = () => {
                   <FileText className="h-4 w-4" />
                   Edytuj w przeglądarce
                 </Button>
+                {result.aiResponse && (
+                  <Button 
+                    onClick={() => setShowAiDetailsDialog(true)} 
+                    variant="outline" 
+                    className="gap-2"
+                  >
+                    <Eye className="h-4 w-4" />
+                    Zobacz szczegóły z Gemini
+                  </Button>
+                )}
                 <Button onClick={handleReset} variant="ghost" className="gap-2">
                   Przetwórz kolejny
                 </Button>
@@ -364,6 +420,96 @@ const DocxTemplateProcessor = () => {
           )}
         </Card>
       )}
+
+      {/* Progress Dialog */}
+      <Dialog open={showProgressDialog} onOpenChange={setShowProgressDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Przetwarzanie dokumentu</DialogTitle>
+            <DialogDescription>
+              Proszę czekać, trwa analiza dokumentu...
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {progressSteps.length > 0 && (
+              <Progress 
+                value={(progressSteps.filter(s => s.status === "success").length / progressSteps.length) * 100} 
+                className="h-2" 
+              />
+            )}
+
+            <div className="space-y-3 max-h-[400px] overflow-y-auto">
+              {progressSteps.map((step, index) => {
+                const getStepIcon = () => {
+                  switch (step.status) {
+                    case "loading":
+                      return <Loader2 className="h-4 w-4 text-primary animate-spin" />;
+                    case "success":
+                      return <CheckCircle2 className="h-4 w-4 text-green-600" />;
+                    case "error":
+                      return <XCircle className="h-4 w-4 text-destructive" />;
+                    default:
+                      return <Circle className="h-4 w-4 text-muted-foreground" />;
+                  }
+                };
+
+                return (
+                  <div
+                    key={index}
+                    className={`flex items-start gap-3 ${
+                      step.status === "loading" ? "opacity-100" : step.status === "pending" ? "opacity-50" : "opacity-100"
+                    }`}
+                  >
+                    <div className="flex-shrink-0 mt-0.5">
+                      {getStepIcon()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm ${
+                        step.status === "error" ? "text-destructive" : "text-foreground"
+                      }`}>
+                        {step.label}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* AI Details Dialog */}
+      <Dialog open={showAiDetailsDialog} onOpenChange={setShowAiDetailsDialog}>
+        <DialogContent className="sm:max-w-3xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Info className="h-5 w-5" />
+              Szczegóły analizy z Gemini 2.5 Pro
+            </DialogTitle>
+            <DialogDescription>
+              Pełna odpowiedź z modelu AI pokazująca, jakie zmienne zostały wykryte
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {result?.aiResponse ? (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Odpowiedź z Gemini:</Label>
+                <div className="rounded-lg border bg-muted/50 p-4 max-h-[500px] overflow-y-auto">
+                  <pre className="text-xs whitespace-pre-wrap break-words font-mono">
+                    {result.aiResponse}
+                  </pre>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Brak dostępnej odpowiedzi z AI
+              </p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Info Box */}
       <Card className="p-4 bg-blue-50 border-blue-200">
