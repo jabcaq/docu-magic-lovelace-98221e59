@@ -109,6 +109,20 @@ function isDocxFile(mimeType: string): boolean {
          mimeType === 'application/msword';
 }
 
+// Efficient base64 encoding for large files
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 8192;
+  let result = '';
+  
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+    result += String.fromCharCode(...chunk);
+  }
+  
+  return btoa(result);
+}
+
 async function extractTextFromDocx(buffer: ArrayBuffer): Promise<string> {
   const zip = await JSZip.loadAsync(buffer);
   const documentXml = zip.file("word/document.xml");
@@ -222,7 +236,9 @@ Deno.serve(async (req) => {
     
     if (isImageFile(mimeType) || isPdfFile(mimeType)) {
       // Dla obrazów i PDF - użyj vision
-      const base64 = btoa(String.fromCharCode(...new Uint8Array(fileBuffer)));
+      console.log('Converting file to base64...');
+      const base64 = arrayBufferToBase64(fileBuffer);
+      console.log(`Base64 length: ${base64.length}`);
       
       contentForAi = [
         {
@@ -321,7 +337,7 @@ FORMAT ODPOWIEDZI:
             content: contentForAi
           }
         ],
-        max_tokens: 8000,
+        max_tokens: 16000, // Zwiększone dla dużych dokumentów z wieloma polami
         temperature: 0.1 // Niska temperatura dla precyzyjnej ekstrakcji
       }),
     });
@@ -340,29 +356,116 @@ FORMAT ODPOWIEDZI:
     }
 
     console.log('Gemini response received, parsing...');
+    console.log('Response length:', extractedText.length);
+    console.log('Response preview (first 500 chars):', extractedText.slice(0, 500));
 
     // Parsuj odpowiedź JSON
     let ocrResult;
     try {
-      // Usuń markdown jeśli obecny
-      const jsonText = extractedText
-        .replace(/```json\n?/g, '')
-        .replace(/\n?```/g, '')
+      // Usuń markdown code blocks i whitespace
+      let jsonText = extractedText
+        .replace(/^[\s\S]*?```json\s*/i, '') // Usuń wszystko przed ```json
+        .replace(/```[\s\S]*$/i, '')          // Usuń ``` i wszystko po nim
         .trim();
+      
+      // Jeśli nadal zaczyna się od ```, usuń
+      if (jsonText.startsWith('```')) {
+        jsonText = jsonText.replace(/^```\w*\s*/, '').replace(/\s*```$/, '').trim();
+      }
+      
+      // Znajdź pierwszy { i ostatni }
+      const firstBrace = jsonText.indexOf('{');
+      const lastBrace = jsonText.lastIndexOf('}');
+      
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        jsonText = jsonText.slice(firstBrace, lastBrace + 1);
+      }
+      
+      console.log('Cleaned JSON preview:', jsonText.slice(0, 200));
       ocrResult = JSON.parse(jsonText);
     } catch (parseError) {
-      console.error('Failed to parse Gemini response:', extractedText);
+      console.error('First parse attempt failed:', parseError);
+      console.error('Full response:', extractedText);
       
-      // Próba ekstrakcji JSON z odpowiedzi
-      const jsonMatch = extractedText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        try {
-          ocrResult = JSON.parse(jsonMatch[0]);
-        } catch {
-          throw new Error('Failed to parse OCR results');
+      // Próba ekstrakcji JSON z odpowiedzi - znajdź obiekt JSON
+      try {
+        const firstBrace = extractedText.indexOf('{');
+        const lastBrace = extractedText.lastIndexOf('}');
+        
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+          let jsonCandidate = extractedText.slice(firstBrace, lastBrace + 1);
+          console.log('Extracted JSON candidate length:', jsonCandidate.length);
+          ocrResult = JSON.parse(jsonCandidate);
+        } else {
+          // Odpowiedź może być obcięta - spróbuj naprawić
+          console.log('Attempting to repair truncated JSON...');
+          let jsonCandidate = extractedText.slice(extractedText.indexOf('{'));
+          
+          // Znajdź ostatni kompletny element w extractedFields
+          const lastCompleteFieldMatch = jsonCandidate.match(/("confidence":\s*"(?:high|medium|low)"\s*\})\s*,?\s*\{[^}]*$/);
+          if (lastCompleteFieldMatch) {
+            // Obetnij do ostatniego kompletnego pola i zamknij strukturę
+            const cutIndex = jsonCandidate.lastIndexOf(lastCompleteFieldMatch[1]) + lastCompleteFieldMatch[1].length;
+            jsonCandidate = jsonCandidate.slice(0, cutIndex) + ']}';
+            console.log('Repaired JSON by closing at last complete field');
+          } else {
+            // Spróbuj po prostu zamknąć tablicę i obiekt
+            jsonCandidate = jsonCandidate.replace(/,\s*\{[^}]*$/, '') + ']}';
+            console.log('Repaired JSON by removing incomplete last element');
+          }
+          
+          // Dodaj brakujące pola jeśli ich nie ma
+          if (!jsonCandidate.includes('"rawText"')) {
+            jsonCandidate = jsonCandidate.replace(/\]\s*\}$/, '], "rawText": "", "summary": "Dokument częściowo przeanalizowany (odpowiedź obcięta)"}');
+          }
+          
+          console.log('Repaired JSON preview:', jsonCandidate.slice(-200));
+          ocrResult = JSON.parse(jsonCandidate);
+          console.log('Successfully parsed repaired JSON');
         }
-      } else {
-        throw new Error('Failed to parse OCR results');
+      } catch (secondError) {
+        console.error('Second parse attempt failed:', secondError);
+        
+        // Ostatnia próba - zwróć częściowe wyniki
+        console.log('Attempting minimal extraction...');
+        try {
+          // Wyciągnij co się da z extractedFields
+          const fieldsMatch = extractedText.match(/"extractedFields"\s*:\s*\[([\s\S]*)/);
+          if (fieldsMatch) {
+            let fieldsContent = fieldsMatch[1];
+            // Znajdź wszystkie kompletne obiekty pól
+            const completeFields: any[] = [];
+            const fieldRegex = /\{\s*"tag"\s*:\s*"([^"]+)"\s*,\s*"label"\s*:\s*"([^"]+)"\s*,\s*"value"\s*:\s*"([^"]*(?:\\.[^"]*)*)"\s*,\s*"category"\s*:\s*"([^"]+)"\s*,\s*"confidence"\s*:\s*"([^"]+)"\s*\}/g;
+            let match;
+            while ((match = fieldRegex.exec(fieldsContent)) !== null) {
+              completeFields.push({
+                tag: match[1],
+                label: match[2],
+                value: match[3].replace(/\\"/g, '"'),
+                category: match[4],
+                confidence: match[5]
+              });
+            }
+            
+            if (completeFields.length > 0) {
+              console.log(`Extracted ${completeFields.length} complete fields from truncated response`);
+              ocrResult = {
+                documentType: 'Dokument (częściowo przeanalizowany)',
+                documentLanguage: 'unknown',
+                extractedFields: completeFields,
+                rawText: '',
+                summary: 'Odpowiedź AI została obcięta - wyodrębniono częściowe dane'
+              };
+            } else {
+              throw new Error('No complete fields found in truncated response');
+            }
+          } else {
+            throw new Error('No extractedFields found in response');
+          }
+        } catch (thirdError) {
+          console.error('Third parse attempt failed:', thirdError);
+          throw new Error('Failed to parse OCR results - response may be truncated');
+        }
       }
     }
 

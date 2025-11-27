@@ -68,3 +68,6 @@ verify_jwt = true
 
 [functions.extract-and-send-xml]
 verify_jwt = true
+
+[functions.ocr-analyze-document]
+verify_jwt = true
