@@ -33,7 +33,10 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const openRouterApiKey = Deno.env.get("OPEN_ROUTER_API_KEY");
-    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+    
+    if (!openRouterApiKey) {
+      throw new Error("OPEN_ROUTER_API_KEY not configured");
+    }
     
     const supabase = createClient(supabaseUrl, supabaseKey, {
       auth: { persistSession: false },
@@ -47,7 +50,7 @@ Deno.serve(async (req) => {
       throw new Error("Unauthorized");
     }
 
-    const { documentId, aiProvider = "lovable" } = await req.json();
+    const { documentId } = await req.json();
 
     if (!documentId) {
       throw new Error("documentId is required");
@@ -55,7 +58,7 @@ Deno.serve(async (req) => {
 
     console.log("=== Processing DOCX Template ===");
     console.log("Document ID:", documentId);
-    console.log("AI Provider:", aiProvider);
+    console.log("AI Provider: OpenRouter (automatic)");
 
     // Get document info
     const { data: document, error: docError } = await supabase
@@ -104,15 +107,13 @@ Deno.serve(async (req) => {
     // Prepare texts for AI analysis
     const texts = textNodes.map(node => node.text);
     
-    // Call AI to identify variables
-    console.log("→ Sending to AI for variable identification...");
+    // Step 1: Call AI to identify variables (text-based analysis)
+    console.log("→ Step 1: Text-based AI analysis...");
     const processedTexts = await analyzeWithAI(
       texts, 
-      aiProvider, 
-      openRouterApiKey, 
-      lovableApiKey
+      openRouterApiKey
     );
-    console.log("✓ AI analysis complete");
+    console.log("✓ Step 1 complete: Text-based analysis done");
 
     // Identify which texts were converted to variables
     const variables: ProcessedVariable[] = [];
@@ -138,17 +139,89 @@ Deno.serve(async (req) => {
 
     console.log("✓ Found", variables.length, "variables");
 
-    // Modify XML - replace only the text content in <w:t> tags
-    // This preserves ALL formatting, styles, tables, etc.
-    const modifiedXml = replaceTextInXml(originalXml, textNodes, textToTagMap);
-    console.log("✓ XML modified, new length:", modifiedXml.length);
+    // Step 2: Modify XML with first round of variables
+    console.log("→ Step 2: Applying text-based variables to XML...");
+    let modifiedXml = replaceTextInXml(originalXml, textNodes, textToTagMap);
+    console.log("✓ Step 2 complete: XML modified with text-based variables");
 
-    // Update the document.xml in the ZIP (preserving everything else)
+    // Update the document.xml in the ZIP temporarily
     zip.file("word/document.xml", modifiedXml);
 
-    // Generate the new DOCX
-    const newDocxBase64 = await zip.generateAsync({ type: "base64" });
-    console.log("✓ New DOCX generated");
+    // Generate intermediate DOCX for visual verification
+    const intermediateDocxBase64 = await zip.generateAsync({ type: "base64" });
+    console.log("✓ Intermediate DOCX generated for visual verification");
+
+    // Step 3: Visual verification with Gemini 2.5 Pro
+    console.log("→ Step 3: Visual verification with Gemini 2.5 Pro...");
+    let visualVariables: Array<{ text: string; tag: string }> = [];
+    
+    try {
+      // Convert DOCX to images
+      const { data: convertData, error: convertError } = await supabase.functions.invoke("convert-docx-to-images", {
+        body: { docxBase64: intermediateDocxBase64 },
+        headers: { Authorization: authHeader }
+      });
+
+      if (convertError) {
+        console.warn("⚠️ Convert to images error:", convertError);
+        throw convertError;
+      }
+
+      if (convertData?.success && convertData.images?.length > 0) {
+        console.log(`✓ Converted to ${convertData.images.length} page images`);
+
+        // Verify visually
+        const { data: verifyData, error: verifyError } = await supabase.functions.invoke("verify-document-visually", {
+          body: { 
+            documentId,
+            pageImages: convertData.images 
+          },
+          headers: { Authorization: authHeader }
+        });
+
+        if (verifyError) {
+          console.warn("⚠️ Visual verification error:", verifyError);
+          throw verifyError;
+        }
+
+        if (verifyData?.success && verifyData.variables?.length > 0) {
+          visualVariables = verifyData.variables;
+          console.log(`✓ Step 3 complete: Found ${visualVariables.length} additional variables via visual analysis`);
+          
+          // Apply visual variables to XML
+          // Find and replace the visual variables in the XML
+          for (const vVar of visualVariables) {
+            // Search for the text in XML and replace with tag
+            const escapedText = encodeXmlEntities(vVar.text);
+            const escapedTag = encodeXmlEntities(vVar.tag);
+            
+            // Replace in XML (simple text replacement for now)
+            modifiedXml = modifiedXml.replace(
+              new RegExp(escapedText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'),
+              escapedTag
+            );
+          }
+          
+          console.log("✓ Applied visual variables to XML");
+        } else {
+          console.log("✓ Step 3 complete: No additional variables found via visual analysis");
+        }
+      } else if (convertData?.skipped) {
+        console.log("⚠️ Step 3 skipped: Image conversion service not configured");
+      } else {
+        console.log("⚠️ Step 3 skipped: Could not convert DOCX to images");
+      }
+    } catch (visualError) {
+      console.warn("⚠️ Visual verification failed, continuing with text-based analysis only:", visualError);
+      // Continue without visual verification
+    }
+
+    // Update the document.xml in the ZIP with final version (including visual variables)
+    zip.file("word/document.xml", modifiedXml);
+
+    // Generate the final DOCX
+    const finalDocxBase64 = await zip.generateAsync({ type: "base64" });
+    console.log("✓ Final DOCX generated");
 
     // Store the modified XML in database
     const { error: updateError } = await supabase
@@ -164,8 +237,28 @@ Deno.serve(async (req) => {
       console.error("Error updating document:", updateError);
     }
 
-    // Save fields to database
-    if (variables.length > 0) {
+    // Merge visual variables with text-based variables
+    const allVariables = [...variables];
+    
+    // Add visual variables (avoid duplicates)
+    const existingTags = new Set(variables.map(v => v.tag));
+    for (const vVar of visualVariables) {
+      if (!existingTags.has(vVar.tag)) {
+        const tagMatch = vVar.tag.match(/\{\{(\w+)\}\}/);
+        if (tagMatch) {
+          allVariables.push({
+            originalText: vVar.text,
+            tag: vVar.tag,
+            variableName: tagMatch[1],
+            index: -1 // Visual variables don't have text node index
+          });
+          existingTags.add(vVar.tag);
+        }
+      }
+    }
+
+    // Save all fields to database
+    if (allVariables.length > 0) {
       // First, delete existing fields
       await supabase
         .from("document_fields")
@@ -173,13 +266,15 @@ Deno.serve(async (req) => {
         .eq("document_id", documentId);
 
       // Insert new fields
-      const fieldsToInsert = variables.map((v, i) => ({
-        document_id: documentId,
-        field_name: v.variableName,
-        field_value: v.originalText,
-        field_tag: v.tag,
-        position_in_html: v.index
-      }));
+      const fieldsToInsert = allVariables
+        .filter(v => v.index >= 0) // Only text-based for now (visual need different handling)
+        .map((v, i) => ({
+          document_id: documentId,
+          field_name: v.variableName,
+          field_value: v.originalText,
+          field_tag: v.tag,
+          position_in_html: v.index >= 0 ? v.index : i + variables.length
+        }));
 
       const { error: insertError } = await supabase
         .from("document_fields")
@@ -188,7 +283,7 @@ Deno.serve(async (req) => {
       if (insertError) {
         console.error("Error saving fields:", insertError);
       } else {
-        console.log("✓ Saved", variables.length, "fields to database");
+        console.log("✓ Saved", fieldsToInsert.length, "fields to database");
       }
     }
 
@@ -200,14 +295,17 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        templateBase64: newDocxBase64,
+        templateBase64: finalDocxBase64,
         templateFilename,
-        variables: variables.map(v => ({
+        variables: allVariables.map(v => ({
           name: v.variableName,
           tag: v.tag,
-          originalValue: v.originalText
+          originalValue: v.originalText,
+          source: v.index >= 0 ? "text" : "visual"
         })),
-        variableCount: variables.length,
+        variableCount: allVariables.length,
+        textBasedCount: variables.length,
+        visualCount: visualVariables.length,
         totalTextNodes: textNodes.length
       }),
       {
@@ -336,12 +434,11 @@ function encodeXmlEntities(text: string): string {
 
 /**
  * Call AI to analyze texts and identify variables
+ * Uses OpenRouter with Gemini 2.5 Pro
  */
 async function analyzeWithAI(
   texts: string[],
-  provider: string,
-  openRouterKey: string | undefined,
-  lovableKey: string | undefined
+  openRouterKey: string
 ): Promise<string[]> {
   
   const systemPrompt = `Jesteś ekspertem od analizy dokumentów celnych, samochodowych i administracyjnych.
@@ -465,32 +562,15 @@ Output: ["VIN:", "{{vinNumber}}", "Wartość:", "{{customsValue}}", "NL006223527
 
 ${JSON.stringify(texts, null, 2)}`;
 
-  let apiUrl: string;
-  let apiKey: string;
-  let model: string;
-  let headers: Record<string, string>;
-
-  if (provider === "openrouter" && openRouterKey) {
-    apiUrl = "https://openrouter.ai/api/v1/chat/completions";
-    apiKey = openRouterKey;
-    model = "google/gemini-2.0-flash-001"; // lub inny model dostępny na OpenRouter
-    headers = {
-      "Authorization": `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      "HTTP-Referer": "https://docu-magic.app",
-      "X-Title": "DocuMagic Template Processor"
-    };
-  } else if (lovableKey) {
-    apiUrl = "https://ai.gateway.lovable.dev/v1/chat/completions";
-    apiKey = lovableKey;
-    model = "google/gemini-2.5-flash";
-    headers = {
-      "Authorization": `Bearer ${apiKey}`,
-      "Content-Type": "application/json"
-    };
-  } else {
-    throw new Error("No AI API key configured. Set OPEN_ROUTER_API_KEY or LOVABLE_API_KEY");
-  }
+  const apiUrl = "https://openrouter.ai/api/v1/chat/completions";
+  const apiKey = openRouterKey;
+  const model = "google/gemini-2.5-pro"; // Gemini 2.5 Pro model
+  const headers = {
+    "Authorization": `Bearer ${apiKey}`,
+    "Content-Type": "application/json",
+    "HTTP-Referer": "https://docu-magic.app",
+    "X-Title": "DocuMagic Template Processor"
+  };
 
   const response = await fetch(apiUrl, {
     method: "POST",

@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { 
   Upload, 
   FileText, 
@@ -13,21 +12,16 @@ import {
   Sparkles, 
   CheckCircle2, 
   Loader2,
-  ArrowRight,
-  Settings2
+  ArrowRight
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 
 interface ExtractedVariable {
   name: string;
   tag: string;
   originalValue: string;
+  source?: "text" | "visual";
 }
 
 interface ProcessingResult {
@@ -36,6 +30,8 @@ interface ProcessingResult {
   templateFilename?: string;
   variables?: ExtractedVariable[];
   variableCount?: number;
+  textBasedCount?: number;
+  visualCount?: number;
   error?: string;
 }
 
@@ -49,8 +45,6 @@ const DocxTemplateProcessor = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStep, setProcessingStep] = useState("");
   const [result, setResult] = useState<ProcessingResult | null>(null);
-  const [aiProvider, setAiProvider] = useState<"lovable" | "openrouter">("lovable");
-  const [showSettings, setShowSettings] = useState(false);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -111,11 +105,10 @@ const DocxTemplateProcessor = () => {
       setIsProcessing(true);
       setProcessingStep("Analizuję dokument z AI...");
 
-      // Step 2: Process with new template function
+      // Step 2: Process with new template function (uses OpenRouter automatically)
       const processResponse = await supabase.functions.invoke("process-docx-template", {
         body: { 
-          documentId: uploadedDocId,
-          aiProvider
+          documentId: uploadedDocId
         },
       });
 
@@ -216,43 +209,6 @@ const DocxTemplateProcessor = () => {
         </Button>
       </div>
 
-      {/* Settings */}
-      <Collapsible open={showSettings} onOpenChange={setShowSettings}>
-        <CollapsibleTrigger asChild>
-          <Button variant="ghost" size="sm" className="gap-2">
-            <Settings2 className="h-4 w-4" />
-            Ustawienia AI
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <Card className="p-4 mt-2">
-            <Label className="text-sm font-medium mb-3 block">Provider AI</Label>
-            <RadioGroup 
-              value={aiProvider} 
-              onValueChange={(v) => setAiProvider(v as "lovable" | "openrouter")}
-              className="flex gap-4"
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="lovable" id="lovable" />
-                <Label htmlFor="lovable" className="font-normal cursor-pointer">
-                  Lovable AI (domyślne)
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="openrouter" id="openrouter" />
-                <Label htmlFor="openrouter" className="font-normal cursor-pointer">
-                  OpenRouter
-                </Label>
-              </div>
-            </RadioGroup>
-            {aiProvider === "openrouter" && (
-              <p className="text-xs text-muted-foreground mt-2">
-                Wymaga ustawienia zmiennej OPEN_ROUTER_API_KEY w Supabase
-              </p>
-            )}
-          </Card>
-        </CollapsibleContent>
-      </Collapsible>
 
       {/* Upload Section */}
       <Card className="p-6 border-2 border-dashed hover:border-primary/50 transition-colors">
@@ -334,6 +290,11 @@ const DocxTemplateProcessor = () => {
                   </h3>
                   <p className="text-sm text-muted-foreground">
                     Znaleziono <span className="font-medium text-primary">{result.variableCount}</span> zmiennych do podstawienia
+                    {result.textBasedCount !== undefined && result.visualCount !== undefined && (
+                      <span className="ml-2 text-xs">
+                        ({result.textBasedCount} z analizy tekstowej, {result.visualCount} z weryfikacji wizualnej)
+                      </span>
+                    )}
                   </p>
                 </div>
               </div>
@@ -356,6 +317,11 @@ const DocxTemplateProcessor = () => {
                           <span className="text-sm truncate text-muted-foreground">
                             {variable.originalValue}
                           </span>
+                          {"source" in variable && (
+                            <Badge variant="outline" className="text-xs shrink-0">
+                              {variable.source === "visual" ? "👁️ Wizualna" : "📝 Tekstowa"}
+                            </Badge>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -407,7 +373,8 @@ const DocxTemplateProcessor = () => {
             <p className="font-medium mb-1">Jak to działa?</p>
             <ol className="list-decimal list-inside space-y-1 text-blue-700">
               <li>Wgrywasz dokument DOCX (np. fakturę, dokument celny)</li>
-              <li>AI analizuje treść i identyfikuje dane zmienne</li>
+              <li>AI analizuje treść i identyfikuje dane zmienne (analiza tekstowa)</li>
+              <li>Dokument jest konwertowany na obrazy i weryfikowany wizualnie przez Gemini 2.5 Pro</li>
               <li>Zmienne są zamieniane na tagi np. <code className="bg-blue-100 px-1 rounded">{"{{vinNumber}}"}</code></li>
               <li>Pobierasz gotowy szablon z zachowanym formatowaniem</li>
             </ol>
