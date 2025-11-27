@@ -691,7 +691,7 @@ ${JSON.stringify(textsWithContext, null, 2)}`;
         { role: "user", content: userPrompt }
       ],
       temperature: 0.1,
-      max_tokens: 64000 // Increased for large documents
+      max_tokens: 100000 // Increased for large documents with run-based analysis (formatting context increases output size)
     })
   });
 
