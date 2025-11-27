@@ -603,16 +603,44 @@ ${JSON.stringify(texts, null, 2)}`;
   // Parse the JSON response
   let processedTexts: string[];
   try {
-    // Clean up potential markdown formatting
-    const cleaned = content
-      .replace(/```json\n?/g, '')
-      .replace(/```\n?/g, '')
-      .trim();
+    console.log("Raw AI response length:", content.length);
+    console.log("AI response preview:", content.substring(0, 300));
+    
+    // Clean up potential markdown formatting more robustly
+    let cleaned = content.trim();
+    
+    // Remove markdown code blocks (multiple patterns)
+    cleaned = cleaned.replace(/^```(?:json)?\s*\n?/i, '');
+    cleaned = cleaned.replace(/\n?```\s*$/i, '');
+    cleaned = cleaned.trim();
+    
+    // Try to find JSON array in the content
+    const jsonArrayMatch = cleaned.match(/\[[\s\S]*\]/);
+    if (jsonArrayMatch) {
+      cleaned = jsonArrayMatch[0];
+    }
+    
+    console.log("Cleaned content preview:", cleaned.substring(0, 200));
     
     processedTexts = JSON.parse(cleaned);
   } catch (parseError) {
-    console.error("Failed to parse AI response:", content.substring(0, 500));
-    throw new Error("AI returned invalid JSON");
+    console.error("Failed to parse AI response:", content.substring(0, 1000));
+    console.error("Parse error:", parseError);
+    
+    // Fallback: try to extract any valid JSON array
+    try {
+      const fallbackMatch = content.match(/\[[\s\S]*?\]/);
+      if (fallbackMatch) {
+        processedTexts = JSON.parse(fallbackMatch[0]);
+        console.log("✓ Fallback parsing succeeded with", processedTexts.length, "items");
+      } else {
+        throw new Error("No JSON array found in response");
+      }
+    } catch (fallbackError) {
+      // Last resort: return original texts unchanged
+      console.warn("⚠️ All parsing failed, returning original texts");
+      processedTexts = texts;
+    }
   }
 
   // Validate and normalize
