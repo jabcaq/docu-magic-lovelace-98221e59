@@ -109,6 +109,20 @@ function isDocxFile(mimeType: string): boolean {
          mimeType === 'application/msword';
 }
 
+// Efficient base64 encoding for large files
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 8192;
+  let result = '';
+  
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+    result += String.fromCharCode(...chunk);
+  }
+  
+  return btoa(result);
+}
+
 async function extractTextFromDocx(buffer: ArrayBuffer): Promise<string> {
   const zip = await JSZip.loadAsync(buffer);
   const documentXml = zip.file("word/document.xml");
@@ -222,7 +236,9 @@ Deno.serve(async (req) => {
     
     if (isImageFile(mimeType) || isPdfFile(mimeType)) {
       // Dla obrazów i PDF - użyj vision
-      const base64 = btoa(String.fromCharCode(...new Uint8Array(fileBuffer)));
+      console.log('Converting file to base64...');
+      const base64 = arrayBufferToBase64(fileBuffer);
+      console.log(`Base64 length: ${base64.length}`);
       
       contentForAi = [
         {
