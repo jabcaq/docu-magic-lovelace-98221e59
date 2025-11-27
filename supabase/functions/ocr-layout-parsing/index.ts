@@ -6,6 +6,20 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Efektywna konwersja ArrayBuffer do base64 dla dużych plików
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 8192;
+  let binary = '';
+  
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+    binary += String.fromCharCode(...chunk);
+  }
+  
+  return btoa(binary);
+}
+
 // Layout Parsing API configuration
 const LAYOUT_API_URL = "https://y3wbd501q8k5g506.aistudio-app.com/layout-parsing";
 const LAYOUT_API_TOKEN = "32d74a752461f7b08a1434a233022e75b2a5a8af";
@@ -157,7 +171,7 @@ async function extractTextFromDocx(buffer: ArrayBuffer): Promise<{ text: string;
     : '';
     
   // Konwertuj do base64 dla API
-  const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+  const base64 = arrayBufferToBase64(buffer);
   
   return { text, base64 };
 }
@@ -248,10 +262,10 @@ Deno.serve(async (req) => {
     
     if (isPdfFile(mimeType)) {
       fileType = 0;
-      fileBase64 = btoa(String.fromCharCode(...new Uint8Array(fileBuffer)));
+      fileBase64 = arrayBufferToBase64(fileBuffer);
     } else if (isImageFile(mimeType)) {
       fileType = 1;
-      fileBase64 = btoa(String.fromCharCode(...new Uint8Array(fileBuffer)));
+      fileBase64 = arrayBufferToBase64(fileBuffer);
     } else if (isDocxFile(mimeType)) {
       // Dla DOCX - użyj ekstrakcji tekstu jako fallback
       const { text, base64 } = await extractTextFromDocx(fileBuffer);
