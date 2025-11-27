@@ -21,7 +21,9 @@ import {
   Download,
   ChevronDown,
   ChevronUp,
-  Sparkles
+  Sparkles,
+  LayoutGrid,
+  Check
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,11 +32,15 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { 
   useOcrAnalysis, 
   OcrField, 
   OcrAnalysisResult,
+  OcrProvider,
+  OCR_PROVIDERS,
   FIELD_CATEGORIES 
 } from '@/hooks/use-ocr-analysis';
 import { cn } from '@/lib/utils';
@@ -42,6 +48,7 @@ import { cn } from '@/lib/utils';
 interface OcrUploadProps {
   onAnalysisComplete?: (result: OcrAnalysisResult) => void;
   saveToDatabase?: boolean;
+  defaultProvider?: OcrProvider;
   className?: string;
 }
 
@@ -64,12 +71,6 @@ const CONFIDENCE_COLORS = {
   low: 'bg-red-500/10 text-red-600 border-red-500/20',
 };
 
-const CONFIDENCE_LABELS = {
-  high: 'Wysoka pewność',
-  medium: 'Średnia pewność',
-  low: 'Niska pewność',
-};
-
 function getFileIcon(fileType: string) {
   if (fileType.startsWith('image/')) {
     return <FileImage className="h-8 w-8 text-blue-500" />;
@@ -78,6 +79,13 @@ function getFileIcon(fileType: string) {
     return <FileText className="h-8 w-8 text-red-500" />;
   }
   return <File className="h-8 w-8 text-violet-500" />;
+}
+
+function ProviderIcon({ provider }: { provider: OcrProvider }) {
+  if (provider === 'gemini') {
+    return <Sparkles className="h-5 w-5 text-violet-500" />;
+  }
+  return <LayoutGrid className="h-5 w-5 text-blue-500" />;
 }
 
 function FieldCard({ field }: { field: OcrField }) {
@@ -151,9 +159,71 @@ function CategorySection({ category, fields }: { category: string; fields: OcrFi
   );
 }
 
+function ProviderSelector({ 
+  value, 
+  onChange,
+  disabled 
+}: { 
+  value: OcrProvider; 
+  onChange: (provider: OcrProvider) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="space-y-3">
+      <Label className="text-sm font-medium">Wybierz silnik OCR</Label>
+      <RadioGroup 
+        value={value} 
+        onValueChange={(v) => onChange(v as OcrProvider)}
+        className="grid grid-cols-1 md:grid-cols-2 gap-3"
+        disabled={disabled}
+      >
+        {OCR_PROVIDERS.map((provider) => (
+          <Label
+            key={provider.id}
+            htmlFor={provider.id}
+            className={cn(
+              'flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all',
+              value === provider.id 
+                ? 'border-primary bg-primary/5' 
+                : 'border-border hover:border-primary/50 hover:bg-accent/30',
+              disabled && 'opacity-50 cursor-not-allowed'
+            )}
+          >
+            <RadioGroupItem value={provider.id} id={provider.id} className="mt-1" />
+            <div className="flex-1 space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">{provider.icon}</span>
+                <span className="font-semibold">{provider.name}</span>
+                {value === provider.id && (
+                  <Check className="h-4 w-4 text-primary ml-auto" />
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {provider.description}
+              </p>
+              <div className="flex flex-wrap gap-1 mt-2">
+                {provider.supportedTypes.map((type, idx) => (
+                  <Badge 
+                    key={idx} 
+                    variant="outline" 
+                    className="text-[10px] px-1.5 py-0"
+                  >
+                    {type.replace('application/', '').replace('image/', 'IMG ')}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          </Label>
+        ))}
+      </RadioGroup>
+    </div>
+  );
+}
+
 export function OcrUpload({ 
   onAnalysisComplete, 
   saveToDatabase = true,
+  defaultProvider = 'gemini',
   className 
 }: OcrUploadProps) {
   const { toast } = useToast();
@@ -167,15 +237,18 @@ export function OcrUpload({
     progressMessage,
     result,
     error,
+    currentProvider,
     analyzeFile,
     getFieldsByCategory,
+    changeProvider,
     reset,
   } = useOcrAnalysis({
+    provider: defaultProvider,
     saveToDatabase,
     onSuccess: (result) => {
       toast({
         title: 'Analiza zakończona!',
-        description: `Wykryto ${result.fieldsCount} pól w dokumencie`,
+        description: `${result.provider === 'gemini' ? 'Gemini 2.5 Pro' : 'Layout Parsing'} wykrył ${result.fieldsCount} pól`,
       });
       onAnalysisComplete?.(result);
     },
@@ -220,11 +293,11 @@ export function OcrUpload({
     if (!selectedFile) return;
     
     try {
-      await analyzeFile(selectedFile);
+      await analyzeFile(selectedFile, currentProvider);
     } catch {
       // Błąd jest już obsłużony w hooku
     }
-  }, [selectedFile, analyzeFile]);
+  }, [selectedFile, analyzeFile, currentProvider]);
 
   const handleReset = useCallback(() => {
     setSelectedFile(null);
@@ -238,11 +311,13 @@ export function OcrUpload({
     if (!result) return;
     
     const exportData = {
+      provider: result.provider,
       fileName: result.fileName,
       documentType: result.documentType,
       documentLanguage: result.documentLanguage,
       summary: result.summary,
       extractedFields: result.extractedFields,
+      markdown: result.markdown,
       analyzedAt: new Date().toISOString(),
     };
     
@@ -250,7 +325,7 @@ export function OcrUpload({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `ocr-${result.fileName.replace(/\.[^/.]+$/, '')}-${Date.now()}.json`;
+    a.download = `ocr-${result.provider}-${result.fileName.replace(/\.[^/.]+$/, '')}-${Date.now()}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -263,6 +338,7 @@ export function OcrUpload({
   }, [result, toast]);
 
   const groupedFields = result ? getFieldsByCategory(result.extractedFields) : {};
+  const providerInfo = OCR_PROVIDERS.find(p => p.id === currentProvider);
 
   return (
     <div className={cn('space-y-6', className)}>
@@ -271,14 +347,24 @@ export function OcrUpload({
         <Card className="overflow-hidden">
           <CardHeader className="bg-gradient-to-br from-violet-500/10 via-transparent to-blue-500/10">
             <CardTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-violet-500" />
-              OCR z Gemini 2.5 Pro
+              <ProviderIcon provider={currentProvider} />
+              OCR - Analiza dokumentów
             </CardTitle>
             <CardDescription>
               Wgraj dokument (obraz, PDF lub DOC) aby wyekstrahować dane
             </CardDescription>
           </CardHeader>
-          <CardContent className="p-6">
+          <CardContent className="p-6 space-y-6">
+            {/* Wybór providera */}
+            <ProviderSelector 
+              value={currentProvider}
+              onChange={changeProvider}
+              disabled={isAnalyzing}
+            />
+
+            <Separator />
+
+            {/* Upload */}
             <input
               ref={fileInputRef}
               type="file"
@@ -339,18 +425,20 @@ export function OcrUpload({
             {/* Przycisk analizy */}
             {selectedFile && !isAnalyzing && (
               <Button 
-                className="w-full mt-4" 
+                className="w-full" 
                 size="lg"
                 onClick={handleAnalyze}
               >
-                <Sparkles className="h-4 w-4 mr-2" />
-                Analizuj z Gemini 2.5 Pro
+                <ProviderIcon provider={currentProvider} />
+                <span className="ml-2">
+                  Analizuj z {providerInfo?.name || currentProvider}
+                </span>
               </Button>
             )}
 
             {/* Progress bar */}
             {isAnalyzing && (
-              <div className="mt-4 space-y-3">
+              <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin text-primary" />
                   <span className="text-sm text-muted-foreground">{progressMessage}</span>
@@ -361,7 +449,7 @@ export function OcrUpload({
 
             {/* Błąd */}
             {error && (
-              <div className="mt-4 p-4 rounded-lg bg-destructive/10 border border-destructive/20 flex items-start gap-3">
+              <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20 flex items-start gap-3">
                 <AlertCircle className="h-5 w-5 text-destructive mt-0.5" />
                 <div>
                   <p className="font-medium text-destructive">Wystąpił błąd</p>
@@ -383,14 +471,20 @@ export function OcrUpload({
                   <CheckCircle2 className="h-5 w-5 text-emerald-500" />
                   Analiza zakończona
                 </CardTitle>
-                <CardDescription>
-                  {result.documentType} • {result.fieldsCount} wykrytych pól
+                <CardDescription className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-xs">
+                    {result.provider === 'gemini' ? '✨ Gemini 2.5 Pro' : '📐 Layout Parsing'}
+                  </Badge>
+                  <span>•</span>
+                  <span>{result.documentType}</span>
+                  <span>•</span>
+                  <span>{result.fieldsCount} pól</span>
                 </CardDescription>
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={exportResults}>
                   <Download className="h-4 w-4 mr-1" />
-                  Eksportuj JSON
+                  Eksportuj
                 </Button>
                 <Button variant="outline" size="sm" onClick={handleReset}>
                   <Upload className="h-4 w-4 mr-1" />
@@ -423,8 +517,40 @@ export function OcrUpload({
                     fields={fields} 
                   />
                 ))}
+                
+                {result.fieldsCount === 0 && (
+                  <div className="p-8 text-center text-muted-foreground">
+                    <AlertCircle className="h-8 w-8 mx-auto mb-3 opacity-50" />
+                    <p>Nie wykryto żadnych pól w dokumencie</p>
+                    <p className="text-sm mt-1">Spróbuj użyć innego silnika OCR</p>
+                  </div>
+                )}
               </div>
             </ScrollArea>
+            
+            {/* Markdown output dla Layout Parsing */}
+            {result.markdown && result.provider === 'layout-parsing' && (
+              <>
+                <Separator />
+                <Collapsible>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" className="w-full justify-between px-6 py-4">
+                      <span className="font-medium">Rozpoznany tekst (Markdown)</span>
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="px-6 pb-4">
+                      <ScrollArea className="h-[300px] rounded-lg border bg-muted/30 p-4">
+                        <pre className="text-xs whitespace-pre-wrap font-mono">
+                          {result.markdown}
+                        </pre>
+                      </ScrollArea>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              </>
+            )}
           </CardContent>
         </Card>
       )}
@@ -433,4 +559,3 @@ export function OcrUpload({
 }
 
 export default OcrUpload;
-

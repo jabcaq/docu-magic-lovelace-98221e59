@@ -1,6 +1,36 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
+export type OcrProvider = 'gemini' | 'layout-parsing';
+
+export interface OcrProviderInfo {
+  id: OcrProvider;
+  name: string;
+  description: string;
+  model: string;
+  supportedTypes: string[];
+  icon: string;
+}
+
+export const OCR_PROVIDERS: OcrProviderInfo[] = [
+  {
+    id: 'gemini',
+    name: 'Gemini 2.5 Pro',
+    description: 'Google AI - zaawansowana analiza wizualna i rozumienie dokumentów',
+    model: 'google/gemini-2.5-pro',
+    supportedTypes: ['image/*', 'application/pdf', '.doc', '.docx'],
+    icon: '✨'
+  },
+  {
+    id: 'layout-parsing',
+    name: 'Layout Parsing API',
+    description: 'Specjalizowany OCR z rozpoznawaniem układu dokumentu i tabel',
+    model: 'PaddleX Layout Parser',
+    supportedTypes: ['image/*', 'application/pdf'],
+    icon: '📐'
+  }
+];
+
 export interface OcrField {
   tag: string;
   label: string;
@@ -11,6 +41,7 @@ export interface OcrField {
 
 export interface OcrAnalysisResult {
   success: boolean;
+  provider: OcrProvider;
   fileName: string;
   fileType: string;
   documentType: string;
@@ -18,12 +49,15 @@ export interface OcrAnalysisResult {
   summary: string;
   extractedFields: OcrField[];
   rawText: string;
+  markdown?: string;
   fieldsCount: number;
   documentId?: string;
   error?: string;
+  layoutResults?: number;
 }
 
 export interface UseOcrAnalysisOptions {
+  provider?: OcrProvider;
   saveToDatabase?: boolean;
   onProgress?: (progress: number, message: string) => void;
   onSuccess?: (result: OcrAnalysisResult) => void;
@@ -36,6 +70,7 @@ export function useOcrAnalysis(options: UseOcrAnalysisOptions = {}) {
   const [progressMessage, setProgressMessage] = useState('');
   const [result, setResult] = useState<OcrAnalysisResult | null>(null);
   const [error, setError] = useState<Error | null>(null);
+  const [currentProvider, setCurrentProvider] = useState<OcrProvider>(options.provider || 'gemini');
 
   const updateProgress = useCallback((value: number, message: string) => {
     setProgress(value);
@@ -43,11 +78,32 @@ export function useOcrAnalysis(options: UseOcrAnalysisOptions = {}) {
     options.onProgress?.(value, message);
   }, [options]);
 
+  const getEndpoint = useCallback((provider: OcrProvider) => {
+    switch (provider) {
+      case 'gemini':
+        return 'ocr-analyze-document';
+      case 'layout-parsing':
+        return 'ocr-layout-parsing';
+      default:
+        return 'ocr-analyze-document';
+    }
+  }, []);
+
+  const getProviderName = useCallback((provider: OcrProvider) => {
+    const providerInfo = OCR_PROVIDERS.find(p => p.id === provider);
+    return providerInfo?.name || provider;
+  }, []);
+
   /**
-   * Analizuje plik za pomocą OCR (Gemini 2.5 Pro)
+   * Analizuje plik za pomocą wybranego providera OCR
    * @param file - Plik do analizy (obraz, PDF lub DOC)
+   * @param provider - Provider OCR (opcjonalny, domyślnie używa currentProvider)
    */
-  const analyzeFile = useCallback(async (file: File): Promise<OcrAnalysisResult> => {
+  const analyzeFile = useCallback(async (
+    file: File, 
+    provider?: OcrProvider
+  ): Promise<OcrAnalysisResult> => {
+    const selectedProvider = provider || currentProvider;
     setIsAnalyzing(true);
     setError(null);
     setResult(null);
@@ -71,13 +127,20 @@ export function useOcrAnalysis(options: UseOcrAnalysisOptions = {}) {
         throw new Error(`Nieobsługiwany typ pliku: ${file.type}. Obsługiwane: obrazy (JPG, PNG, GIF, WebP), PDF, DOC, DOCX`);
       }
 
+      // Walidacja dla Layout Parsing API - nie obsługuje DOCX
+      if (selectedProvider === 'layout-parsing' && 
+          (file.type === 'application/msword' || 
+           file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')) {
+        console.warn('Layout Parsing API nie obsługuje bezpośrednio DOCX, użyje ekstrakcji tekstu');
+      }
+
       // Walidacja rozmiaru (max 20MB)
       const maxSize = 20 * 1024 * 1024;
       if (file.size > maxSize) {
         throw new Error(`Plik jest za duży (${(file.size / 1024 / 1024).toFixed(2)} MB). Maksymalny rozmiar: 20 MB`);
       }
 
-      updateProgress(20, 'Wysyłanie pliku do analizy...');
+      updateProgress(20, `Wysyłanie pliku do ${getProviderName(selectedProvider)}...`);
 
       // Pobierz sesję użytkownika
       const { data: { session } } = await supabase.auth.getSession();
@@ -85,16 +148,17 @@ export function useOcrAnalysis(options: UseOcrAnalysisOptions = {}) {
         throw new Error('Nie jesteś zalogowany');
       }
 
-      updateProgress(30, 'Analizowanie dokumentu z Gemini 2.5 Pro...');
+      updateProgress(30, `Analizowanie dokumentu przez ${getProviderName(selectedProvider)}...`);
 
       // Przygotuj FormData
       const formData = new FormData();
       formData.append('file', file);
       formData.append('saveToDatabase', String(options.saveToDatabase ?? true));
 
-      // Wywołaj Edge Function
+      // Wywołaj odpowiedni endpoint
+      const endpoint = getEndpoint(selectedProvider);
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ocr-analyze-document`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${endpoint}`,
         {
           method: 'POST',
           headers: {
@@ -130,13 +194,18 @@ export function useOcrAnalysis(options: UseOcrAnalysisOptions = {}) {
     } finally {
       setIsAnalyzing(false);
     }
-  }, [options, updateProgress]);
+  }, [currentProvider, options, updateProgress, getEndpoint, getProviderName]);
 
   /**
    * Analizuje istniejący dokument z bazy danych
    * @param documentId - ID dokumentu w bazie
+   * @param provider - Provider OCR (opcjonalny)
    */
-  const analyzeDocument = useCallback(async (documentId: string): Promise<OcrAnalysisResult> => {
+  const analyzeDocument = useCallback(async (
+    documentId: string,
+    provider?: OcrProvider
+  ): Promise<OcrAnalysisResult> => {
+    const selectedProvider = provider || currentProvider;
     setIsAnalyzing(true);
     setError(null);
     setResult(null);
@@ -144,17 +213,16 @@ export function useOcrAnalysis(options: UseOcrAnalysisOptions = {}) {
     try {
       updateProgress(20, 'Pobieranie dokumentu...');
 
-      // Pobierz sesję użytkownika
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         throw new Error('Nie jesteś zalogowany');
       }
 
-      updateProgress(40, 'Analizowanie dokumentu z Gemini 2.5 Pro...');
+      updateProgress(40, `Analizowanie przez ${getProviderName(selectedProvider)}...`);
 
-      // Wywołaj Edge Function
+      const endpoint = getEndpoint(selectedProvider);
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ocr-analyze-document`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${endpoint}`,
         {
           method: 'POST',
           headers: {
@@ -194,7 +262,7 @@ export function useOcrAnalysis(options: UseOcrAnalysisOptions = {}) {
     } finally {
       setIsAnalyzing(false);
     }
-  }, [options, updateProgress]);
+  }, [currentProvider, options, updateProgress, getEndpoint, getProviderName]);
 
   /**
    * Grupuje wyekstrahowane pola według kategorii
@@ -220,6 +288,13 @@ export function useOcrAnalysis(options: UseOcrAnalysisOptions = {}) {
   }, []);
 
   /**
+   * Zmienia aktualnego providera OCR
+   */
+  const changeProvider = useCallback((provider: OcrProvider) => {
+    setCurrentProvider(provider);
+  }, []);
+
+  /**
    * Resetuje stan hooka
    */
   const reset = useCallback(() => {
@@ -237,13 +312,18 @@ export function useOcrAnalysis(options: UseOcrAnalysisOptions = {}) {
     progressMessage,
     result,
     error,
+    currentProvider,
     
     // Metody
     analyzeFile,
     analyzeDocument,
     getFieldsByCategory,
     getHighConfidenceFields,
+    changeProvider,
     reset,
+    
+    // Stałe
+    providers: OCR_PROVIDERS,
   };
 }
 
@@ -274,4 +354,3 @@ export const FIELD_CATEGORY_ICONS = {
   customs: 'Shield',
   other: 'MoreHorizontal',
 } as const;
-
