@@ -1,11 +1,13 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Upload, Search, Settings, Sparkles } from "lucide-react";
+import { FileText, Upload, Search, Settings, Sparkles, ScanText, ExternalLink } from "lucide-react";
 import WordTemplater from "@/components/WordTemplater";
 import TestXmlAi from "@/components/TestXmlAi";
 import DocxTemplateProcessor from "@/components/DocxTemplateProcessor";
+import { OcrUpload } from "@/components/OcrUpload";
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState("generator");
@@ -73,20 +75,26 @@ const Dashboard = () => {
           </TabsContent>
 
           <TabsContent value="ocr" className="space-y-6">
-            <Card className="p-8 text-center">
-              <div className="max-w-md mx-auto space-y-4">
-                <div className="h-16 w-16 rounded-full bg-accent/10 flex items-center justify-center mx-auto">
-                  <Upload className="h-8 w-8 text-accent" />
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-gradient-to-br from-violet-500 to-blue-500">
+                  <ScanText className="h-5 w-5 text-white" />
                 </div>
-                <h3 className="text-xl font-semibold">OCR AI Translator</h3>
-                <p className="text-muted-foreground">
-                  Upload images or PDFs to extract text and generate structured Word documents
-                </p>
-                <Button className="mt-4" disabled>
-                  Coming Soon
-                </Button>
+                <div>
+                  <h2 className="text-xl font-bold">OCR z Gemini 2.5 Pro</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Wyciągaj dane z obrazów, PDF i dokumentów Word
+                  </p>
+                </div>
               </div>
-            </Card>
+              <Button variant="outline" asChild>
+                <Link to="/ocr">
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Otwórz pełny widok
+                </Link>
+              </Button>
+            </div>
+            <OcrUpload saveToDatabase={true} />
           </TabsContent>
 
           <TabsContent value="search" className="space-y-6">

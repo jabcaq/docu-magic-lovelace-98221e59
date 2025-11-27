@@ -8,6 +8,7 @@ import Dashboard from "./pages/Dashboard";
 import Documents from "./pages/Documents";
 import VerifyDocument from "./pages/VerifyDocument";
 import TestRuns from "./pages/TestRuns";
+import OcrAnalysis from "./pages/OcrAnalysis";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -52,6 +53,14 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <TestRuns />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/ocr"
+            element={
+              <ProtectedRoute>
+                <OcrAnalysis />
               </ProtectedRoute>
             }
           />
