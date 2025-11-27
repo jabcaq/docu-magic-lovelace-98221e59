@@ -583,7 +583,7 @@ ${JSON.stringify(texts, null, 2)}`;
         { role: "user", content: userPrompt }
       ],
       temperature: 0.1,
-      max_tokens: 16000
+      max_tokens: 64000 // Increased for large documents
     })
   });
 
@@ -605,6 +605,7 @@ ${JSON.stringify(texts, null, 2)}`;
   try {
     console.log("Raw AI response length:", content.length);
     console.log("AI response preview:", content.substring(0, 300));
+    console.log("AI response end:", content.substring(Math.max(0, content.length - 200)));
     
     // Clean up potential markdown formatting more robustly
     let cleaned = content.trim();
@@ -618,21 +619,81 @@ ${JSON.stringify(texts, null, 2)}`;
     const jsonArrayMatch = cleaned.match(/\[[\s\S]*\]/);
     if (jsonArrayMatch) {
       cleaned = jsonArrayMatch[0];
+    } else {
+      // JSON might be truncated - try to repair it
+      console.warn("⚠️ JSON array appears truncated, attempting repair...");
+      const arrayStart = cleaned.indexOf('[');
+      if (arrayStart !== -1) {
+        cleaned = cleaned.substring(arrayStart);
+        // Count unclosed strings and close them
+        const lastQuoteIndex = cleaned.lastIndexOf('"');
+        const lastCommaIndex = cleaned.lastIndexOf(',');
+        
+        // If ends in middle of string (odd number of quotes after last comma)
+        if (lastQuoteIndex > lastCommaIndex) {
+          // Count quotes after last comma
+          const afterComma = cleaned.substring(lastCommaIndex + 1);
+          const quoteCount = (afterComma.match(/"/g) || []).length;
+          
+          if (quoteCount % 2 === 1) {
+            // Odd quotes - string is unclosed, remove incomplete element
+            cleaned = cleaned.substring(0, lastCommaIndex);
+          }
+        }
+        
+        // Remove trailing comma if present
+        cleaned = cleaned.replace(/,\s*$/, '');
+        
+        // Close the array
+        if (!cleaned.endsWith(']')) {
+          cleaned = cleaned + ']';
+          console.log("✓ Repaired truncated JSON by closing array");
+        }
+      }
     }
     
     console.log("Cleaned content preview:", cleaned.substring(0, 200));
+    console.log("Cleaned content end:", cleaned.substring(Math.max(0, cleaned.length - 100)));
     
     processedTexts = JSON.parse(cleaned);
   } catch (parseError) {
     console.error("Failed to parse AI response:", content.substring(0, 1000));
     console.error("Parse error:", parseError);
     
-    // Fallback: try to extract any valid JSON array
+    // Fallback: try to extract valid JSON elements and reconstruct
     try {
-      const fallbackMatch = content.match(/\[[\s\S]*?\]/);
-      if (fallbackMatch) {
-        processedTexts = JSON.parse(fallbackMatch[0]);
-        console.log("✓ Fallback parsing succeeded with", processedTexts.length, "items");
+      console.log("Attempting fallback JSON reconstruction...");
+      
+      // Find all quoted strings in the array
+      let cleaned = content.trim();
+      cleaned = cleaned.replace(/^```(?:json)?\s*\n?/i, '');
+      cleaned = cleaned.replace(/\n?```\s*$/i, '');
+      
+      const arrayStart = cleaned.indexOf('[');
+      if (arrayStart !== -1) {
+        cleaned = cleaned.substring(arrayStart + 1);
+        
+        // Extract all complete string elements
+        const elements: string[] = [];
+        const stringRegex = /"(?:[^"\\]|\\.)*"/g;
+        let match;
+        
+        while ((match = stringRegex.exec(cleaned)) !== null) {
+          try {
+            // Parse each string to unescape it properly
+            const parsed = JSON.parse(match[0]);
+            elements.push(parsed);
+          } catch {
+            // Skip malformed strings
+          }
+        }
+        
+        if (elements.length > 0) {
+          console.log(`✓ Fallback reconstruction: extracted ${elements.length} elements from truncated response`);
+          processedTexts = elements;
+        } else {
+          throw new Error("No valid JSON elements found in response");
+        }
       } else {
         throw new Error("No JSON array found in response");
       }
