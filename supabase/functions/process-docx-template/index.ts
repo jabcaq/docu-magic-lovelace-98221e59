@@ -12,6 +12,25 @@ interface ExtractedTextNode {
   xpath: string; // Position marker for reconstruction
 }
 
+interface RunFormatting {
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  fontSize?: string;
+  fontFamily?: string;
+  color?: string;
+}
+
+interface ExtractedRun {
+  index: number;
+  text: string;
+  formatting: RunFormatting;
+  paragraphIndex: number;
+  runXml: string; // Full XML of the run for later replacement
+  textNodeStartIndex: number; // Position in original XML
+  textNodeEndIndex: number;
+}
+
 interface ProcessedVariable {
   originalText: string;
   tag: string;
@@ -96,32 +115,29 @@ Deno.serve(async (req) => {
     const originalXml = await documentXmlFile.async("text");
     console.log("✓ XML extracted, length:", originalXml.length);
 
-    // Extract all text nodes from <w:t> tags
-    const textNodes = extractTextNodes(originalXml);
-    console.log("✓ Extracted", textNodes.length, "text nodes");
+    // Extract runs with formatting (optimized approach)
+    const runs = extractRuns(originalXml);
+    console.log("✓ Extracted", runs.length, "runs with formatting");
 
-    if (textNodes.length === 0) {
+    if (runs.length === 0) {
       throw new Error("No text content found in document");
     }
 
-    // Prepare texts for AI analysis
-    const texts = textNodes.map(node => node.text);
-    
-    // Step 1: Call AI to identify variables (text-based analysis)
-    console.log("→ Step 1: Text-based AI analysis...");
-    const { processedTexts, aiResponse } = await analyzeWithAI(
-      texts, 
+    // Step 1: Call AI to identify variables (run-based analysis with formatting context)
+    console.log("→ Step 1: Run-based AI analysis with formatting context...");
+    const { processedRuns, aiResponse } = await analyzeWithAI(
+      runs, 
       openRouterApiKey
     );
-    console.log("✓ Step 1 complete: Text-based analysis done");
+    console.log("✓ Step 1 complete: Run-based analysis done");
 
-    // Identify which texts were converted to variables
+    // Identify which runs were converted to variables
     const variables: ProcessedVariable[] = [];
-    const textToTagMap: Map<number, string> = new Map();
+    const runToTagMap: Map<number, string> = new Map();
 
-    for (let i = 0; i < texts.length; i++) {
-      const original = texts[i];
-      const processed = processedTexts[i];
+    for (let i = 0; i < runs.length; i++) {
+      const original = runs[i].text;
+      const processed = processedRuns[i].text;
       
       if (original !== processed && processed.includes("{{") && processed.includes("}}")) {
         const tagMatch = processed.match(/\{\{(\w+)\}\}/);
@@ -132,17 +148,17 @@ Deno.serve(async (req) => {
             variableName: tagMatch[1],
             index: i
           });
-          textToTagMap.set(i, processed);
+          runToTagMap.set(i, processed);
         }
       }
     }
 
     console.log("✓ Found", variables.length, "variables");
 
-    // Step 2: Modify XML with first round of variables
-    console.log("→ Step 2: Applying text-based variables to XML...");
-    let modifiedXml = replaceTextInXml(originalXml, textNodes, textToTagMap);
-    console.log("✓ Step 2 complete: XML modified with text-based variables");
+    // Step 2: Modify XML with first round of variables (preserving run structure)
+    console.log("→ Step 2: Applying run-based variables to XML (preserving formatting)...");
+    let modifiedXml = replaceTextInRuns(originalXml, runs, runToTagMap);
+    console.log("✓ Step 2 complete: XML modified with run-based variables");
 
     // Update the document.xml in the ZIP temporarily
     zip.file("word/document.xml", modifiedXml);
@@ -212,7 +228,7 @@ Deno.serve(async (req) => {
         console.log("⚠️ Step 3 skipped: Could not convert DOCX to images");
       }
     } catch (visualError) {
-      console.warn("⚠️ Visual verification failed, continuing with text-based analysis only:", visualError);
+      console.warn("⚠️ Visual verification failed, continuing with run-based analysis only:", visualError);
       // Continue without visual verification
     }
 
@@ -306,7 +322,7 @@ Deno.serve(async (req) => {
         variableCount: allVariables.length,
         textBasedCount: variables.length,
         visualCount: visualVariables.length,
-        totalTextNodes: textNodes.length,
+        totalRuns: runs.length,
         aiResponse: aiResponse // Dodajemy odpowiedź z Gemini
       }),
       {
@@ -328,81 +344,147 @@ Deno.serve(async (req) => {
 });
 
 /**
- * Extract all text nodes from <w:t> tags in the XML
+ * Extract all runs (<w:r>) with formatting from the XML
+ * This preserves formatting information for better AI analysis
  */
-function extractTextNodes(xml: string): ExtractedTextNode[] {
-  const nodes: ExtractedTextNode[] = [];
+function extractRuns(xml: string): ExtractedRun[] {
+  const runs: ExtractedRun[] = [];
   
-  // Match all <w:t> tags with their content
-  // This regex handles both <w:t>text</w:t> and <w:t xml:space="preserve">text</w:t>
-  const regex = /<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>/g;
+  // Regex patterns
+  const paragraphRegex = /<w:p\b[^>]*>([\s\S]*?)<\/w:p>/g;
+  const runRegex = /<w:r\b[^>]*>([\s\S]*?)<\/w:r>/g;
+  const textRegex = /<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>/g;
+  
+  let paragraphIndex = 0;
+  let runIndex = 0;
   let match: RegExpExecArray | null;
-  let index = 0;
   
-  while ((match = regex.exec(xml)) !== null) {
-    const text = decodeXmlEntities(match[1]);
-    if (text) { // Include even whitespace-only text for position accuracy
-      nodes.push({
-        index,
-        text,
-        xpath: `w:t[${index}]` // Simple position marker
+  // Extract all paragraphs
+  const paragraphMatches = [...xml.matchAll(paragraphRegex)];
+  
+  for (const paraMatch of paragraphMatches) {
+    const paraContent = paraMatch[1];
+    const runMatches = [...paraContent.matchAll(runRegex)];
+    
+    for (const runMatch of runMatches) {
+      const runXml = runMatch[0];
+      const runContent = runMatch[1];
+      
+      // Extract all text nodes from this run
+      const textMatches = [...runContent.matchAll(textRegex)];
+      let fullText = '';
+      
+      for (const textMatch of textMatches) {
+        const text = decodeXmlEntities(textMatch[1]);
+        fullText += text;
+      }
+      
+      // Skip empty runs
+      if (!fullText.trim()) continue;
+      
+      // Extract formatting
+      const formatting = extractFormatting(runXml);
+      
+      // Find position of first text node in original XML
+      const runStartInPara = paraContent.indexOf(runXml);
+      const paraStart = paraMatch.index!;
+      const runStart = paraStart + paraMatch[0].indexOf(runXml);
+      
+      runs.push({
+        index: runIndex++,
+        text: fullText,
+        formatting,
+        paragraphIndex,
+        runXml,
+        textNodeStartIndex: runStart,
+        textNodeEndIndex: runStart + runXml.length
       });
     }
-    index++;
+    
+    paragraphIndex++;
   }
   
-  return nodes;
+  return runs;
 }
 
 /**
- * Replace text content in <w:t> tags based on the mapping
- * This is the CRITICAL function - it preserves ALL XML structure
+ * Extract formatting information from a run XML
  */
-function replaceTextInXml(
-  xml: string, 
-  textNodes: ExtractedTextNode[], 
+function extractFormatting(runXml: string): RunFormatting {
+  const formatting: RunFormatting = {};
+  
+  // Bold
+  if (/<w:b\b[^>]*\/>|<w:b\b[^>]*>/.test(runXml)) {
+    formatting.bold = true;
+  }
+  
+  // Italic
+  if (/<w:i\b[^>]*\/>|<w:i\b[^>]*>/.test(runXml)) {
+    formatting.italic = true;
+  }
+  
+  // Underline
+  if (/<w:u\b[^>]*\/>|<w:u\b[^>]*>/.test(runXml)) {
+    formatting.underline = true;
+  }
+  
+  // Font size (in half-points, convert to points)
+  const szMatch = runXml.match(/<w:sz[^>]*w:val="(\d+)"/);
+  if (szMatch) {
+    formatting.fontSize = `${parseInt(szMatch[1]) / 2}pt`;
+  }
+  
+  // Font family
+  const fontMatch = runXml.match(/<w:rFonts[^>]*w:ascii="([^"]+)"/);
+  if (fontMatch) {
+    formatting.fontFamily = fontMatch[1];
+  }
+  
+  // Color
+  const colorMatch = runXml.match(/<w:color[^>]*w:val="([^"]+)"/);
+  if (colorMatch && colorMatch[1] !== 'auto') {
+    formatting.color = `#${colorMatch[1]}`;
+  }
+  
+  return formatting;
+}
+
+/**
+ * Replace text content in <w:t> tags within runs, preserving run structure and formatting
+ * This is the CRITICAL function - it preserves ALL XML structure including formatting
+ */
+function replaceTextInRuns(
+  xml: string,
+  runs: ExtractedRun[],
   replacements: Map<number, string>
 ): string {
   let result = xml;
-  let offset = 0;
   
-  // Match all <w:t> tags
-  const regex = /<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>/g;
-  let match: RegExpExecArray | null;
-  let nodeIndex = 0;
-  
-  // Collect all matches first
-  const matches: { start: number; end: number; fullMatch: string; textContent: string; openTag: string }[] = [];
-  
-  while ((match = regex.exec(xml)) !== null) {
-    const fullMatch = match[0];
-    const textContent = match[1];
-    
-    // Extract the opening tag (with or without attributes)
-    const openTagMatch = fullMatch.match(/<w:t(?:\s[^>]*)?>/) as RegExpMatchArray;
-    const openTag = openTagMatch[0];
-    
-    matches.push({
-      start: match.index,
-      end: match.index + fullMatch.length,
-      fullMatch,
-      textContent,
-      openTag
-    });
-  }
-  
-  // Process matches in reverse order to preserve positions
-  for (let i = matches.length - 1; i >= 0; i--) {
-    const m = matches[i];
+  // Process runs in reverse order to preserve positions
+  for (let i = runs.length - 1; i >= 0; i--) {
+    const run = runs[i];
     const replacement = replacements.get(i);
     
     if (replacement !== undefined) {
-      // Build new <w:t> tag with replaced content
-      const newText = encodeXmlEntities(replacement);
-      const newTag = `${m.openTag}${newText}</w:t>`;
+      // Replace only the text content in <w:t> tags, preserve the entire run structure
+      const textRegex = /<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>/g;
+      const newRunXml = run.runXml.replace(textRegex, (match, textContent) => {
+        // Only replace if this text matches the run's text
+        const decodedText = decodeXmlEntities(textContent);
+        if (decodedText === run.text || run.text.includes(decodedText)) {
+          const newText = encodeXmlEntities(replacement);
+          // Preserve the opening tag attributes
+          const openTagMatch = match.match(/<w:t(?:\s[^>]*)?>/) as RegExpMatchArray;
+          const openTag = openTagMatch[0];
+          return `${openTag}${newText}</w:t>`;
+        }
+        return match;
+      });
       
-      // Replace in the result string
-      result = result.substring(0, m.start) + newTag + result.substring(m.end);
+      // Replace the entire run in the XML
+      result = result.substring(0, run.textNodeStartIndex) + 
+               newRunXml + 
+               result.substring(run.textNodeEndIndex);
     }
   }
   
@@ -434,17 +516,38 @@ function encodeXmlEntities(text: string): string {
 }
 
 /**
- * Call AI to analyze texts and identify variables
+ * Call AI to analyze runs with formatting context and identify variables
  * Uses OpenRouter with Gemini 2.5 Pro
  */
 async function analyzeWithAI(
-  texts: string[],
+  runs: ExtractedRun[],
   openRouterKey: string
-): Promise<{ processedTexts: string[]; aiResponse: string }> {
+): Promise<{ processedRuns: ExtractedRun[]; aiResponse: string }> {
+  
+  // Prepare texts with formatting context for AI
+  const textsWithContext = runs.map((run, idx) => {
+    const formatInfo: string[] = [];
+    if (run.formatting.bold) formatInfo.push('bold');
+    if (run.formatting.italic) formatInfo.push('italic');
+    if (run.formatting.underline) formatInfo.push('underline');
+    if (run.formatting.fontSize) formatInfo.push(`size:${run.formatting.fontSize}`);
+    if (run.formatting.fontFamily) formatInfo.push(`font:${run.formatting.fontFamily}`);
+    if (run.formatting.color) formatInfo.push(`color:${run.formatting.color}`);
+    
+    const context = formatInfo.length > 0 ? ` [${formatInfo.join(',')}]` : '';
+    return run.text + context;
+  });
+  
+  // Extract just texts for output (without context)
+  const texts = runs.map(r => r.text);
   
   const systemPrompt = `Jesteś ekspertem od analizy dokumentów celnych, samochodowych i administracyjnych.
 
 ZADANIE: Zwróć DOKŁADNIE ten sam array tekstów, ale zamień TYLKO dane zmienne na placeholdery {{nazwaZmiennej}}.
+
+⚠️ UWAGA: Teksty mogą mieć kontekst formatowania w formacie [bold,italic,size:12pt,font:Arial,color:#000000] - użyj tego do lepszej identyfikacji zmiennych.
+Na przykład: nagłówki są często bold, daty w określonym formacie, ważne informacje mogą być podkreślone, itp.
+KONTEKST FORMATOWANIA POMAGA ROZPOZNAĆ ZMIENNE - ale w output zwróć TYLKO tekst lub {{tag}} (bez kontekstu formatowania).
 
 ═══════════════════════════════════════════════════════════════════════
 ⚠️ KRYTYCZNE: WARTOŚCI STAŁE - NIGDY NIE ZAMIENIAJ (powtarzają się identycznie we wszystkich dokumentach):
@@ -551,17 +654,22 @@ ZASADY:
 5. Jeśli tekst jest ZMIENNY → zwróć {{camelCaseTag}}
 6. Używaj angielskich nazw tagów w camelCase
 7. NIE zamieniaj pojedynczych liter, cyfr 1-2 znakowych, etykiet z dwukropkiem
+8. IGNORUJ kontekst formatowania w output - zwróć tylko czysty tekst lub {{tag}}
+9. Użyj kontekstu formatowania TYLKO do lepszego rozpoznania zmiennych (np. bold = nagłówek, może być stały)
 
 PRZYKŁADY:
 Input: ["Data akceptacji:", "09-07-2025", "MARLOG CAR HANDLING BV", "KUBICZ DANIEL"]
 Output: ["Data akceptacji:", "{{acceptanceDate}}", "MARLOG CAR HANDLING BV", "{{declarantName}}"]
 
 Input: ["VIN:", "WMZ83BR06P3R14626", "Wartość:", "9.775,81 EUR", "NL006223527"]
-Output: ["VIN:", "{{vinNumber}}", "Wartość:", "{{customsValue}}", "NL006223527"]`;
+Output: ["VIN:", "{{vinNumber}}", "Wartość:", "{{customsValue}}", "NL006223527"]
 
-  const userPrompt = `Przeanalizuj te ${texts.length} tekstów z dokumentu i zwróć JSON array z placeholderami:
+Input: ["WSPÓLNOTA EUROPEJSKA [bold,size:14pt]", "25NL7PU1EYHFR8FDR4", "Data: [bold]", "09-07-2025"]
+Output: ["WSPÓLNOTA EUROPEJSKA", "{{mrnNumber}}", "Data:", "{{issueDate}}"]`;
 
-${JSON.stringify(texts, null, 2)}`;
+  const userPrompt = `Przeanalizuj te ${runs.length} runów z dokumentu (z kontekstem formatowania) i zwróć JSON array z placeholderami (BEZ kontekstu formatowania w output):
+
+${JSON.stringify(textsWithContext, null, 2)}`;
 
   const apiUrl = "https://openrouter.ai/api/v1/chat/completions";
   const apiKey = openRouterKey;
@@ -724,6 +832,12 @@ ${JSON.stringify(texts, null, 2)}`;
     processedTexts = normalized;
   }
 
-  return { processedTexts, aiResponse: content };
+  // Map processed texts back to runs (preserving formatting)
+  const processedRuns = runs.map((run, idx) => ({
+    ...run,
+    text: processedTexts[idx] || run.text
+  }));
+
+  return { processedRuns, aiResponse: content };
 }
 
