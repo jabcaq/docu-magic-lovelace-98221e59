@@ -23,7 +23,7 @@ export const OCR_PROVIDERS: OcrProviderInfo[] = [
   },
   {
     id: 'layout-parsing',
-    name: 'Layout Parsing API',
+    name: 'Paddle OCR - VL',
     description: 'Specjalizowany OCR z rozpoznawaniem układu dokumentu i tabel',
     model: 'PaddleX Layout Parser',
     supportedTypes: ['image/*', 'application/pdf'],
