@@ -337,7 +337,7 @@ FORMAT ODPOWIEDZI:
             content: contentForAi
           }
         ],
-        max_tokens: 8000,
+        max_tokens: 16000, // Zwiększone dla dużych dokumentów z wieloma polami
         temperature: 0.1 // Niska temperatura dla precyzyjnej ekstrakcji
       }),
     });
@@ -393,15 +393,79 @@ FORMAT ODPOWIEDZI:
         const lastBrace = extractedText.lastIndexOf('}');
         
         if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-          const jsonCandidate = extractedText.slice(firstBrace, lastBrace + 1);
+          let jsonCandidate = extractedText.slice(firstBrace, lastBrace + 1);
           console.log('Extracted JSON candidate length:', jsonCandidate.length);
           ocrResult = JSON.parse(jsonCandidate);
         } else {
-          throw new Error('No JSON object found in response');
+          // Odpowiedź może być obcięta - spróbuj naprawić
+          console.log('Attempting to repair truncated JSON...');
+          let jsonCandidate = extractedText.slice(extractedText.indexOf('{'));
+          
+          // Znajdź ostatni kompletny element w extractedFields
+          const lastCompleteFieldMatch = jsonCandidate.match(/("confidence":\s*"(?:high|medium|low)"\s*\})\s*,?\s*\{[^}]*$/);
+          if (lastCompleteFieldMatch) {
+            // Obetnij do ostatniego kompletnego pola i zamknij strukturę
+            const cutIndex = jsonCandidate.lastIndexOf(lastCompleteFieldMatch[1]) + lastCompleteFieldMatch[1].length;
+            jsonCandidate = jsonCandidate.slice(0, cutIndex) + ']}';
+            console.log('Repaired JSON by closing at last complete field');
+          } else {
+            // Spróbuj po prostu zamknąć tablicę i obiekt
+            jsonCandidate = jsonCandidate.replace(/,\s*\{[^}]*$/, '') + ']}';
+            console.log('Repaired JSON by removing incomplete last element');
+          }
+          
+          // Dodaj brakujące pola jeśli ich nie ma
+          if (!jsonCandidate.includes('"rawText"')) {
+            jsonCandidate = jsonCandidate.replace(/\]\s*\}$/, '], "rawText": "", "summary": "Dokument częściowo przeanalizowany (odpowiedź obcięta)"}');
+          }
+          
+          console.log('Repaired JSON preview:', jsonCandidate.slice(-200));
+          ocrResult = JSON.parse(jsonCandidate);
+          console.log('Successfully parsed repaired JSON');
         }
       } catch (secondError) {
         console.error('Second parse attempt failed:', secondError);
-        throw new Error('Failed to parse OCR results');
+        
+        // Ostatnia próba - zwróć częściowe wyniki
+        console.log('Attempting minimal extraction...');
+        try {
+          // Wyciągnij co się da z extractedFields
+          const fieldsMatch = extractedText.match(/"extractedFields"\s*:\s*\[([\s\S]*)/);
+          if (fieldsMatch) {
+            let fieldsContent = fieldsMatch[1];
+            // Znajdź wszystkie kompletne obiekty pól
+            const completeFields: any[] = [];
+            const fieldRegex = /\{\s*"tag"\s*:\s*"([^"]+)"\s*,\s*"label"\s*:\s*"([^"]+)"\s*,\s*"value"\s*:\s*"([^"]*(?:\\.[^"]*)*)"\s*,\s*"category"\s*:\s*"([^"]+)"\s*,\s*"confidence"\s*:\s*"([^"]+)"\s*\}/g;
+            let match;
+            while ((match = fieldRegex.exec(fieldsContent)) !== null) {
+              completeFields.push({
+                tag: match[1],
+                label: match[2],
+                value: match[3].replace(/\\"/g, '"'),
+                category: match[4],
+                confidence: match[5]
+              });
+            }
+            
+            if (completeFields.length > 0) {
+              console.log(`Extracted ${completeFields.length} complete fields from truncated response`);
+              ocrResult = {
+                documentType: 'Dokument (częściowo przeanalizowany)',
+                documentLanguage: 'unknown',
+                extractedFields: completeFields,
+                rawText: '',
+                summary: 'Odpowiedź AI została obcięta - wyodrębniono częściowe dane'
+              };
+            } else {
+              throw new Error('No complete fields found in truncated response');
+            }
+          } else {
+            throw new Error('No extractedFields found in response');
+          }
+        } catch (thirdError) {
+          console.error('Third parse attempt failed:', thirdError);
+          throw new Error('Failed to parse OCR results - response may be truncated');
+        }
       }
     }
 
