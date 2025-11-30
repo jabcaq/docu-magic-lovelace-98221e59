@@ -66,6 +66,8 @@ export type Database = {
           html_cache: string | null
           id: string
           name: string
+          processing_result: Json | null
+          processing_status: string | null
           runs_metadata: Json | null
           status: string
           storage_path: string
@@ -82,6 +84,8 @@ export type Database = {
           html_cache?: string | null
           id?: string
           name: string
+          processing_result?: Json | null
+          processing_status?: string | null
           runs_metadata?: Json | null
           status?: string
           storage_path: string
@@ -98,6 +102,8 @@ export type Database = {
           html_cache?: string | null
           id?: string
           name?: string
+          processing_result?: Json | null
+          processing_status?: string | null
           runs_metadata?: Json | null
           status?: string
           storage_path?: string
