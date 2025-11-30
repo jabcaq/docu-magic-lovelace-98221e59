@@ -98,8 +98,9 @@ Deno.serve(async (req) => {
     console.log("Document created successfully:", document.id);
 
     // For Word documents, trigger processing pipeline based on approach
-    // Skip if manual mode (used by process-docx-template)
-    if (analysisApproach !== 'manual') {
+    // Skip if manual mode or if handled by dedicated Word Templater pipeline
+    const shouldAutoProcess = analysisApproach !== 'manual' && analysisApproach !== 'templater_pipeline';
+    if (shouldAutoProcess) {
       try {
         if (analysisApproach === 'xml_ai') {
           console.log("Using XML + AI analysis approach for document:", document.id);
@@ -157,7 +158,7 @@ Deno.serve(async (req) => {
         console.error('Error during document processing pipeline:', pipelineError);
       }
     } else {
-      console.log('Manual mode - skipping automatic analysis pipeline');
+      console.log('Custom/Manual mode - skipping automatic analysis pipeline for approach:', analysisApproach);
     }
 
     return new Response(

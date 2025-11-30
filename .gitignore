@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+/dokumentacja/ekstrakcja
+/dokumentacja/dokumenty_doc/file-content

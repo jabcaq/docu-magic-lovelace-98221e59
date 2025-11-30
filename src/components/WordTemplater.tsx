@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,8 +17,40 @@ interface ExtractedRun {
   type: "text" | "placeholder";
 }
 
+interface TemplaterPipelineResult {
+  templateBase64: string | null;
+  storagePath?: string; // New field for large files
+  templateFilename: string | null;
+  stats: {
+    paragraphs: number;
+    runs: number;
+    batches: number;
+    changesApplied: number;
+  };
+  replacements: Array<{ id: string; originalText: string; newText: string }>;
+  message?: string;
+}
+
+type AnalysisApproach = "runs" | "xml_ai" | "templater_pipeline";
+
 const WordTemplater = () => {
   const navigate = useNavigate();
+
+  const buildInitialSteps = (approach: AnalysisApproach) => {
+    if (approach === "templater_pipeline") {
+      return [
+        { id: "upload", label: "Wysyłanie pliku do serwera", status: "pending" as StepStatus },
+        { id: "pipeline", label: "Analiza Word Templater (AI + XML)", status: "pending" as StepStatus },
+        { id: "download", label: "Generowanie szablonu DOCX", status: "pending" as StepStatus },
+      ];
+    }
+    return [
+      { id: "upload", label: "Wysyłanie pliku do serwera", status: "pending" as StepStatus },
+      { id: "ai", label: "Analiza AI i identyfikacja zmiennych", status: "pending" as StepStatus },
+      { id: "xml", label: "Budowanie finalnego dokumentu XML", status: "pending" as StepStatus },
+    ];
+  };
+
   const [file, setFile] = useState<File | null>(null);
   const [documentId, setDocumentId] = useState<string | null>(null);
   const [textContent, setTextContent] = useState<string>("");
@@ -27,8 +59,10 @@ const WordTemplater = () => {
   const [extractedRuns, setExtractedRuns] = useState<ExtractedRun[]>([]);
   const [templateName, setTemplateName] = useState("");
   const [processingTime, setProcessingTime] = useState(0);
-  const [analysisApproach, setAnalysisApproach] = useState<"runs" | "xml_ai">("runs");
+  const [analysisApproach, setAnalysisApproach] = useState<AnalysisApproach>("runs");
+  const [templaterResult, setTemplaterResult] = useState<TemplaterPipelineResult | null>(null);
   const { toast } = useToast();
+  const pollingInterval = useRef<NodeJS.Timeout | null>(null);
   
   type StepStatus = "pending" | "loading" | "success" | "error";
   
@@ -40,13 +74,94 @@ const WordTemplater = () => {
   }>({
     open: false,
     currentStep: 0,
-    steps: [
-      { id: "upload", label: "Wysyłanie pliku do serwera", status: "pending" },
-      { id: "ai", label: "Analiza AI i identyfikacja zmiennych", status: "pending" },
-      { id: "xml", label: "Budowanie finalnego dokumentu XML", status: "pending" },
-    ],
+    steps: buildInitialSteps("runs"),
     error: undefined,
   });
+
+  const handleAnalysisApproachChange = (value: AnalysisApproach) => {
+    setAnalysisApproach(value);
+    setTemplaterResult(null);
+  };
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingInterval.current) {
+        clearInterval(pollingInterval.current);
+      }
+    };
+  }, []);
+
+  const pollForStatus = async (docId: string, fileName: string) => {
+    // Start polling
+    pollingInterval.current = setInterval(async () => {
+      try {
+        const { data: doc, error } = await supabase
+          .from("documents")
+          .select("processing_status, processing_result")
+          .eq("id", docId)
+          .single();
+
+        if (error) throw error;
+
+        console.log(`[Polling] Status: ${doc.processing_status}`, doc);
+
+        if (doc.processing_status === "completed") {
+          if (pollingInterval.current) clearInterval(pollingInterval.current);
+          
+          const result = doc.processing_result as any; // Type assertion since JSONB is loosely typed
+          const stats = result.stats || { paragraphs: 0, runs: 0, batches: 0, changesApplied: 0 };
+
+          setTemplaterResult({
+            templateBase64: result.templateBase64 ?? null,
+            storagePath: result.storagePath,
+            templateFilename: result.templateFilename ?? `${fileName.replace(/\.docx$/i, "")}_processed.docx`,
+            stats,
+            replacements: result.replacements ?? [],
+            message: result.message,
+          });
+
+          setUploadProgress(prev => ({
+            ...prev,
+            currentStep: 2,
+            steps: prev.steps.map(step => {
+              if (step.id === "pipeline" || step.id === "download") {
+                return { ...step, status: "success" as StepStatus };
+              }
+              return step;
+            }),
+          }));
+
+          toast({
+            title: stats.changesApplied > 0 ? "Szablon gotowy!" : "Brak zmian do zastosowania",
+            description: `Zastosowano ${stats.changesApplied} zamian w ${stats.paragraphs} paragrafach`,
+          });
+
+          setIsUploading(false);
+          setTimeout(() => {
+            setUploadProgress(prev => ({ ...prev, open: false }));
+          }, 1200);
+
+        } else if (doc.processing_status === "error") {
+          if (pollingInterval.current) clearInterval(pollingInterval.current);
+          const errorMsg = (doc.processing_result as any)?.error || "Unknown processing error";
+          throw new Error(errorMsg);
+        }
+        // If 'processing' or 'pending', continue polling
+      } catch (err) {
+        if (pollingInterval.current) clearInterval(pollingInterval.current);
+        console.error("Polling error:", err);
+        setUploadProgress(prev => ({
+          ...prev,
+          steps: prev.steps.map(step => 
+            step.status === "loading" ? { ...step, status: "error" } : step
+          ),
+          error: err instanceof Error ? err.message : "Processing failed",
+        }));
+        setIsUploading(false);
+      }
+    }, 2000); // Poll every 2 seconds
+  };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -65,16 +180,16 @@ const WordTemplater = () => {
     setIsUploading(true);
     setExtractedRuns([]);
     setDocumentId(null);
+    setTemplaterResult(null);
 
     // Open progress dialog
+    const initialSteps = buildInitialSteps(analysisApproach).map((step, index) =>
+      index === 0 ? { ...step, status: "loading" as StepStatus } : step
+    );
     setUploadProgress({
       open: true,
       currentStep: 0,
-      steps: [
-        { id: "upload", label: "Wysyłanie pliku do serwera", status: "loading" },
-        { id: "ai", label: "Analiza AI i identyfikacja zmiennych", status: "pending" },
-        { id: "xml", label: "Budowanie finalnego dokumentu XML", status: "pending" },
-      ],
+      steps: initialSteps,
       error: undefined,
     });
 
@@ -107,12 +222,34 @@ const WordTemplater = () => {
       setUploadProgress(prev => ({
         ...prev,
         currentStep: 1,
-        steps: [
-          { id: "upload", label: "Wysyłanie pliku do serwera", status: "success" },
-          { id: "ai", label: "Analiza AI i identyfikacja zmiennych", status: "loading" },
-          { id: "xml", label: "Budowanie finalnego dokumentu XML", status: "pending" },
-        ],
+        steps: prev.steps.map(step => {
+          if (step.id === "upload") {
+            return { ...step, status: "success" as StepStatus };
+          }
+          if (
+            step.id === "ai" ||
+            step.id === "pipeline"
+          ) {
+            return { ...step, status: "loading" as StepStatus };
+          }
+          return step;
+        }),
       }));
+
+      if (analysisApproach === "templater_pipeline") {
+        // Trigger the pipeline
+        const { error: pipelineError } = await supabase.functions.invoke("word-templater-pipeline", {
+          body: { documentId: document.id },
+        });
+
+        if (pipelineError) {
+          throw pipelineError;
+        }
+
+        // Start polling for completion instead of waiting
+        await pollForStatus(document.id, selectedFile.name);
+        return;
+      }
 
       // Step 2: AI Analysis (triggered automatically by upload-document)
       // Wait for analysis to complete
@@ -121,11 +258,15 @@ const WordTemplater = () => {
       setUploadProgress(prev => ({
         ...prev,
         currentStep: 2,
-        steps: [
-          { id: "upload", label: "Wysyłanie pliku do serwera", status: "success" },
-          { id: "ai", label: "Analiza AI i identyfikacja zmiennych", status: "success" },
-          { id: "xml", label: "Budowanie finalnego dokumentu XML", status: "loading" },
-        ],
+        steps: prev.steps.map(step => {
+          if (step.id === "ai") {
+            return { ...step, status: "success" as StepStatus };
+          }
+          if (step.id === "xml") {
+            return { ...step, status: "loading" as StepStatus };
+          }
+          return step;
+        }),
       }));
 
       // Step 3: XML Building (already completed in backend)
@@ -134,11 +275,9 @@ const WordTemplater = () => {
       setUploadProgress(prev => ({
         ...prev,
         currentStep: 2,
-        steps: [
-          { id: "upload", label: "Wysyłanie pliku do serwera", status: "success" },
-          { id: "ai", label: "Analiza AI i identyfikacja zmiennych", status: "success" },
-          { id: "xml", label: "Budowanie finalnego dokumentu XML", status: "success" },
-        ],
+        steps: prev.steps.map(step =>
+          step.id === "xml" ? { ...step, status: "success" as StepStatus } : step
+        ),
       }));
 
       toast({
@@ -176,7 +315,63 @@ const WordTemplater = () => {
         setUploadProgress(prev => ({ ...prev, open: false }));
       }, 3000);
     } finally {
-      setIsUploading(false);
+      // Only set uploading to false if NOT polling (polling handles it internally when done)
+      if (analysisApproach !== "templater_pipeline") {
+        setIsUploading(false);
+      }
+    }
+  };
+
+  const handleDownloadTemplaterDoc = async () => {
+    if (!templaterResult) return;
+
+    try {
+      let blob: Blob;
+
+      if (templaterResult.storagePath) {
+        // Download from storage (new method for large files)
+        const { data, error } = await supabase.storage
+          .from("documents")
+          .download(templaterResult.storagePath);
+
+        if (error) throw error;
+        if (!data) throw new Error("Empty file downloaded");
+        blob = data;
+      } else if (templaterResult.templateBase64) {
+        // Legacy method: Base64
+        const byteCharacters = atob(templaterResult.templateBase64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        blob = new Blob([byteArray], {
+          type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        });
+      } else {
+        toast({
+          title: "Błąd pobierania",
+          description: "Brak danych pliku (Base64 lub Storage Path).",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = templaterResult.templateFilename || "processed_document.docx";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Download error:", error);
+      toast({
+        title: "Błąd pobierania",
+        description: error instanceof Error ? error.message : "Nie udało się pobrać pliku.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -349,7 +544,7 @@ const WordTemplater = () => {
                     name="analysis-approach"
                     value="runs"
                     checked={analysisApproach === "runs"}
-                    onChange={(e) => setAnalysisApproach(e.target.value as "runs" | "xml_ai")}
+                    onChange={(e) => handleAnalysisApproachChange(e.target.value as AnalysisApproach)}
                     className="w-4 h-4"
                     disabled={isUploading}
                   />
@@ -364,13 +559,28 @@ const WordTemplater = () => {
                     name="analysis-approach"
                     value="xml_ai"
                     checked={analysisApproach === "xml_ai"}
-                    onChange={(e) => setAnalysisApproach(e.target.value as "runs" | "xml_ai")}
+                    onChange={(e) => handleAnalysisApproachChange(e.target.value as AnalysisApproach)}
                     className="w-4 h-4"
                     disabled={isUploading}
                   />
                   <div className="flex flex-col">
                     <span className="text-sm font-medium">Analiza XML + AI</span>
                     <span className="text-xs text-muted-foreground">Pełna analiza struktury przez AI</span>
+                  </div>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="analysis-approach"
+                    value="templater_pipeline"
+                    checked={analysisApproach === "templater_pipeline"}
+                    onChange={(e) => handleAnalysisApproachChange(e.target.value as AnalysisApproach)}
+                    className="w-4 h-4"
+                    disabled={isUploading}
+                  />
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium">Word Templater pipeline</span>
+                    <span className="text-xs text-muted-foreground">Deterministyczny Find &amp; Replace runów</span>
                   </div>
                 </label>
               </div>
@@ -407,7 +617,7 @@ const WordTemplater = () => {
       </Card>
 
       {/* Text Input Section - shown during processing or if auto-extract failed */}
-      {file && !extractedRuns.length && !isProcessing && (
+      {file && analysisApproach !== "templater_pipeline" && !extractedRuns.length && !isProcessing && (
         <Card className="p-6 space-y-4">
           <div>
             <h3 className="text-lg font-semibold mb-2">Treść dokumentu</h3>
@@ -439,7 +649,7 @@ const WordTemplater = () => {
       )}
 
       {/* Processing indicator */}
-      {isProcessing && !extractedRuns.length && (
+      {analysisApproach !== "templater_pipeline" && isProcessing && !extractedRuns.length && (
         <Card className="p-6">
           <div className="flex flex-col items-center justify-center py-8 space-y-4">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -460,6 +670,74 @@ const WordTemplater = () => {
               </p>
             </div>
           </div>
+        </Card>
+      )}
+
+      {analysisApproach === "templater_pipeline" && templaterResult && (
+        <Card className="p-6 space-y-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h3 className="text-lg font-semibold">Word Templater pipeline</h3>
+              <p className="text-sm text-muted-foreground">
+                {templaterResult.message
+                  ? templaterResult.message
+                  : `Zastosowano ${templaterResult.stats.changesApplied} zmian w ${templaterResult.stats.paragraphs} paragrafach`}
+              </p>
+            </div>
+            <Button
+              onClick={handleDownloadTemplaterDoc}
+              className="gap-2"
+              disabled={!templaterResult.templateBase64 && !templaterResult.storagePath}
+            >
+              <Download className="h-4 w-4" />
+              Pobierz DOCX
+            </Button>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-4">
+            <div className="rounded-lg border p-3">
+              <p className="text-xs text-muted-foreground">Paragrafy</p>
+              <p className="text-lg font-semibold">{templaterResult.stats.paragraphs}</p>
+            </div>
+            <div className="rounded-lg border p-3">
+              <p className="text-xs text-muted-foreground">Runy</p>
+              <p className="text-lg font-semibold">{templaterResult.stats.runs}</p>
+            </div>
+            <div className="rounded-lg border p-3">
+              <p className="text-xs text-muted-foreground">Batchy LLM</p>
+              <p className="text-lg font-semibold">{templaterResult.stats.batches}</p>
+            </div>
+            <div className="rounded-lg border p-3">
+              <p className="text-xs text-muted-foreground">Zastosowane zmiany</p>
+              <p className="text-lg font-semibold">{templaterResult.stats.changesApplied}</p>
+            </div>
+          </div>
+
+          {templaterResult.replacements.length > 0 ? (
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Przykładowe zamiany:</p>
+              <div className="max-h-[260px] overflow-y-auto divide-y rounded-lg border">
+                {templaterResult.replacements.slice(0, 10).map(change => (
+                  <div key={change.id} className="flex flex-col gap-1 p-3 md:flex-row md:items-center md:justify-between">
+                    <span className="text-xs font-mono text-muted-foreground">{change.id}</span>
+                    <div className="text-sm md:text-right">
+                      <p className="text-muted-foreground line-clamp-1">„{change.originalText || "—"}”</p>
+                      <p className="font-semibold line-clamp-1">→ {change.newText || "(puste)"}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {templaterResult.replacements.length > 10 && (
+                <p className="text-xs text-muted-foreground">
+                  +{templaterResult.replacements.length - 10} dodatkowych zamian
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              LLM nie zasugerowało żadnych zmian dla tego dokumentu.
+            </p>
+          )}
         </Card>
       )}
 
@@ -545,7 +823,7 @@ const WordTemplater = () => {
       )}
 
       {/* Preview Section */}
-      {file && extractedRuns.length === 0 && (
+      {analysisApproach !== "templater_pipeline" && file && extractedRuns.length === 0 && (
         <Card className="p-6">
           <h3 className="text-lg font-semibold mb-4">Podgląd dokumentu</h3>
           <div className="bg-muted/30 rounded-lg p-8 text-center min-h-[200px] flex items-center justify-center">

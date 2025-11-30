@@ -1,0 +1,115 @@
+---
+alwaysApply: true
+---
+
+# Project Structure & Architecture
+
+This document outlines the detailed structure of the project, separating the React frontend from the Supabase Edge Function backend.
+
+## Directory Tree
+
+```text
+.
+├── .cursor/
+│   └── rules/
+│       └── project_structure.mdc    # This file
+├── dokumentacja/                    # Documentation & Datasets
+│   ├── dokumenty_doc/               # Sample Word documents (templates & input files)
+│   └── pliki_wgrane/                # Sample uploaded files (PDF scans, images)
+├── public/                          # Static public assets
+├── src/                             # Frontend Application (React + Vite + Tailwind)
+│   ├── components/                  # Business Components
+│   │   ├── ui/                      # Generic UI Components (Shadcn/Radix)
+│   │   ├── DocumentFieldEditor.tsx  # Editor for document fields
+│   │   ├── DocumentPreview.tsx      # Basic document preview
+│   │   ├── DocumentPreviewEnhanced.tsx # Advanced preview with interactions
+│   │   ├── DocxTemplateProcessor.tsx # Frontend logic for template processing
+│   │   ├── MagnifyingGlass.tsx      # UI tool for inspecting documents
+│   │   ├── OcrUpload.tsx            # File upload component for OCR
+│   │   ├── ProtectedRoute.tsx       # Auth wrapper
+│   │   ├── TestXmlAi.tsx            # Testing component for AI XML analysis
+│   │   ├── TextSelectionPopup.tsx   # Popup for text selection actions
+│   │   ├── UploadProgressDialog.tsx # Progress feedback during upload
+│   │   ├── VerificationProgress.tsx # Progress stepper for verification
+│   │   └── WordTemplater.tsx        # Main templating interface
+│   ├── hooks/                       # Custom React Hooks
+│   │   ├── use-mobile.tsx           # Mobile detection hook
+│   │   ├── use-ocr-analysis.ts      # Core hook for OCR process management
+│   │   └── use-toast.ts             # Toast notifications hook
+│   ├── integrations/                # External Services
+│   │   └── supabase/                # Supabase client configuration
+│   ├── lib/                         # Utilities
+│   │   └── utils.ts                 # Common helper functions
+│   └── pages/                       # Application Routes
+│       ├── Auth.tsx                 # Login/Register page
+│       ├── Dashboard.tsx            # Main user dashboard
+│       ├── Documents.tsx            # List of documents
+│       ├── Index.tsx                # Landing page
+│       ├── NotFound.tsx             # 404 page
+│       ├── OcrAnalysis.tsx          # Main OCR verification workspace
+│       ├── TestRuns.tsx             # Test page for run extraction
+│       └── VerifyDocument.tsx       # Document verification page
+├── supabase/                        # Backend Infrastructure
+│   ├── functions/                   # Deno Edge Functions
+│   │   ├── add-document-field/      # API: Add single field
+│   │   ├── analyze-document-fields/ # AI: Identify variables vs static text
+│   │   ├── analyze-document-quality/# AI: Check document quality
+│   │   ├── analyze-document-xml-ai/ # AI: XML structure analysis
+│   │   ├── api-upload-document/     # API: Handle file upload
+│   │   ├── apply-quality-fixes/     # Processing: Fix document issues
+│   │   ├── convert-docx-to-images/  # Utils: Generate previews
+│   │   ├── create-template/         # Business: Save document as template
+│   │   ├── delete-document-field/   # API: Remove field
+│   │   ├── download-document/       # API: Secure download
+│   │   ├── extract-and-send-xml/    # Processing: Raw XML handling
+│   │   ├── extract-openxml-runs/    # Core Parsing: Basic XML run extraction
+│   │   ├── extract-pdf-data/        # OCR: PDF processing
+│   │   ├── extract-runs/            # Core Parsing: Run extraction logic
+│   │   ├── extract-runs-enhanced/   # Core Parsing: Advanced run extraction (current standard)
+│   │   ├── fill-document-fields/    # Processing: Apply values to fields
+│   │   ├── identify-variables/      # Analysis: Variable detection
+│   │   ├── ocr-analyze-document/    # OCR: Main analysis entry point
+│   │   ├── ocr-layout-parsing/      # OCR: Layout understanding
+│   │   ├── process-docx-template/   # Business: Template logic
+│   │   ├── rebuild-document-xml/    # Core Generation: Reconstruct XML structure
+│   │   ├── rebuild-docx-with-variables/ # Core Generation: Replace tags in DOCX
+│   │   ├── render-document/         # Utils: Rendering helper
+│   │   ├── update-document-field/   # API: Modify field value
+│   │   ├── upload-document/         # API: Storage upload handler
+│   │   ├── verify-document-visually/# Analysis: Visual verification helper
+│   │   └── word-extract-runs/       # Core Parsing: Specific Word run extraction
+│   └── migrations/                  # SQL Database Migrations
+├── test-advanced-approach.mjs       # Test script: Advanced processing
+├── test-docx-processor.mjs          # Test script: Basic processor
+├── test-docx-processor.ts           # Test script: Processor types/logic
+├── test-final-approach.mjs          # Test script: Final pipeline verification
+├── test-hybrid-approach.mjs         # Test script: Hybrid processing strategy
+├── test-improved-processor.mjs      # Test script: Improved processor
+├── test-merged-approach.mjs         # Test script: Merged strategy
+├── test-runs-analysis.mjs           # Test script: Run analysis
+└── test-runs-extraction.mjs         # Test script: Run extraction
+```
+
+## Core Functional Blocks
+
+### 1. Document Parsing & Extraction (Backend)
+These functions handle the low-level parsing of `.docx` XML structures.
+*   **`extract-runs-enhanced`**: The primary tool for extracting text "runs" from Word documents, preserving context and formatting.
+*   **`extract-openxml-runs` / `extract-runs`**: Legacy/Alternative implementations for run extraction.
+*   **`word-extract-runs`**: Specialized extraction for Word formats.
+
+### 2. AI Analysis & Transformation (Backend)
+Functions that use LLMs (via Lovable/Gemini) to interpret document content.
+*   **`analyze-document-fields`**: Uses AI to tag text runs as either "static" (boilerplate) or "variable" (dynamic data).
+*   **`identify-variables`**: Heuristic or AI-based variable detection.
+*   **`ocr-analyze-document`**: Entry point for OCR-based document understanding.
+
+### 3. Document Generation & Templating (Backend)
+Functions responsible for modifying and reconstructing Word documents.
+*   **`rebuild-docx-with-variables`**: Replaces placeholder tags in a `.docx` file with actual values (Find & Replace).
+*   **`create-template`**: Converts a processed document into a reusable template.
+*   **`fill-document-fields`**: Batch updates fields in a document.
+
+### 4. Frontend Workflows
+*   **OCR & Verification**: `OcrAnalysis.tsx` and `VerifyDocument.tsx` provide the UI for users to review AI suggestions.
+*   **Templating**: `WordTemplater.tsx` allows users to manage the template creation process.
