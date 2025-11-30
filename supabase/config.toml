@@ -1,26 +1,5 @@
 project_id = "ebvcextapzrkzpowrxto"
 
-# Local development configuration to avoid port conflicts
-# [api]
-# port = 64321
-
-# [db]
-# port = 64322
-
-# [studio]
-# port = 64323
-
-# [inbucket]
-# port = 64324
-
-# [analytics]
-# port = 64327
-
-# [storage]
-# enabled = true
-
-# [auth]
-# enabled = true
 
 [functions.upload-document]
 verify_jwt = true
