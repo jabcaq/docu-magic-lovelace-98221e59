@@ -97,21 +97,9 @@ Deno.serve(async (req) => {
 
     // Return success immediately to avoid timeout
     // The actual processing happens in the background
-    // Note: In Deno Deploy (Supabase Edge Functions), we must not await the background task
-    // AND we must register it with EdgeRuntime.waitUntil if available, or just let it run
-    // but typically the runtime might kill it if response is sent.
-    // However, for long running tasks > 60s, we usually need a queue.
-    // BUT, locally and on some plans, we can try EdgeRuntime.waitUntil.
-    
-    const processingPromise = processDocument(documentId, supabase, openRouterKey);
-    
-    // If EdgeRuntime is available, use it to keep the background task alive
-    if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) {
-      EdgeRuntime.waitUntil(processingPromise);
-    } else {
-      // Fallback: just don't await it (might be killed)
-      processingPromise.catch(err => console.error("Background process failed:", err));
-    }
+    processDocument(documentId, supabase, openRouterKey).catch(err => 
+      console.error("Background process failed:", err)
+    );
 
     return new Response(
       JSON.stringify({
