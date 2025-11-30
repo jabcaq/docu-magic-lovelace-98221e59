@@ -105,21 +105,31 @@ const WordTemplater = () => {
         if (error) throw error;
 
         console.log(`[Polling] Status: ${doc.processing_status}`, doc);
+        console.log(`[Polling] Result:`, doc.processing_result);
 
         if (doc.processing_status === "completed") {
           if (pollingInterval.current) clearInterval(pollingInterval.current);
           
-          const result = doc.processing_result as any; // Type assertion since JSONB is loosely typed
-          const stats = result.stats || { paragraphs: 0, runs: 0, batches: 0, changesApplied: 0 };
+          const result = doc.processing_result as any;
+          console.log('[Polling] Processing completed!', result);
+          
+          const stats = result?.stats || { paragraphs: 0, runs: 0, batches: 0, changesApplied: 0 };
+          const replacements = result?.replacements || [];
+          
+          console.log('[Polling] Stats:', stats);
+          console.log('[Polling] Replacements:', replacements);
 
-          setTemplaterResult({
-            templateBase64: result.templateBase64 ?? null,
-            storagePath: result.storagePath,
-            templateFilename: result.templateFilename ?? `${fileName.replace(/\.docx$/i, "")}_processed.docx`,
+          const templaterData = {
+            templateBase64: result?.templateBase64 ?? null,
+            storagePath: result?.storagePath,
+            templateFilename: result?.templateFilename ?? `${fileName.replace(/\.docx$/i, "")}_processed.docx`,
             stats,
-            replacements: result.replacements ?? [],
-            message: result.message,
-          });
+            replacements,
+            message: result?.message,
+          };
+          
+          console.log('[Polling] Setting templater result:', templaterData);
+          setTemplaterResult(templaterData);
 
           setUploadProgress(prev => ({
             ...prev,
@@ -133,14 +143,16 @@ const WordTemplater = () => {
           }));
 
           toast({
-            title: stats.changesApplied > 0 ? "Szablon gotowy!" : "Brak zmian do zastosowania",
-            description: `Zastosowano ${stats.changesApplied} zamian w ${stats.paragraphs} paragrafach`,
+            title: stats.changesApplied > 0 ? "✅ Szablon gotowy!" : "⚠️ Brak zmian do zastosowania",
+            description: stats.changesApplied > 0 
+              ? `Znaleziono ${stats.changesApplied} zmiennych w ${stats.paragraphs} paragrafach`
+              : "LLM nie znalazł zmiennych w tym dokumencie",
           });
 
           setIsUploading(false);
           setTimeout(() => {
             setUploadProgress(prev => ({ ...prev, open: false }));
-          }, 1200);
+          }, 2000);
 
         } else if (doc.processing_status === "error") {
           if (pollingInterval.current) clearInterval(pollingInterval.current);
