@@ -176,6 +176,7 @@ Deno.serve(async (req) => {
     let mimeType: string;
     let documentId: string | null = null;
     let saveToDatabase = false;
+    let selectedModel = 'google/gemini-2.5-pro'; // domyślny model
 
     const contentType = req.headers.get('content-type') || '';
     
@@ -184,6 +185,10 @@ Deno.serve(async (req) => {
       const formData = await req.formData();
       const file = formData.get('file') as File;
       saveToDatabase = formData.get('saveToDatabase') === 'true';
+      const modelParam = formData.get('model');
+      if (modelParam) {
+        selectedModel = String(modelParam);
+      }
       
       if (!file) {
         throw new Error('No file provided');
@@ -193,12 +198,15 @@ Deno.serve(async (req) => {
       mimeType = file.type || getMimeType(fileName);
       fileBuffer = await file.arrayBuffer();
       
-      console.log(`Processing uploaded file: ${fileName}, type: ${mimeType}, size: ${fileBuffer.byteLength}`);
+      console.log(`Processing uploaded file: ${fileName}, type: ${mimeType}, size: ${fileBuffer.byteLength}, model: ${selectedModel}`);
     } else {
       // Analiza istniejącego dokumentu z bazy
       const body = await req.json();
       documentId = body.documentId;
       saveToDatabase = body.saveToDatabase !== false;
+      if (body.model) {
+        selectedModel = body.model;
+      }
       
       if (!documentId) {
         throw new Error('documentId is required');
@@ -228,7 +236,7 @@ Deno.serve(async (req) => {
       mimeType = getMimeType(fileName);
       fileBuffer = await fileData.arrayBuffer();
       
-      console.log(`Processing stored document: ${fileName}, type: ${mimeType}`);
+      console.log(`Processing stored document: ${fileName}, type: ${mimeType}, model: ${selectedModel}`);
     }
 
     // Przygotuj zawartość dla Gemini
@@ -292,7 +300,7 @@ Deno.serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-pro',
+        model: selectedModel,
         messages: [
           {
             role: 'system',
