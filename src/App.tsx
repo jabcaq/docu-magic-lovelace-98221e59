@@ -11,6 +11,7 @@ import TestRuns from "./pages/TestRuns";
 import OcrAnalysis from "./pages/OcrAnalysis";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import UserManagement from "./pages/UserManagement";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -61,6 +62,14 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <OcrAnalysis />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/user-management"
+            element={
+              <ProtectedRoute>
+                <UserManagement />
               </ProtectedRoute>
             }
           />

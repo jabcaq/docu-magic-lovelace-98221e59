@@ -33,7 +33,11 @@ interface TemplaterPipelineResult {
 
 type AnalysisApproach = "runs" | "xml_ai" | "templater_pipeline";
 
-const WordTemplater = () => {
+interface WordTemplaterProps {
+  userRole?: "admin" | "gosc" | null;
+}
+
+const WordTemplater = ({ userRole }: WordTemplaterProps = {}) => {
   const navigate = useNavigate();
 
   const buildInitialSteps = (approach: AnalysisApproach) => {
@@ -59,7 +63,9 @@ const WordTemplater = () => {
   const [extractedRuns, setExtractedRuns] = useState<ExtractedRun[]>([]);
   const [templateName, setTemplateName] = useState("");
   const [processingTime, setProcessingTime] = useState(0);
-  const [analysisApproach, setAnalysisApproach] = useState<AnalysisApproach>("runs");
+  const [analysisApproach, setAnalysisApproach] = useState<AnalysisApproach>(
+    userRole === "gosc" ? "templater_pipeline" : "runs"
+  );
   const [templaterResult, setTemplaterResult] = useState<TemplaterPipelineResult | null>(null);
   const { toast } = useToast();
   const pollingInterval = useRef<NodeJS.Timeout | null>(null);
@@ -550,36 +556,40 @@ const WordTemplater = () => {
             <div className="flex flex-col gap-3 mb-4">
               <label className="text-sm font-medium">Metoda analizy dokumentu:</label>
               <div className="flex gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="analysis-approach"
-                    value="runs"
-                    checked={analysisApproach === "runs"}
-                    onChange={(e) => handleAnalysisApproachChange(e.target.value as AnalysisApproach)}
-                    className="w-4 h-4"
-                    disabled={isUploading}
-                  />
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium">Analiza Runs (szybsza)</span>
-                    <span className="text-xs text-muted-foreground">Obecne podejście z ekstrakcją formatowania</span>
-                  </div>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="analysis-approach"
-                    value="xml_ai"
-                    checked={analysisApproach === "xml_ai"}
-                    onChange={(e) => handleAnalysisApproachChange(e.target.value as AnalysisApproach)}
-                    className="w-4 h-4"
-                    disabled={isUploading}
-                  />
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium">Analiza XML + AI</span>
-                    <span className="text-xs text-muted-foreground">Pełna analiza struktury przez AI</span>
-                  </div>
-                </label>
+                {userRole !== "gosc" && (
+                  <>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="analysis-approach"
+                        value="runs"
+                        checked={analysisApproach === "runs"}
+                        onChange={(e) => handleAnalysisApproachChange(e.target.value as AnalysisApproach)}
+                        className="w-4 h-4"
+                        disabled={isUploading}
+                      />
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">Analiza Runs (szybsza)</span>
+                        <span className="text-xs text-muted-foreground">Obecne podejście z ekstrakcją formatowania</span>
+                      </div>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="analysis-approach"
+                        value="xml_ai"
+                        checked={analysisApproach === "xml_ai"}
+                        onChange={(e) => handleAnalysisApproachChange(e.target.value as AnalysisApproach)}
+                        className="w-4 h-4"
+                        disabled={isUploading}
+                      />
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">Analiza XML + AI</span>
+                        <span className="text-xs text-muted-foreground">Pełna analiza struktury przez AI</span>
+                      </div>
+                    </label>
+                  </>
+                )}
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="radio"
@@ -588,10 +598,13 @@ const WordTemplater = () => {
                     checked={analysisApproach === "templater_pipeline"}
                     onChange={(e) => handleAnalysisApproachChange(e.target.value as AnalysisApproach)}
                     className="w-4 h-4"
-                    disabled={isUploading}
+                    disabled={isUploading || userRole === "gosc"}
                   />
                   <div className="flex flex-col">
-                    <span className="text-sm font-medium">Word Templater pipeline</span>
+                    <span className="text-sm font-medium">
+                      Word Templater pipeline
+                      {userRole === "gosc" && " (wymagane)"}
+                    </span>
                     <span className="text-xs text-muted-foreground">Deterministyczny Find &amp; Replace runów</span>
                   </div>
                 </label>
