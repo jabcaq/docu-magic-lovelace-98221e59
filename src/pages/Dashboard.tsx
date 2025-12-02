@@ -3,7 +3,9 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Upload, Search, Settings, Sparkles, ScanText, ExternalLink, Users } from "lucide-react";
+import { FileText, Upload, Search, Settings, Sparkles, ScanText, ExternalLink, Users, LogOut } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import WordTemplater from "@/components/WordTemplater";
 import TestXmlAi from "@/components/TestXmlAi";
 import DocxTemplateProcessor from "@/components/DocxTemplateProcessor";
@@ -12,8 +14,22 @@ import { useUserRole } from "@/hooks/use-user-role";
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const { role, loading, isAdmin } = useUserRole();
   const [activeTab, setActiveTab] = useState(isAdmin ? "generator" : "templater");
+
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      toast({
+        title: "Błąd",
+        description: "Nie udało się wylogować",
+        variant: "destructive",
+      });
+    } else {
+      navigate("/auth");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5">
@@ -41,6 +57,10 @@ const Dashboard = () => {
               )}
               <Button variant="outline" size="icon">
                 <Settings className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" onClick={handleLogout}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Wyloguj
               </Button>
             </div>
           </div>
