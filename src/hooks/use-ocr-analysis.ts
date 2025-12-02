@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
-export type OcrProvider = 'gemini' | 'layout-parsing';
+export type OcrProvider = 'gemini' | 'gemini-3-pro' | 'layout-parsing';
 
 export interface OcrProviderInfo {
   id: OcrProvider;
@@ -20,6 +20,14 @@ export const OCR_PROVIDERS: OcrProviderInfo[] = [
     model: 'google/gemini-2.5-pro',
     supportedTypes: ['image/*', 'application/pdf', '.doc', '.docx'],
     icon: '✨'
+  },
+  {
+    id: 'gemini-3-pro',
+    name: 'Gemini 3 Pro Preview',
+    description: 'Najnowszy model Google AI - ulepszona analiza i rozumienie dokumentów',
+    model: 'google/gemini-3-pro-preview',
+    supportedTypes: ['image/*', 'application/pdf', '.doc', '.docx'],
+    icon: '🚀'
   },
   {
     id: 'layout-parsing',
@@ -81,6 +89,7 @@ export function useOcrAnalysis(options: UseOcrAnalysisOptions = {}) {
   const getEndpoint = useCallback((provider: OcrProvider) => {
     switch (provider) {
       case 'gemini':
+      case 'gemini-3-pro':
         return 'ocr-analyze-document';
       case 'layout-parsing':
         return 'ocr-layout-parsing';
@@ -154,6 +163,12 @@ export function useOcrAnalysis(options: UseOcrAnalysisOptions = {}) {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('saveToDatabase', String(options.saveToDatabase ?? true));
+      
+      // Dodaj model jeśli to gemini provider
+      const providerInfo = OCR_PROVIDERS.find(p => p.id === selectedProvider);
+      if (providerInfo && (selectedProvider === 'gemini' || selectedProvider === 'gemini-3-pro')) {
+        formData.append('model', providerInfo.model);
+      }
 
       // Wywołaj odpowiedni endpoint
       const endpoint = getEndpoint(selectedProvider);
@@ -221,6 +236,17 @@ export function useOcrAnalysis(options: UseOcrAnalysisOptions = {}) {
       updateProgress(40, `Analizowanie przez ${getProviderName(selectedProvider)}...`);
 
       const endpoint = getEndpoint(selectedProvider);
+      const providerInfo = OCR_PROVIDERS.find(p => p.id === selectedProvider);
+      const requestBody: any = {
+        documentId,
+        saveToDatabase: options.saveToDatabase ?? true,
+      };
+      
+      // Dodaj model jeśli to gemini provider
+      if (providerInfo && (selectedProvider === 'gemini' || selectedProvider === 'gemini-3-pro')) {
+        requestBody.model = providerInfo.model;
+      }
+      
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${endpoint}`,
         {
@@ -229,10 +255,7 @@ export function useOcrAnalysis(options: UseOcrAnalysisOptions = {}) {
             'Authorization': `Bearer ${session.access_token}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            documentId,
-            saveToDatabase: options.saveToDatabase ?? true,
-          }),
+          body: JSON.stringify(requestBody),
         }
       );
 
