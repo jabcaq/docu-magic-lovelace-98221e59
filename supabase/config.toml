@@ -99,3 +99,6 @@ verify_jwt = true
 
 [functions.convert-docx-to-images]
 verify_jwt = true
+
+[functions.render-template]
+verify_jwt = true

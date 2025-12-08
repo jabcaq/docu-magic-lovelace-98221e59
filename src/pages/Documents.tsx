@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { FileText, Search, Calendar, Loader2, Trash2, FileStack } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { TemplatePreviewModal } from "@/components/TemplatePreviewModal";
 
 interface Template {
   id: string;
@@ -24,6 +25,8 @@ const Documents = () => {
   const [sortBy, setSortBy] = useState<string>("date-desc");
   const [templates, setTemplates] = useState<Template[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   useEffect(() => {
     fetchTemplates();
@@ -54,7 +57,6 @@ const Documents = () => {
         if (Array.isArray(tagMetadata)) {
           tagCount = tagMetadata.length;
         } else if (tagMetadata && typeof tagMetadata === 'object') {
-          // Handle object format with tags array or count property
           tagCount = tagMetadata.tags?.length || tagMetadata.count || Object.keys(tagMetadata).length || 0;
         }
         
@@ -96,14 +98,12 @@ const Documents = () => {
 
       if (fetchError) throw fetchError;
 
-      // Delete file from storage
       if (template.storage_path) {
         await supabase.storage
           .from("documents")
           .remove([template.storage_path]);
       }
 
-      // Delete template record
       const { error: deleteError } = await supabase
         .from("templates")
         .delete()
@@ -127,39 +127,14 @@ const Documents = () => {
     }
   };
 
-  const downloadTemplate = async (templateId: string, templateName: string, storagePath: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    
-    try {
-      toast({ title: "Pobieranie..." });
+  const openPreview = (template: Template) => {
+    setSelectedTemplate(template);
+    setIsPreviewOpen(true);
+  };
 
-      const { data, error } = await supabase.storage
-        .from("documents")
-        .download(storagePath);
-
-      if (error) throw error;
-
-      const url = URL.createObjectURL(data);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = templateName.endsWith('.docx') ? templateName : `${templateName}.docx`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
-      toast({
-        title: "Pobrano",
-        description: "Szablon został pobrany",
-      });
-    } catch (error) {
-      console.error("Download error:", error);
-      toast({
-        title: "Błąd",
-        description: "Nie udało się pobrać szablonu",
-        variant: "destructive",
-      });
-    }
+  const closePreview = () => {
+    setIsPreviewOpen(false);
+    setSelectedTemplate(null);
   };
 
   const filteredTemplates = templates
@@ -233,7 +208,7 @@ const Documents = () => {
               <Card
                 key={template.id}
                 className="p-6 cursor-pointer hover:shadow-lg transition-all hover:scale-105 relative group"
-                onClick={(e) => downloadTemplate(template.id, template.name, template.storagePath, e)}
+                onClick={() => openPreview(template)}
               >
                 <div className="space-y-4">
                   <div className="flex items-start justify-between">
@@ -280,6 +255,13 @@ const Documents = () => {
           </div>
         )}
       </main>
+
+      {/* Preview Modal */}
+      <TemplatePreviewModal
+        isOpen={isPreviewOpen}
+        onClose={closePreview}
+        template={selectedTemplate}
+      />
     </div>
   );
 };
