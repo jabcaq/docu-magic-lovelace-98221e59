@@ -41,27 +41,17 @@ const UserManagement = () => {
 
   const fetchUsers = async () => {
     try {
-      const { data, error } = await supabase
-        .from("user_roles")
-        .select("*")
-        .order("created_at", { ascending: false });
+      const { data: sessionData } = await supabase.auth.getSession();
+      const response = await supabase.functions.invoke("get-users-with-emails", {
+        headers: {
+          Authorization: `Bearer ${sessionData.session?.access_token}`,
+        },
+      });
 
-      if (error) throw error;
+      if (response.error) throw response.error;
+      if (response.data?.error) throw new Error(response.data.error);
 
-      // Fetch user emails from auth
-      const usersWithEmails = await Promise.all(
-        data.map(async (userRole) => {
-          const { data: { user } } = await supabase.auth.admin.getUserById(userRole.user_id);
-          return {
-            id: userRole.user_id,
-            email: user?.email || "Unknown",
-            role: userRole.role,
-            created_at: userRole.created_at,
-          };
-        })
-      );
-
-      setUsers(usersWithEmails);
+      setUsers(response.data.users || []);
     } catch (error) {
       console.error("Error fetching users:", error);
       toast.error("Błąd podczas pobierania użytkowników");
