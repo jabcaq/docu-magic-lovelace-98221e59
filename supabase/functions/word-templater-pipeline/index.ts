@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "http://host.docker.internal:54321";
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    const openRouterApiKey = Deno.env.get("OPEN_ROUTER_API_KEY");
+    const openRouterApiKey = Deno.env.get("OPENROUTER_API_KEY");
 
     if (!supabaseKey || !openRouterApiKey) {
       console.error("Missing configuration:", { 
