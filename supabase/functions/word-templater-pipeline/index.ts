@@ -26,6 +26,14 @@ interface RunChange {
   newText: string;
 }
 
+interface UsageStats {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  totalCostPLN: number;
+  model: string;
+}
+
 interface BatchPayload {
   system_message: string;
   user_message: string;
@@ -182,8 +190,9 @@ async function processDocument(documentId: string, supabase: any, openRouterApiK
 
     // KROK 6: Przetwarzanie LLM via OpenRouter
     console.log(`[Background] Starting LLM processing via OpenRouter...`);
-    const changes = await processBatchesWithLLM(batches, openRouterApiKey);
-    console.log(`[Background] LLM processing complete - Found ${changes.length} changes`);
+    const llmResult = await processBatchesWithLLM(batches, openRouterApiKey);
+    const { changes, usage } = llmResult;
+    console.log(`[Background] LLM processing complete - Found ${changes.length} changes, used ${usage.totalTokens} tokens`);
 
     // KROK 7: Zastosuj zmiany do XML
     console.log(`[Background] Applying changes to XML...`);
@@ -223,6 +232,13 @@ async function processDocument(documentId: string, supabase: any, openRouterApiK
         runs: paragraphs.reduce((acc: any, p: any) => acc + p.runs.length, 0),
         batches: batches.length,
         changesApplied: appliedCount
+      },
+      usage: {
+        model: usage.model,
+        promptTokens: usage.promptTokens,
+        completionTokens: usage.completionTokens,
+        totalTokens: usage.totalTokens,
+        costPLN: Math.round(usage.totalCostPLN * 10000) / 10000 // Round to 4 decimal places
       },
       replacements: changes
     };
@@ -380,8 +396,16 @@ function prepareBatches(paragraphs: ExtractedParagraph[]): BatchPayload[] {
   return batches;
 }
 
-async function processBatchesWithLLM(batches: BatchPayload[], apiKey: string): Promise<RunChange[]> {
+interface BatchResult {
+  changes: RunChange[];
+  usage: { promptTokens: number; completionTokens: number; totalTokens: number };
+}
+
+async function processBatchesWithLLM(batches: BatchPayload[], apiKey: string): Promise<{ changes: RunChange[]; usage: UsageStats }> {
   const allChanges: RunChange[] = [];
+  let totalPromptTokens = 0;
+  let totalCompletionTokens = 0;
+  let totalTokens = 0;
 
   for (let i = 0; i < batches.length; i += CONCURRENT_REQUESTS) {
     const chunk = batches.slice(i, i + CONCURRENT_REQUESTS);
@@ -391,12 +415,17 @@ async function processBatchesWithLLM(batches: BatchPayload[], apiKey: string): P
       chunk.map((batch, idx) =>
         processSingleBatch(batch, apiKey, i + idx).catch((err) => {
           console.warn("[Background] Batch failed", i + idx + 1, err?.message || err);
-          return [] as RunChange[];
+          return { changes: [] as RunChange[], usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 } } as BatchResult;
         })
       )
     );
 
-    results.forEach((changes) => allChanges.push(...changes));
+    results.forEach((result) => {
+      allChanges.push(...result.changes);
+      totalPromptTokens += result.usage.promptTokens;
+      totalCompletionTokens += result.usage.completionTokens;
+      totalTokens += result.usage.totalTokens;
+    });
   }
 
   const uniqueMap = new Map<string, RunChange>();
@@ -406,10 +435,25 @@ async function processBatchesWithLLM(batches: BatchPayload[], apiKey: string): P
     }
   }
 
-  return Array.from(uniqueMap.values());
+  // Gemini 2.5 Flash pricing: $0.15/1M input, $0.60/1M output (per OpenRouter)
+  // Convert to PLN (approx 4.0 PLN/USD)
+  const inputCostUSD = (totalPromptTokens / 1_000_000) * 0.15;
+  const outputCostUSD = (totalCompletionTokens / 1_000_000) * 0.60;
+  const totalCostPLN = (inputCostUSD + outputCostUSD) * 4.0;
+
+  return {
+    changes: Array.from(uniqueMap.values()),
+    usage: {
+      promptTokens: totalPromptTokens,
+      completionTokens: totalCompletionTokens,
+      totalTokens,
+      totalCostPLN,
+      model: MODEL
+    }
+  };
 }
 
-async function processSingleBatch(batch: BatchPayload, apiKey: string, batchIndex: number): Promise<RunChange[]> {
+async function processSingleBatch(batch: BatchPayload, apiKey: string, batchIndex: number): Promise<BatchResult> {
   console.log(`[Background] Sending batch ${batchIndex + 1} to OpenRouter with apiKey length: ${apiKey?.length}`);
   
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -444,6 +488,12 @@ async function processSingleBatch(batch: BatchPayload, apiKey: string, batchInde
 
   const data = await response.json();
   const content = data?.choices?.[0]?.message?.content;
+  
+  // Extract usage from OpenRouter response
+  const usage = data?.usage || {};
+  const promptTokens = usage.prompt_tokens || 0;
+  const completionTokens = usage.completion_tokens || 0;
+  const totalTokens = usage.total_tokens || (promptTokens + completionTokens);
 
   if (!content) {
     console.error(`[Background] Empty content response for batch ${batchIndex + 1}. Full response:`, JSON.stringify(data, null, 2));
@@ -473,7 +523,10 @@ async function processSingleBatch(batch: BatchPayload, apiKey: string, batchInde
     });
   }
 
-  return changes;
+  return {
+    changes,
+    usage: { promptTokens, completionTokens, totalTokens }
+  };
 }
 
 function applyChangesToXml(documentXml: string, changes: RunChange[]): { newXml: string; appliedCount: number } {
