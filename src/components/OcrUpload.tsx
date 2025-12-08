@@ -74,6 +74,9 @@ function TemplateSuggestions({ result, onSelectTemplate }: TemplateSuggestionsPr
   const [isLoading, setIsLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<TemplateSuggestion[]>([]);
   const [searched, setSearched] = useState(false);
+  const [showAllTemplates, setShowAllTemplates] = useState(false);
+  const [allTemplates, setAllTemplates] = useState<TemplateSuggestion[]>([]);
+  const [loadingAll, setLoadingAll] = useState(false);
 
   const searchTemplates = useCallback(async () => {
     setIsLoading(true);
@@ -109,14 +112,14 @@ function TemplateSuggestions({ result, onSelectTemplate }: TemplateSuggestionsPr
 
       if (error) throw error;
 
-      if (data.success && data.candidates) {
-        const mapped: TemplateSuggestion[] = data.candidates.map((c: any) => ({
+      if (data.success && data.data?.candidates) {
+        const mapped: TemplateSuggestion[] = data.data.candidates.map((c: any) => ({
           id: c.id,
           name: c.name,
-          storagePath: c.storagePath,
+          storagePath: c.storage_path,
           score: c.score,
-          matchReason: c.matchReasons?.join(', ') || 'Dopasowanie typu dokumentu',
-          tagCount: c.tagCount || 0,
+          matchReason: c.tags?.slice(0, 3).join(', ') || 'Dopasowanie typu dokumentu',
+          tagCount: c.tags?.length || 0,
         }));
         setSuggestions(mapped);
       } else {
@@ -134,6 +137,38 @@ function TemplateSuggestions({ result, onSelectTemplate }: TemplateSuggestionsPr
       setIsLoading(false);
     }
   }, [result, toast]);
+
+  const loadAllTemplates = useCallback(async () => {
+    setLoadingAll(true);
+    try {
+      const { data: templates, error } = await supabase
+        .from('templates')
+        .select('id, name, storage_path, tag_metadata')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const mapped: TemplateSuggestion[] = (templates || []).map((t: any) => ({
+        id: t.id,
+        name: t.name,
+        storagePath: t.storage_path,
+        score: 0,
+        matchReason: 'Ręczny wybór',
+        tagCount: Object.keys(t.tag_metadata || {}).length,
+      }));
+      setAllTemplates(mapped);
+      setShowAllTemplates(true);
+    } catch (err: any) {
+      console.error('Load templates error:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Błąd ładowania szablonów',
+        description: err.message || 'Nie udało się załadować szablonów',
+      });
+    } finally {
+      setLoadingAll(false);
+    }
+  }, [toast]);
 
   // Auto-search on mount
   useEffect(() => {
@@ -153,21 +188,85 @@ function TemplateSuggestions({ result, onSelectTemplate }: TemplateSuggestionsPr
     );
   }
 
-  if (searched && suggestions.length === 0) {
+  if (searched && suggestions.length === 0 && !showAllTemplates) {
     return (
       <div className="px-6 py-4 bg-muted/30 border-t">
-        <div className="flex items-center gap-3 text-muted-foreground">
-          <FileSearch className="h-4 w-4" />
-          <span className="text-sm">Nie znaleziono pasujących szablonów</span>
-          <Button variant="ghost" size="sm" onClick={searchTemplates}>
-            Szukaj ponownie
-          </Button>
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-3 text-muted-foreground">
+            <FileSearch className="h-4 w-4" />
+            <span className="text-sm">Nie znaleziono pasujących szablonów automatycznie</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={searchTemplates}>
+              <Loader2 className={cn("h-3 w-3 mr-1", isLoading && "animate-spin")} />
+              Szukaj ponownie
+            </Button>
+            <Button variant="default" size="sm" onClick={loadAllTemplates} disabled={loadingAll}>
+              {loadingAll ? (
+                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+              ) : (
+                <FileText className="h-3 w-3 mr-1" />
+              )}
+              Wybierz ręcznie z bazy
+            </Button>
+          </div>
         </div>
       </div>
     );
   }
 
-  if (suggestions.length === 0) {
+  // Show all templates for manual selection
+  if (showAllTemplates && allTemplates.length > 0) {
+    return (
+      <div className="border-t">
+        <div className="px-6 py-3 bg-gradient-to-r from-amber-500/10 to-orange-500/10">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-amber-500" />
+              <span className="font-medium text-sm">Wszystkie szablony</span>
+              <Badge variant="secondary" className="text-xs">
+                {allTemplates.length}
+              </Badge>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => setShowAllTemplates(false)}>
+              Wróć do sugestii
+            </Button>
+          </div>
+        </div>
+        <div className="p-4 space-y-2 max-h-[300px] overflow-y-auto">
+          {allTemplates.map((template) => (
+            <div
+              key={template.id}
+              className="flex items-center justify-between p-3 rounded-lg bg-background/50 hover:bg-background/80 border border-border/50 transition-colors group cursor-pointer"
+              onClick={() => onSelectTemplate?.(template)}
+            >
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-amber-500 shrink-0" />
+                  <span className="font-medium text-sm truncate">{template.name}</span>
+                </div>
+                {template.tagCount > 0 && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {template.tagCount} zmiennych w szablonie
+                  </p>
+                )}
+              </div>
+              <Button
+                variant="default"
+                size="sm"
+                className="opacity-0 group-hover:opacity-100 transition-opacity ml-2"
+              >
+                <ExternalLink className="h-3 w-3 mr-1" />
+                Użyj
+              </Button>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (suggestions.length === 0 && !showAllTemplates) {
     return null;
   }
 
@@ -182,17 +281,28 @@ function TemplateSuggestions({ result, onSelectTemplate }: TemplateSuggestionsPr
               {suggestions.length}
             </Badge>
           </div>
-          <Button variant="ghost" size="sm" onClick={searchTemplates} disabled={isLoading}>
-            <Loader2 className={cn("h-3 w-3 mr-1", isLoading && "animate-spin")} />
-            Odśwież
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" onClick={loadAllTemplates} disabled={loadingAll}>
+              {loadingAll ? (
+                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+              ) : (
+                <FileText className="h-3 w-3 mr-1" />
+              )}
+              Wszystkie
+            </Button>
+            <Button variant="ghost" size="sm" onClick={searchTemplates} disabled={isLoading}>
+              <Loader2 className={cn("h-3 w-3 mr-1", isLoading && "animate-spin")} />
+              Odśwież
+            </Button>
+          </div>
         </div>
       </div>
       <div className="p-4 space-y-2">
         {suggestions.slice(0, 5).map((template) => (
           <div
             key={template.id}
-            className="flex items-center justify-between p-3 rounded-lg bg-background/50 hover:bg-background/80 border border-border/50 transition-colors group"
+            className="flex items-center justify-between p-3 rounded-lg bg-background/50 hover:bg-background/80 border border-border/50 transition-colors group cursor-pointer"
+            onClick={() => onSelectTemplate?.(template)}
           >
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
@@ -202,8 +312,8 @@ function TemplateSuggestions({ result, onSelectTemplate }: TemplateSuggestionsPr
                   variant="outline" 
                   className={cn(
                     "text-[10px] px-1.5",
-                    template.score >= 3 ? "border-emerald-500/30 text-emerald-600" :
-                    template.score >= 2 ? "border-amber-500/30 text-amber-600" :
+                    template.score >= 30 ? "border-emerald-500/30 text-emerald-600" :
+                    template.score >= 15 ? "border-amber-500/30 text-amber-600" :
                     "border-muted-foreground/30"
                   )}
                 >
@@ -223,7 +333,6 @@ function TemplateSuggestions({ result, onSelectTemplate }: TemplateSuggestionsPr
               variant="outline"
               size="sm"
               className="opacity-0 group-hover:opacity-100 transition-opacity ml-2"
-              onClick={() => onSelectTemplate?.(template)}
             >
               <ExternalLink className="h-3 w-3 mr-1" />
               Użyj
