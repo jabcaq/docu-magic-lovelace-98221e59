@@ -7,7 +7,9 @@ import {
   FileText,
   Clock,
   CheckCircle2,
-  Sparkles
+  Sparkles,
+  Rocket,
+  LayoutGrid
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -15,15 +17,29 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { OcrUpload } from '@/components/OcrUpload';
-import { OcrAnalysisResult, FIELD_CATEGORIES } from '@/hooks/use-ocr-analysis';
+import { OcrAnalysisResult, FIELD_CATEGORIES, OcrProvider, OCR_PROVIDERS } from '@/hooks/use-ocr-analysis';
 
 interface AnalysisHistoryItem extends OcrAnalysisResult {
   analyzedAt: Date;
 }
 
+const getProviderIcon = (provider: OcrProvider) => {
+  switch (provider) {
+    case 'gemini-3-pro':
+      return <Rocket className="h-3 w-3 mr-1" />;
+    case 'layout-parsing':
+      return <LayoutGrid className="h-3 w-3 mr-1" />;
+    default:
+      return <Sparkles className="h-3 w-3 mr-1" />;
+  }
+};
+
 export default function OcrAnalysis() {
   const [history, setHistory] = useState<AnalysisHistoryItem[]>([]);
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<AnalysisHistoryItem | null>(null);
+  const [currentProvider, setCurrentProvider] = useState<OcrProvider>('gemini');
+
+  const currentProviderInfo = OCR_PROVIDERS.find(p => p.id === currentProvider) || OCR_PROVIDERS[0];
 
   const handleAnalysisComplete = (result: OcrAnalysisResult) => {
     const historyItem: AnalysisHistoryItem = {
@@ -31,6 +47,10 @@ export default function OcrAnalysis() {
       analyzedAt: new Date(),
     };
     setHistory(prev => [historyItem, ...prev]);
+  };
+
+  const handleProviderChange = (provider: OcrProvider) => {
+    setCurrentProvider(provider);
   };
 
   return (
@@ -50,7 +70,7 @@ export default function OcrAnalysis() {
                   <ScanText className="h-5 w-5 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-white">OCR z Gemini 2.5 Pro</h1>
+                  <h1 className="text-xl font-bold text-white">OCR z {currentProviderInfo.name}</h1>
                   <p className="text-sm text-white/60">
                     Inteligentna ekstrakcja danych z dokumentów
                   </p>
@@ -60,8 +80,8 @@ export default function OcrAnalysis() {
             
             <div className="flex items-center gap-2">
               <Badge variant="secondary" className="bg-violet-500/20 text-violet-300 border-violet-500/30">
-                <Sparkles className="h-3 w-3 mr-1" />
-                Gemini 2.5 Pro
+                {getProviderIcon(currentProvider)}
+                {currentProviderInfo.name}
               </Badge>
             </div>
           </div>
@@ -94,6 +114,7 @@ export default function OcrAnalysis() {
               <div className="lg:col-span-2">
                 <OcrUpload 
                   onAnalysisComplete={handleAnalysisComplete}
+                  onProviderChange={handleProviderChange}
                   saveToDatabase={true}
                 />
               </div>
@@ -161,13 +182,19 @@ export default function OcrAnalysis() {
                 <Card className="bg-gradient-to-br from-violet-500/20 to-blue-500/20 border-violet-500/30">
                   <CardContent className="pt-6">
                     <div className="flex items-start gap-3">
-                      <Sparkles className="h-5 w-5 text-violet-400 mt-0.5" />
+                      {currentProvider === 'gemini-3-pro' ? (
+                        <Rocket className="h-5 w-5 text-violet-400 mt-0.5" />
+                      ) : currentProvider === 'layout-parsing' ? (
+                        <LayoutGrid className="h-5 w-5 text-violet-400 mt-0.5" />
+                      ) : (
+                        <Sparkles className="h-5 w-5 text-violet-400 mt-0.5" />
+                      )}
                       <div>
                         <p className="font-medium text-white">
                           Zaawansowana analiza AI
                         </p>
                         <p className="text-sm text-white/70 mt-1">
-                          Gemini 2.5 Pro automatycznie rozpoznaje typy dokumentów, 
+                          {currentProviderInfo.name} automatycznie rozpoznaje typy dokumentów, 
                           wyodrębnia dane i określa poziom pewności dla każdego pola.
                         </p>
                       </div>

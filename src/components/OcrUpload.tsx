@@ -50,6 +50,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface OcrUploadProps {
   onAnalysisComplete?: (result: OcrAnalysisResult) => void;
+  onProviderChange?: (provider: OcrProvider) => void;
   saveToDatabase?: boolean;
   defaultProvider?: OcrProvider;
   className?: string;
@@ -539,6 +540,7 @@ function ProviderSelector({
 
 export function OcrUpload({ 
   onAnalysisComplete, 
+  onProviderChange,
   saveToDatabase = true,
   defaultProvider = 'gemini',
   className 
@@ -563,9 +565,10 @@ export function OcrUpload({
     provider: defaultProvider,
     saveToDatabase,
     onSuccess: (result) => {
+      const providerInfo = OCR_PROVIDERS.find(p => p.id === result.provider);
       toast({
         title: 'Analiza zakończona!',
-        description: `${result.provider === 'gemini' ? 'Gemini 2.5 Pro' : 'Layout Parsing'} wykrył ${result.fieldsCount} pól`,
+        description: `${providerInfo?.name || result.provider} wykrył ${result.fieldsCount} pól`,
       });
       onAnalysisComplete?.(result);
     },
@@ -577,6 +580,12 @@ export function OcrUpload({
       });
     },
   });
+
+  // Notify parent when provider changes
+  const handleProviderChange = useCallback((provider: OcrProvider) => {
+    changeProvider(provider);
+    onProviderChange?.(provider);
+  }, [changeProvider, onProviderChange]);
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -675,7 +684,7 @@ export function OcrUpload({
             {/* Wybór providera */}
             <ProviderSelector 
               value={currentProvider}
-              onChange={changeProvider}
+              onChange={handleProviderChange}
               disabled={isAnalyzing}
             />
 
