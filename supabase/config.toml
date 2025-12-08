@@ -90,3 +90,12 @@ verify_jwt = true
 
 [functions.ocr-find-template]
 verify_jwt = true
+
+[functions.ocr-fill-template]
+verify_jwt = true
+
+[functions.get-users-with-emails]
+verify_jwt = true
+
+[functions.convert-docx-to-images]
+verify_jwt = true

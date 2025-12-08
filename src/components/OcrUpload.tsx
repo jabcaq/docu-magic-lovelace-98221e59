@@ -65,12 +65,34 @@ interface TemplateSuggestion {
   tagCount: number;
 }
 
+interface FillTemplateResult {
+  success: boolean;
+  base64: string;
+  filename: string;
+  stats: {
+    totalTemplateTags: number;
+    matchedFields: number;
+    unmatchedTags: number;
+    replacementsMade: number;
+  };
+  matchedFields: Array<{
+    templateTag: string;
+    ocrTag: string;
+    ocrValue: string;
+    ocrLabel: string;
+    confidence: string;
+    matchType: string;
+  }>;
+  unmatchedTags: string[];
+}
+
 interface TemplateSuggestionsProps {
   result: OcrAnalysisResult;
   onSelectTemplate?: (template: TemplateSuggestion) => void;
+  onFillComplete?: (fillResult: FillTemplateResult) => void;
 }
 
-function TemplateSuggestions({ result, onSelectTemplate }: TemplateSuggestionsProps) {
+function TemplateSuggestions({ result, onSelectTemplate, onFillComplete }: TemplateSuggestionsProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<TemplateSuggestion[]>([]);
@@ -78,6 +100,66 @@ function TemplateSuggestions({ result, onSelectTemplate }: TemplateSuggestionsPr
   const [showAllTemplates, setShowAllTemplates] = useState(false);
   const [allTemplates, setAllTemplates] = useState<TemplateSuggestion[]>([]);
   const [loadingAll, setLoadingAll] = useState(false);
+  const [fillingTemplate, setFillingTemplate] = useState<string | null>(null);
+
+  const fillTemplate = useCallback(async (template: TemplateSuggestion) => {
+    setFillingTemplate(template.id);
+    try {
+      toast({
+        title: 'Wypełnianie szablonu...',
+        description: `Porównuję dane OCR z szablonem "${template.name}"`,
+      });
+
+      const { data, error } = await supabase.functions.invoke('ocr-fill-template', {
+        body: {
+          templateId: template.id,
+          ocrFields: result.extractedFields,
+        }
+      });
+
+      if (error) throw error;
+
+      if (!data.success) {
+        throw new Error(data.error || 'Nie udało się wypełnić szablonu');
+      }
+
+      // Download the filled document
+      const binaryString = atob(data.base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], { 
+        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
+      });
+      
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = data.filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: 'Szablon wypełniony!',
+        description: `Dopasowano ${data.stats.matchedFields} z ${data.stats.totalTemplateTags} pól. Podstawione dane zaznaczone na żółto.`,
+      });
+
+      onSelectTemplate?.(template);
+      onFillComplete?.(data);
+    } catch (err: any) {
+      console.error('Fill template error:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Błąd wypełniania szablonu',
+        description: err.message || 'Nie udało się wypełnić szablonu',
+      });
+    } finally {
+      setFillingTemplate(null);
+    }
+  }, [result.extractedFields, toast, onSelectTemplate, onFillComplete]);
 
   const searchTemplates = useCallback(async () => {
     setIsLoading(true);
@@ -239,7 +321,7 @@ function TemplateSuggestions({ result, onSelectTemplate }: TemplateSuggestionsPr
             <div
               key={template.id}
               className="flex items-center justify-between p-3 rounded-lg bg-background/50 hover:bg-background/80 border border-border/50 transition-colors group cursor-pointer"
-              onClick={() => onSelectTemplate?.(template)}
+              onClick={() => fillTemplate(template)}
             >
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
@@ -255,10 +337,15 @@ function TemplateSuggestions({ result, onSelectTemplate }: TemplateSuggestionsPr
               <Button
                 variant="default"
                 size="sm"
-                className="opacity-0 group-hover:opacity-100 transition-opacity ml-2"
+                className="ml-2"
+                disabled={fillingTemplate === template.id}
               >
-                <ExternalLink className="h-3 w-3 mr-1" />
-                Użyj
+                {fillingTemplate === template.id ? (
+                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                ) : (
+                  <Download className="h-3 w-3 mr-1" />
+                )}
+                Wypełnij
               </Button>
             </div>
           ))}
@@ -328,7 +415,7 @@ function TemplateSuggestions({ result, onSelectTemplate }: TemplateSuggestionsPr
           <div
             key={template.id}
             className="flex items-center justify-between p-3 rounded-lg bg-background/50 hover:bg-background/80 border border-border/50 transition-colors group cursor-pointer"
-            onClick={() => onSelectTemplate?.(template)}
+            onClick={() => fillTemplate(template)}
           >
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
@@ -356,12 +443,17 @@ function TemplateSuggestions({ result, onSelectTemplate }: TemplateSuggestionsPr
               )}
             </div>
             <Button
-              variant="outline"
+              variant="default"
               size="sm"
-              className="opacity-0 group-hover:opacity-100 transition-opacity ml-2"
+              className="ml-2"
+              disabled={fillingTemplate === template.id}
             >
-              <ExternalLink className="h-3 w-3 mr-1" />
-              Użyj
+              {fillingTemplate === template.id ? (
+                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+              ) : (
+                <Download className="h-3 w-3 mr-1" />
+              )}
+              Wypełnij
             </Button>
           </div>
         ))}
@@ -912,9 +1004,11 @@ export function OcrUpload({
               onSelectTemplate={(template) => {
                 toast({
                   title: 'Szablon wybrany',
-                  description: `Wybrano: ${template.name}`,
+                  description: `Wypełniono i pobrano: ${template.name}`,
                 });
-                // TODO: Navigate to template fill or trigger fill process
+              }}
+              onFillComplete={(fillResult) => {
+                console.log('Template fill complete:', fillResult.stats);
               }}
             />
             
