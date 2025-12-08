@@ -51,6 +51,7 @@ export interface OcrAnalysisResult {
   success: boolean;
   provider: OcrProvider;
   fileName: string;
+  fileNames?: string[]; // For multi-file analysis
   fileType: string;
   documentType: string;
   documentLanguage: string;
@@ -62,12 +63,21 @@ export interface OcrAnalysisResult {
   documentId?: string;
   error?: string;
   layoutResults?: number;
+  filesAnalyzed?: number; // Number of files in multi-file analysis
+}
+
+export interface MultiFileProgress {
+  currentFile: number;
+  totalFiles: number;
+  currentFileName: string;
+  overallProgress: number;
 }
 
 export interface UseOcrAnalysisOptions {
   provider?: OcrProvider;
   saveToDatabase?: boolean;
   onProgress?: (progress: number, message: string) => void;
+  onMultiFileProgress?: (progress: MultiFileProgress) => void;
   onSuccess?: (result: OcrAnalysisResult) => void;
   onError?: (error: Error) => void;
 }
@@ -76,6 +86,7 @@ export function useOcrAnalysis(options: UseOcrAnalysisOptions = {}) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressMessage, setProgressMessage] = useState('');
+  const [multiFileProgress, setMultiFileProgress] = useState<MultiFileProgress | null>(null);
   const [result, setResult] = useState<OcrAnalysisResult | null>(null);
   const [error, setError] = useState<Error | null>(null);
   const [currentProvider, setCurrentProvider] = useState<OcrProvider>(options.provider || 'gemini');
@@ -212,6 +223,151 @@ export function useOcrAnalysis(options: UseOcrAnalysisOptions = {}) {
   }, [currentProvider, options, updateProgress, getEndpoint, getProviderName]);
 
   /**
+   * Scala pola z wielu analiz, usuwając duplikaty i zachowując najwyższą pewność
+   */
+  const mergeFields = useCallback((allFields: OcrField[][]): OcrField[] => {
+    const fieldMap = new Map<string, OcrField>();
+    const confidenceOrder = { high: 3, medium: 2, low: 1 };
+    
+    for (const fields of allFields) {
+      for (const field of fields) {
+        const key = `${field.tag}_${field.value}`.toLowerCase();
+        const existing = fieldMap.get(key);
+        
+        if (!existing) {
+          fieldMap.set(key, field);
+        } else {
+          // Zachowaj pole z wyższą pewnością
+          if (confidenceOrder[field.confidence] > confidenceOrder[existing.confidence]) {
+            fieldMap.set(key, field);
+          }
+        }
+      }
+    }
+    
+    return Array.from(fieldMap.values());
+  }, []);
+
+  /**
+   * Analizuje wiele plików i scala wyniki
+   * @param files - Tablica plików do analizy
+   * @param provider - Provider OCR (opcjonalny)
+   */
+  const analyzeMultipleFiles = useCallback(async (
+    files: File[],
+    provider?: OcrProvider
+  ): Promise<OcrAnalysisResult> => {
+    const selectedProvider = provider || currentProvider;
+    setIsAnalyzing(true);
+    setError(null);
+    setResult(null);
+    
+    const results: OcrAnalysisResult[] = [];
+    const allFields: OcrField[][] = [];
+    const fileNames: string[] = [];
+    
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const fileProgress: MultiFileProgress = {
+          currentFile: i + 1,
+          totalFiles: files.length,
+          currentFileName: file.name,
+          overallProgress: Math.round((i / files.length) * 100),
+        };
+        
+        setMultiFileProgress(fileProgress);
+        options.onMultiFileProgress?.(fileProgress);
+        updateProgress(fileProgress.overallProgress, `Analizuję plik ${i + 1}/${files.length}: ${file.name}...`);
+        
+        // Analyze single file (without triggering onSuccess for each)
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          throw new Error('Nie jesteś zalogowany');
+        }
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('saveToDatabase', String(options.saveToDatabase ?? true));
+        
+        const providerInfo = OCR_PROVIDERS.find(p => p.id === selectedProvider);
+        if (providerInfo && (selectedProvider === 'gemini' || selectedProvider === 'gemini-3-pro')) {
+          formData.append('model', providerInfo.model);
+        }
+        
+        const endpoint = getEndpoint(selectedProvider);
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${endpoint}`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: formData,
+          }
+        );
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          console.error(`Error analyzing ${file.name}:`, errorData);
+          // Continue with other files even if one fails
+          continue;
+        }
+        
+        const data: OcrAnalysisResult = await response.json();
+        
+        if (data.success) {
+          results.push(data);
+          allFields.push(data.extractedFields);
+          fileNames.push(file.name);
+        }
+      }
+      
+      if (results.length === 0) {
+        throw new Error('Żaden plik nie został pomyślnie przeanalizowany');
+      }
+      
+      // Merge all results
+      const mergedFields = mergeFields(allFields);
+      
+      // Combine document types
+      const documentTypes = [...new Set(results.map(r => r.documentType).filter(Boolean))];
+      const languages = [...new Set(results.map(r => r.documentLanguage).filter(Boolean))];
+      
+      const combinedResult: OcrAnalysisResult = {
+        success: true,
+        provider: selectedProvider,
+        fileName: fileNames.join(', '),
+        fileNames,
+        fileType: 'multiple',
+        documentType: documentTypes.join(' + '),
+        documentLanguage: languages[0] || 'pl',
+        summary: `Połączona analiza ${results.length} dokumentów. Typy: ${documentTypes.join(', ') || 'nieznane'}`,
+        extractedFields: mergedFields,
+        rawText: results.map(r => r.rawText).join('\n\n---\n\n'),
+        markdown: results.map(r => r.markdown || '').join('\n\n---\n\n'),
+        fieldsCount: mergedFields.length,
+        filesAnalyzed: results.length,
+      };
+      
+      setMultiFileProgress(null);
+      updateProgress(100, `Analiza zakończona! ${results.length} plików, ${mergedFields.length} pól`);
+      setResult(combinedResult);
+      options.onSuccess?.(combinedResult);
+      
+      return combinedResult;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('Nieznany błąd');
+      setError(error);
+      setMultiFileProgress(null);
+      options.onError?.(error);
+      throw error;
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }, [currentProvider, options, updateProgress, getEndpoint, mergeFields]);
+
+  /**
    * Analizuje istniejący dokument z bazy danych
    * @param documentId - ID dokumentu w bazie
    * @param provider - Provider OCR (opcjonalny)
@@ -324,6 +480,7 @@ export function useOcrAnalysis(options: UseOcrAnalysisOptions = {}) {
     setIsAnalyzing(false);
     setProgress(0);
     setProgressMessage('');
+    setMultiFileProgress(null);
     setResult(null);
     setError(null);
   }, []);
@@ -333,12 +490,14 @@ export function useOcrAnalysis(options: UseOcrAnalysisOptions = {}) {
     isAnalyzing,
     progress,
     progressMessage,
+    multiFileProgress,
     result,
     error,
     currentProvider,
     
     // Metody
     analyzeFile,
+    analyzeMultipleFiles,
     analyzeDocument,
     getFieldsByCategory,
     getHighConfidenceFields,
