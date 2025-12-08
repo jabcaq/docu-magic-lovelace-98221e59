@@ -133,27 +133,41 @@ serve(async (req) => {
       const templateNameLower = template.name.toLowerCase();
       const docTypeLower = (data.documentType || "").toLowerCase();
       
-      if (docTypeLower && templateNameLower.includes(docTypeLower)) {
-        score += 30;
+      // Check for document type in name (partial match)
+      const docTypeWords = docTypeLower.split(/\s+/).filter(w => w.length > 3);
+      for (const word of docTypeWords) {
+        if (templateNameLower.includes(word)) {
+          score += 15;
+        }
       }
       
-      // Check for specific document type keywords
-      const docTypeKeywords = ["celne", "sad", "deklaracja", "faktura", "import", "eksport", "vat", "akcyza"];
+      // Check for specific document type keywords (EN + PL)
+      const docTypeKeywords = ["celne", "sad", "deklaracja", "faktura", "import", "eksport", "vat", "akcyza", "title", "abstract", "certificate", "registration"];
       for (const keyword of docTypeKeywords) {
         if (docTypeLower.includes(keyword) && templateNameLower.includes(keyword)) {
-          score += 20;
+          score += 25;
         }
       }
 
-      // Check if template has relevant tags for characteristic numbers
+      // Check if template has relevant tags for characteristic numbers - HIGH PRIORITY
       const characteristicTypes = charNumbers.map(n => n.type.toUpperCase());
+      let hasMatchingTag = false;
       for (const tag of tags) {
         const tagUpper = tag.toUpperCase();
-        if (characteristicTypes.some(type => tagUpper.includes(type))) {
-          score += 15;
+        if (characteristicTypes.some(type => tagUpper.includes(type) || type.includes(tagUpper.replace(/[{}]/g, '')))) {
+          score += 25; // Higher score for matching characteristic tags
+          hasMatchingTag = true;
         }
-        // Common customs document tags
-        if (tagUpper.includes("VIN") || tagUpper.includes("MRN") || tagUpper.includes("EORI")) {
+      }
+      
+      // Bonus for common customs/vehicle document tags
+      for (const tag of tags) {
+        const tagUpper = tag.toUpperCase();
+        if (tagUpper.includes("VIN")) {
+          score += 15; // VIN is very specific
+        } else if (tagUpper.includes("MRN") || tagUpper.includes("EORI")) {
+          score += 10;
+        } else if (tagUpper.includes("WŁAŚCICIEL") || tagUpper.includes("OWNER") || tagUpper.includes("HODOMETR") || tagUpper.includes("ODOMETER")) {
           score += 5;
         }
       }
@@ -268,8 +282,8 @@ Odpowiedz w formacie JSON:
       }
     }
 
-    // If no LLM verification or it failed, use highest scored template
-    if (!result.bestMatch && result.candidates.length > 0 && result.candidates[0].score >= 30) {
+    // If no LLM verification or it failed, use highest scored template (lowered threshold to 15)
+    if (!result.bestMatch && result.candidates.length > 0 && result.candidates[0].score >= 15) {
       result.bestMatch = result.candidates[0];
       result.confidence = Math.min(result.candidates[0].score / 100, 0.8);
     }
