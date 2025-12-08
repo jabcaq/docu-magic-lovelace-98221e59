@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      clients: {
+        Row: {
+          address: string | null
+          country: string | null
+          created_at: string
+          eori: string | null
+          id: string
+          name: string
+          normalized_name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address?: string | null
+          country?: string | null
+          created_at?: string
+          eori?: string | null
+          id?: string
+          name: string
+          normalized_name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address?: string | null
+          country?: string | null
+          created_at?: string
+          eori?: string | null
+          id?: string
+          name?: string
+          normalized_name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       document_fields: {
         Row: {
           created_at: string | null
@@ -123,6 +159,163 @@ export type Database = {
           },
         ]
       }
+      ocr_documents: {
+        Row: {
+          confidence_score: number | null
+          created_at: string
+          error_message: string | null
+          extracted_fields: Json | null
+          generated_docx_path: string | null
+          human_corrections: Json | null
+          id: string
+          matched_client_id: string | null
+          matched_office_id: string | null
+          matched_template_id: string | null
+          original_file_name: string | null
+          original_file_path: string
+          preliminary_ocr_data: Json | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          confidence_score?: number | null
+          created_at?: string
+          error_message?: string | null
+          extracted_fields?: Json | null
+          generated_docx_path?: string | null
+          human_corrections?: Json | null
+          id?: string
+          matched_client_id?: string | null
+          matched_office_id?: string | null
+          matched_template_id?: string | null
+          original_file_name?: string | null
+          original_file_path: string
+          preliminary_ocr_data?: Json | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          confidence_score?: number | null
+          created_at?: string
+          error_message?: string | null
+          extracted_fields?: Json | null
+          generated_docx_path?: string | null
+          human_corrections?: Json | null
+          id?: string
+          matched_client_id?: string | null
+          matched_office_id?: string | null
+          matched_template_id?: string | null
+          original_file_name?: string | null
+          original_file_path?: string
+          preliminary_ocr_data?: Json | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ocr_documents_matched_client_id_fkey"
+            columns: ["matched_client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ocr_documents_matched_office_id_fkey"
+            columns: ["matched_office_id"]
+            isOneToOne: false
+            referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ocr_documents_matched_template_id_fkey"
+            columns: ["matched_template_id"]
+            isOneToOne: false
+            referencedRelation: "templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      offices: {
+        Row: {
+          address: string | null
+          country: string | null
+          created_at: string
+          id: string
+          name: string
+          normalized_name: string
+          office_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address?: string | null
+          country?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          normalized_name: string
+          office_type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address?: string | null
+          country?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          normalized_name?: string
+          office_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      template_examples: {
+        Row: {
+          corrections_applied: Json | null
+          created_at: string
+          id: string
+          source_ocr_document_id: string | null
+          tag_value_map: Json
+          template_id: string
+        }
+        Insert: {
+          corrections_applied?: Json | null
+          created_at?: string
+          id?: string
+          source_ocr_document_id?: string | null
+          tag_value_map?: Json
+          template_id: string
+        }
+        Update: {
+          corrections_applied?: Json | null
+          created_at?: string
+          id?: string
+          source_ocr_document_id?: string | null
+          tag_value_map?: Json
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_examples_source_ocr_document_id_fkey"
+            columns: ["source_ocr_document_id"]
+            isOneToOne: false
+            referencedRelation: "ocr_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "template_examples_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       templates: {
         Row: {
           created_at: string
@@ -201,6 +394,8 @@ export type Database = {
         }
         Returns: boolean
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
       app_role: "admin" | "gosc"
