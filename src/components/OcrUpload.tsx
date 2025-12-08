@@ -1,4 +1,4 @@
-import { useCallback, useState, useRef } from 'react';
+import { useCallback, useState, useRef, useEffect } from 'react';
 import { 
   Upload, 
   FileImage, 
@@ -23,7 +23,9 @@ import {
   ChevronUp,
   Sparkles,
   LayoutGrid,
-  Check
+  Check,
+  FileSearch,
+  ExternalLink
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -44,12 +46,193 @@ import {
   FIELD_CATEGORIES 
 } from '@/hooks/use-ocr-analysis';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 
 interface OcrUploadProps {
   onAnalysisComplete?: (result: OcrAnalysisResult) => void;
   saveToDatabase?: boolean;
   defaultProvider?: OcrProvider;
   className?: string;
+}
+
+interface TemplateSuggestion {
+  id: string;
+  name: string;
+  storagePath: string;
+  score: number;
+  matchReason: string;
+  tagCount: number;
+}
+
+interface TemplateSuggestionsProps {
+  result: OcrAnalysisResult;
+  onSelectTemplate?: (template: TemplateSuggestion) => void;
+}
+
+function TemplateSuggestions({ result, onSelectTemplate }: TemplateSuggestionsProps) {
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
+  const [suggestions, setSuggestions] = useState<TemplateSuggestion[]>([]);
+  const [searched, setSearched] = useState(false);
+
+  const searchTemplates = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      // Build preliminary data from OCR result
+      const preliminaryData = {
+        documentType: result.documentType || '',
+        companyName: result.extractedFields.find(f => 
+          f.tag.toLowerCase().includes('importer') || 
+          f.tag.toLowerCase().includes('company') ||
+          f.tag.toLowerCase().includes('nadawca') ||
+          f.tag.toLowerCase().includes('odbiorca')
+        )?.value || '',
+        officeName: result.extractedFields.find(f => 
+          f.tag.toLowerCase().includes('urzad') || 
+          f.tag.toLowerCase().includes('office') ||
+          f.tag.toLowerCase().includes('celny')
+        )?.value || '',
+        characteristicNumbers: {
+          vin: result.extractedFields.find(f => f.tag.toLowerCase().includes('vin'))?.value,
+          mrn: result.extractedFields.find(f => f.tag.toLowerCase().includes('mrn'))?.value,
+          eori: result.extractedFields.find(f => f.tag.toLowerCase().includes('eori'))?.value,
+        },
+        detectedLanguage: result.documentLanguage || 'pl',
+      };
+
+      const { data, error } = await supabase.functions.invoke('ocr-find-template', {
+        body: { 
+          preliminaryData,
+          verifyWithLlm: false // Skip LLM for speed
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.success && data.candidates) {
+        const mapped: TemplateSuggestion[] = data.candidates.map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          storagePath: c.storagePath,
+          score: c.score,
+          matchReason: c.matchReasons?.join(', ') || 'Dopasowanie typu dokumentu',
+          tagCount: c.tagCount || 0,
+        }));
+        setSuggestions(mapped);
+      } else {
+        setSuggestions([]);
+      }
+      setSearched(true);
+    } catch (err: any) {
+      console.error('Template search error:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Błąd wyszukiwania szablonów',
+        description: err.message || 'Nie udało się wyszukać szablonów',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [result, toast]);
+
+  // Auto-search on mount
+  useEffect(() => {
+    if (!searched && result.extractedFields.length > 0) {
+      searchTemplates();
+    }
+  }, [searched, result.extractedFields.length, searchTemplates]);
+
+  if (isLoading) {
+    return (
+      <div className="px-6 py-4 bg-blue-500/5 border-t border-blue-500/10">
+        <div className="flex items-center gap-3">
+          <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+          <span className="text-sm text-blue-600">Wyszukuję pasujące szablony...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (searched && suggestions.length === 0) {
+    return (
+      <div className="px-6 py-4 bg-muted/30 border-t">
+        <div className="flex items-center gap-3 text-muted-foreground">
+          <FileSearch className="h-4 w-4" />
+          <span className="text-sm">Nie znaleziono pasujących szablonów</span>
+          <Button variant="ghost" size="sm" onClick={searchTemplates}>
+            Szukaj ponownie
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (suggestions.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="border-t">
+      <div className="px-6 py-3 bg-gradient-to-r from-blue-500/10 to-violet-500/10">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <FileSearch className="h-4 w-4 text-blue-500" />
+            <span className="font-medium text-sm">Sugerowane szablony</span>
+            <Badge variant="secondary" className="text-xs">
+              {suggestions.length}
+            </Badge>
+          </div>
+          <Button variant="ghost" size="sm" onClick={searchTemplates} disabled={isLoading}>
+            <Loader2 className={cn("h-3 w-3 mr-1", isLoading && "animate-spin")} />
+            Odśwież
+          </Button>
+        </div>
+      </div>
+      <div className="p-4 space-y-2">
+        {suggestions.slice(0, 5).map((template) => (
+          <div
+            key={template.id}
+            className="flex items-center justify-between p-3 rounded-lg bg-background/50 hover:bg-background/80 border border-border/50 transition-colors group"
+          >
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-violet-500 shrink-0" />
+                <span className="font-medium text-sm truncate">{template.name}</span>
+                <Badge 
+                  variant="outline" 
+                  className={cn(
+                    "text-[10px] px-1.5",
+                    template.score >= 3 ? "border-emerald-500/30 text-emerald-600" :
+                    template.score >= 2 ? "border-amber-500/30 text-amber-600" :
+                    "border-muted-foreground/30"
+                  )}
+                >
+                  {template.score} pkt
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1 truncate">
+                {template.matchReason}
+              </p>
+              {template.tagCount > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {template.tagCount} zmiennych w szablonie
+                </p>
+              )}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="opacity-0 group-hover:opacity-100 transition-opacity ml-2"
+              onClick={() => onSelectTemplate?.(template)}
+            >
+              <ExternalLink className="h-3 w-3 mr-1" />
+              Użyj
+            </Button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -527,6 +710,18 @@ export function OcrUpload({
                 )}
               </div>
             </ScrollArea>
+            
+            {/* Template suggestions */}
+            <TemplateSuggestions 
+              result={result} 
+              onSelectTemplate={(template) => {
+                toast({
+                  title: 'Szablon wybrany',
+                  description: `Wybrano: ${template.name}`,
+                });
+                // TODO: Navigate to template fill or trigger fill process
+              }}
+            />
             
             {/* Markdown output dla Layout Parsing */}
             {result.markdown && result.provider === 'layout-parsing' && (
