@@ -3,12 +3,12 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Upload, Search, Settings, Sparkles, ScanText, ExternalLink, Users, LogOut } from "lucide-react";
+import { FileText, Upload, Search, Settings, ScanText, ExternalLink, Users, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import WordTemplater from "@/components/WordTemplater";
 
-import DocxTemplateProcessor from "@/components/DocxTemplateProcessor";
+
 import { OcrUpload } from "@/components/OcrUpload";
 import { useUserRole } from "@/hooks/use-user-role";
 
@@ -16,7 +16,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { role, loading, isAdmin } = useUserRole();
-  const [activeTab, setActiveTab] = useState(isAdmin ? "generator" : "templater");
+  const [activeTab, setActiveTab] = useState("templater");
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -75,13 +75,7 @@ const Dashboard = () => {
           </div>
         ) : (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className={`grid w-full max-w-4xl mx-auto ${isAdmin ? 'grid-cols-4' : 'grid-cols-2'}`}>
-              {isAdmin && (
-                <TabsTrigger value="generator" className="gap-2">
-                  <Sparkles className="h-4 w-4" />
-                  Generator
-                </TabsTrigger>
-              )}
+            <TabsList className={`grid w-full max-w-4xl mx-auto ${isAdmin ? 'grid-cols-3' : 'grid-cols-2'}`}>
               <TabsTrigger value="templater" className="gap-2">
                 <FileText className="h-4 w-4" />
                 Templater
@@ -98,11 +92,6 @@ const Dashboard = () => {
               )}
             </TabsList>
 
-          {isAdmin && (
-            <TabsContent value="generator" className="space-y-6">
-              <DocxTemplateProcessor />
-            </TabsContent>
-          )}
 
           <TabsContent value="templater" className="space-y-6">
             <WordTemplater userRole={role} />
