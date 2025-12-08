@@ -75,7 +75,7 @@ const Dashboard = () => {
           </div>
         ) : (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className={`grid w-full max-w-4xl mx-auto ${isAdmin ? 'grid-cols-5' : 'grid-cols-2'}`}>
+            <TabsList className={`grid w-full max-w-4xl mx-auto ${isAdmin ? 'grid-cols-4' : 'grid-cols-2'}`}>
               {isAdmin && (
                 <TabsTrigger value="generator" className="gap-2">
                   <Sparkles className="h-4 w-4" />
@@ -91,16 +91,10 @@ const Dashboard = () => {
                 OCR
               </TabsTrigger>
               {isAdmin && (
-                <>
-                  <TabsTrigger value="search" className="gap-2">
-                    <Search className="h-4 w-4" />
-                    Search
-                  </TabsTrigger>
-                  <TabsTrigger value="test" className="gap-2">
-                    <Settings className="h-4 w-4" />
-                    Test
-                  </TabsTrigger>
-                </>
+                <TabsTrigger value="search" className="gap-2">
+                  <Search className="h-4 w-4" />
+                  Search
+                </TabsTrigger>
               )}
             </TabsList>
 
@@ -156,22 +150,6 @@ const Dashboard = () => {
                 </Card>
               </TabsContent>
 
-              <TabsContent value="test" className="space-y-6">
-                <Card className="p-8 text-center">
-                  <div className="max-w-md mx-auto space-y-4">
-                    <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-                      <Settings className="h-8 w-8 text-primary" />
-                    </div>
-                    <h3 className="text-xl font-semibold">Test Runs</h3>
-                    <p className="text-muted-foreground">
-                      Test document processing and variable extraction
-                    </p>
-                    <Button className="mt-4" onClick={() => window.location.href = '/test-runs'}>
-                      Go to Test Page
-                    </Button>
-                  </div>
-                </Card>
-              </TabsContent>
 
             </>
           )}
