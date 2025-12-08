@@ -323,8 +323,8 @@ function TemplateSuggestions({ result, onSelectTemplate }: TemplateSuggestionsPr
           </div>
         </div>
       </div>
-      <div className="p-4 space-y-2">
-        {suggestions.slice(0, 5).map((template) => (
+      <div className="p-4 space-y-2 max-h-[400px] overflow-y-auto">
+        {suggestions.map((template) => (
           <div
             key={template.id}
             className="flex items-center justify-between p-3 rounded-lg bg-background/50 hover:bg-background/80 border border-border/50 transition-colors group cursor-pointer"
