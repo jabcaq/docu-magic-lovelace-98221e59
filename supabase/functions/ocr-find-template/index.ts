@@ -8,13 +8,14 @@ const corsHeaders = {
 };
 
 interface PreliminaryData {
-  companyName: string | null;
-  companyNameNormalized: string | null;
-  officeName: string | null;
-  officeNameNormalized: string | null;
-  documentType: string | null;
-  characteristicNumbers: { type: string; value: string }[];
-  detectedLanguage: string | null;
+  companyName?: string | null;
+  companyNameNormalized?: string | null;
+  officeName?: string | null;
+  officeNameNormalized?: string | null;
+  documentType?: string | null;
+  // Can be array or object
+  characteristicNumbers?: { type: string; value: string }[] | Record<string, string | undefined>;
+  detectedLanguage?: string | null;
 }
 
 interface TemplateCandidate {
@@ -72,7 +73,21 @@ serve(async (req) => {
     }
 
     const data = preliminaryData as PreliminaryData;
-    console.log("Finding template for document type:", data.documentType);
+    
+    // Normalize characteristicNumbers to array format
+    let charNumbers: { type: string; value: string }[] = [];
+    if (data.characteristicNumbers) {
+      if (Array.isArray(data.characteristicNumbers)) {
+        charNumbers = data.characteristicNumbers;
+      } else {
+        // Convert object {vin: "123", mrn: "456"} to array [{type: "vin", value: "123"}, ...]
+        charNumbers = Object.entries(data.characteristicNumbers)
+          .filter(([_, v]) => v !== undefined && v !== null)
+          .map(([type, value]) => ({ type, value: value as string }));
+      }
+    }
+    
+    console.log("Finding template for document type:", data.documentType, "charNumbers:", charNumbers);
 
     let result: FindTemplateResult = {
       bestMatch: null,
@@ -131,7 +146,7 @@ serve(async (req) => {
       }
 
       // Check if template has relevant tags for characteristic numbers
-      const characteristicTypes = data.characteristicNumbers.map(n => n.type.toUpperCase());
+      const characteristicTypes = charNumbers.map(n => n.type.toUpperCase());
       for (const tag of tags) {
         const tagUpper = tag.toUpperCase();
         if (characteristicTypes.some(type => tagUpper.includes(type))) {
@@ -195,7 +210,7 @@ INFORMACJE O DOKUMENCIE:
 - Typ dokumentu: ${data.documentType || "nieznany"}
 - Firma: ${data.companyName || "brak"}
 - Urząd: ${data.officeName || "brak"}
-- Charakterystyczne numery: ${data.characteristicNumbers.map(n => `${n.type}: ${n.value}`).join(", ") || "brak"}
+- Charakterystyczne numery: ${charNumbers.map(n => `${n.type}: ${n.value}`).join(", ") || "brak"}
 
 DOSTĘPNE SZABLONY:
 ${result.candidates.map((t, i) => `${i + 1}. "${t.name}"
