@@ -49,7 +49,14 @@ const Documents = () => {
 
       const formattedTemplates: Template[] = templatesData?.map(t => {
         const tagMetadata = t.tag_metadata as any;
-        const tagCount = Array.isArray(tagMetadata) ? tagMetadata.length : 0;
+        let tagCount = 0;
+        
+        if (Array.isArray(tagMetadata)) {
+          tagCount = tagMetadata.length;
+        } else if (tagMetadata && typeof tagMetadata === 'object') {
+          // Handle object format with tags array or count property
+          tagCount = tagMetadata.tags?.length || tagMetadata.count || Object.keys(tagMetadata).length || 0;
+        }
         
         return {
           id: t.id,
