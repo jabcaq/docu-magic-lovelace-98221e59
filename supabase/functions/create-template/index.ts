@@ -50,24 +50,44 @@ Deno.serve(async (req) => {
       throw new Error("Document not found");
     }
 
-    // Get all runs for this document
-    const { data: runs, error: runsError } = await supabase
-      .from("document_runs")
-      .select("*")
-      .eq("document_id", documentId)
-      .order("run_index");
-
-    if (runsError) {
-      throw runsError;
+    // Build tag metadata from processing_result (Word Templater Pipeline) or document_fields
+    const tagMetadata: { [key: string]: string } = {};
+    
+    // Check if this is a Word Templater Pipeline document
+    const processingResult = document.processing_result as any;
+    if (processingResult?.replacements && Array.isArray(processingResult.replacements)) {
+      // Extract unique tags from replacements (format: {{TagName}})
+      processingResult.replacements.forEach((replacement: any) => {
+        const newText = replacement.newText || replacement.new || "";
+        const match = newText.match(/\{\{([^}]+)\}\}/);
+        if (match) {
+          const tagName = match[1];
+          tagMetadata[tagName] = replacement.originalText || "";
+        }
+      });
+      console.log(`Extracted ${Object.keys(tagMetadata).length} tags from Word Templater Pipeline`);
+    } else {
+      // Fallback: try document_fields table
+      const { data: fields } = await supabase
+        .from("document_fields")
+        .select("*")
+        .eq("document_id", documentId);
+      
+      fields?.forEach((field: any) => {
+        if (field.field_tag) {
+          tagMetadata[field.field_tag] = field.field_value || "";
+        }
+      });
+      console.log(`Extracted ${Object.keys(tagMetadata).length} tags from document_fields`);
     }
 
-    // Build tag metadata
-    const tagMetadata: { [key: string]: string } = {};
-    runs?.forEach((run) => {
-      if (run.tag) {
-        tagMetadata[run.tag] = run.text;
-      }
-    });
+    // Determine storage path - use processed path for Word Templater Pipeline
+    let storagePath = document.storage_path;
+    if (processingResult?.storagePath) {
+      storagePath = processingResult.storagePath;
+    } else {
+      storagePath = document.storage_path.replace(".docx", "_template.docx");
+    }
 
     // Create template record
     const { data: template, error: templateError } = await supabase
@@ -76,7 +96,7 @@ Deno.serve(async (req) => {
         user_id: user.id,
         name: templateName || `${document.name} - Template`,
         original_document_id: documentId,
-        storage_path: document.storage_path.replace(".docx", "_template.docx"),
+        storage_path: storagePath,
         tag_metadata: tagMetadata,
       })
       .select()
