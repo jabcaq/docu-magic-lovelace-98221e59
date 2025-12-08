@@ -27,6 +27,13 @@ interface TemplaterPipelineResult {
     batches: number;
     changesApplied: number;
   };
+  usage?: {
+    model: string;
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+    costPLN: number;
+  };
   replacements: Array<{ id: string; originalText: string; newText: string }>;
   message?: string;
 }
@@ -121,8 +128,10 @@ const WordTemplater = ({ userRole }: WordTemplaterProps = {}) => {
           
           const stats = result?.stats || { paragraphs: 0, runs: 0, batches: 0, changesApplied: 0 };
           const replacements = result?.replacements || [];
+          const usage = result?.usage || null;
           
           console.log('[Polling] Stats:', stats);
+          console.log('[Polling] Usage:', usage);
           console.log('[Polling] Replacements:', replacements);
 
           const templaterData = {
@@ -130,6 +139,7 @@ const WordTemplater = ({ userRole }: WordTemplaterProps = {}) => {
             storagePath: result?.storagePath,
             templateFilename: result?.templateFilename ?? `${fileName.replace(/\.docx$/i, "")}_processed.docx`,
             stats,
+            usage,
             replacements,
             message: result?.message,
           };
@@ -737,6 +747,36 @@ const WordTemplater = ({ userRole }: WordTemplaterProps = {}) => {
               <p className="text-lg font-semibold">{templaterResult.stats.changesApplied}</p>
             </div>
           </div>
+
+          {/* AI Usage Stats */}
+          {templaterResult.usage && (
+            <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+              <p className="text-sm font-medium">📊 Statystyki AI</p>
+              <div className="grid gap-3 md:grid-cols-4">
+                <div>
+                  <p className="text-xs text-muted-foreground">Model</p>
+                  <p className="text-sm font-mono font-medium">{templaterResult.usage.model}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Tokeny (input)</p>
+                  <p className="text-sm font-semibold">{templaterResult.usage.promptTokens.toLocaleString('pl-PL')}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Tokeny (output)</p>
+                  <p className="text-sm font-semibold">{templaterResult.usage.completionTokens.toLocaleString('pl-PL')}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Koszt analizy</p>
+                  <p className="text-sm font-semibold text-primary">
+                    {templaterResult.usage.costPLN.toLocaleString('pl-PL', { minimumFractionDigits: 4, maximumFractionDigits: 4 })} PLN
+                  </p>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Łącznie: {templaterResult.usage.totalTokens.toLocaleString('pl-PL')} tokenów
+              </p>
+            </div>
+          )}
 
           {templaterResult.replacements.length > 0 ? (
             <div className="space-y-2">
