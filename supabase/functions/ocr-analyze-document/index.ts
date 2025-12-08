@@ -285,19 +285,21 @@ Deno.serve(async (req) => {
       })
       .join('\n\n');
 
-    // Wywołaj Gemini 2.5 Pro przez Lovable AI Gateway
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured');
+    // Wywołaj Gemini 2.5 Pro przez OpenRouter
+    const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY');
+    if (!OPENROUTER_API_KEY) {
+      throw new Error('OPENROUTER_API_KEY not configured');
     }
 
-    console.log('Calling Gemini 2.5 Pro for OCR analysis...');
+    console.log('Calling Gemini 2.5 Pro for OCR analysis via OpenRouter...');
     
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const aiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
         'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://docu-magic.app',
+        'X-Title': 'DocuMagic OCR Pipeline',
       },
       body: JSON.stringify({
         model: selectedModel,
@@ -345,15 +347,15 @@ FORMAT ODPOWIEDZI:
             content: contentForAi
           }
         ],
-        max_tokens: 16000, // Zwiększone dla dużych dokumentów z wieloma polami
-        temperature: 0.1 // Niska temperatura dla precyzyjnej ekstrakcji
+        max_tokens: 16000,
+        temperature: 0.1
       }),
     });
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
-      console.error('Gemini API error:', aiResponse.status, errorText);
-      throw new Error(`Gemini API error: ${aiResponse.status}`);
+      console.error('OpenRouter API error:', aiResponse.status, errorText);
+      throw new Error(`OpenRouter API error: ${aiResponse.status}`);
     }
 
     const aiData = await aiResponse.json();
