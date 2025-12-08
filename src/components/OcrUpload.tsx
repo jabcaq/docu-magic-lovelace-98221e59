@@ -548,16 +548,18 @@ export function OcrUpload({
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   
   const {
     isAnalyzing,
     progress,
     progressMessage,
+    multiFileProgress,
     result,
     error,
     currentProvider,
     analyzeFile,
+    analyzeMultipleFiles,
     getFieldsByCategory,
     changeProvider,
     reset,
@@ -566,9 +568,12 @@ export function OcrUpload({
     saveToDatabase,
     onSuccess: (result) => {
       const providerInfo = OCR_PROVIDERS.find(p => p.id === result.provider);
+      const filesInfo = result.filesAnalyzed && result.filesAnalyzed > 1 
+        ? ` (${result.filesAnalyzed} plików)` 
+        : '';
       toast({
         title: 'Analiza zakończona!',
-        description: `${providerInfo?.name || result.provider} wykrył ${result.fieldsCount} pól`,
+        description: `${providerInfo?.name || result.provider} wykrył ${result.fieldsCount} pól${filesInfo}`,
       });
       onAnalysisComplete?.(result);
     },
@@ -602,31 +607,43 @@ export function OcrUpload({
     e.stopPropagation();
     setDragActive(false);
     
-    const file = e.dataTransfer.files[0];
-    if (file) {
-      setSelectedFile(file);
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      setSelectedFiles(prev => [...prev, ...files]);
     }
   }, []);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) {
+      setSelectedFiles(prev => [...prev, ...files]);
+    }
+    // Reset input to allow selecting the same file again
+    if (e.target) {
+      e.target.value = '';
     }
   }, []);
 
+  const removeFile = useCallback((index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
   const handleAnalyze = useCallback(async () => {
-    if (!selectedFile) return;
+    if (selectedFiles.length === 0) return;
     
     try {
-      await analyzeFile(selectedFile, currentProvider);
+      if (selectedFiles.length === 1) {
+        await analyzeFile(selectedFiles[0], currentProvider);
+      } else {
+        await analyzeMultipleFiles(selectedFiles, currentProvider);
+      }
     } catch {
       // Błąd jest już obsłużony w hooku
     }
-  }, [selectedFile, analyzeFile, currentProvider]);
+  }, [selectedFiles, analyzeFile, analyzeMultipleFiles, currentProvider]);
 
   const handleReset = useCallback(() => {
-    setSelectedFile(null);
+    setSelectedFiles([]);
     reset();
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -698,6 +715,7 @@ export function OcrUpload({
               onChange={handleFileSelect}
               className="hidden"
               id="ocr-file-input"
+              multiple
             />
             
             <div
@@ -705,51 +723,74 @@ export function OcrUpload({
                 'relative border-2 border-dashed rounded-xl p-8 transition-all cursor-pointer',
                 'hover:border-primary/50 hover:bg-accent/30',
                 dragActive && 'border-primary bg-primary/5 scale-[1.02]',
-                selectedFile && 'border-primary/30 bg-primary/5'
+                selectedFiles.length > 0 && 'border-primary/30 bg-primary/5'
               )}
               onDragEnter={handleDrag}
               onDragLeave={handleDrag}
               onDragOver={handleDrag}
               onDrop={handleDrop}
-              onClick={() => !selectedFile && fileInputRef.current?.click()}
+              onClick={() => fileInputRef.current?.click()}
             >
-              {!selectedFile ? (
-                <div className="flex flex-col items-center gap-4 text-center">
-                  <div className="p-4 rounded-full bg-primary/10">
-                    <Upload className="h-8 w-8 text-primary" />
-                  </div>
-                  <div>
-                    <p className="font-medium">Przeciągnij plik tutaj lub kliknij aby wybrać</p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Obsługiwane: JPG, PNG, PDF, DOC, DOCX (max 20 MB)
-                    </p>
-                  </div>
+              <div className="flex flex-col items-center gap-4 text-center">
+                <div className="p-4 rounded-full bg-primary/10">
+                  <Upload className="h-8 w-8 text-primary" />
                 </div>
-              ) : (
-                <div className="flex items-center gap-4">
-                  {getFileIcon(selectedFile.type)}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{selectedFile.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                    </p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleReset();
-                    }}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
+                <div>
+                  <p className="font-medium">
+                    {selectedFiles.length > 0 
+                      ? 'Kliknij aby dodać więcej plików' 
+                      : 'Przeciągnij pliki tutaj lub kliknij aby wybrać'}
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Obsługiwane: JPG, PNG, PDF, DOC, DOCX (max 20 MB na plik)
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Możesz wybrać wiele plików - zostaną połączone w jeden wynik
+                  </p>
                 </div>
-              )}
+              </div>
             </div>
 
+            {/* Lista wybranych plików */}
+            {selectedFiles.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">
+                    Wybrane pliki ({selectedFiles.length})
+                  </span>
+                  <Button variant="ghost" size="sm" onClick={handleReset}>
+                    Usuń wszystkie
+                  </Button>
+                </div>
+                <div className="space-y-1 max-h-[200px] overflow-y-auto">
+                  {selectedFiles.map((file, index) => (
+                    <div 
+                      key={`${file.name}-${index}`}
+                      className="flex items-center gap-3 p-2 rounded-lg bg-muted/50 group"
+                    >
+                      {getFileIcon(file.type)}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{file.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {(file.size / 1024 / 1024).toFixed(2)} MB
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => removeFile(index)}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Przycisk analizy */}
-            {selectedFile && !isAnalyzing && (
+            {selectedFiles.length > 0 && !isAnalyzing && (
               <Button 
                 className="w-full" 
                 size="lg"
@@ -757,7 +798,7 @@ export function OcrUpload({
               >
                 <ProviderIcon provider={currentProvider} />
                 <span className="ml-2">
-                  Analizuj z {providerInfo?.name || currentProvider}
+                  Analizuj {selectedFiles.length > 1 ? `${selectedFiles.length} pliki` : '1 plik'} z {providerInfo?.name || currentProvider}
                 </span>
               </Button>
             )}
@@ -765,6 +806,12 @@ export function OcrUpload({
             {/* Progress bar */}
             {isAnalyzing && (
               <div className="space-y-3">
+                {multiFileProgress && (
+                  <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                    <span>Plik {multiFileProgress.currentFile} z {multiFileProgress.totalFiles}</span>
+                    <span className="truncate max-w-[200px]">{multiFileProgress.currentFileName}</span>
+                  </div>
+                )}
                 <div className="flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin text-primary" />
                   <span className="text-sm text-muted-foreground">{progressMessage}</span>
@@ -796,10 +843,15 @@ export function OcrUpload({
                 <CardTitle className="flex items-center gap-2">
                   <CheckCircle2 className="h-5 w-5 text-emerald-500" />
                   Analiza zakończona
+                  {result.filesAnalyzed && result.filesAnalyzed > 1 && (
+                    <Badge variant="secondary" className="text-xs">
+                      {result.filesAnalyzed} pliki połączone
+                    </Badge>
+                  )}
                 </CardTitle>
-                <CardDescription className="flex items-center gap-2">
+                <CardDescription className="flex flex-wrap items-center gap-2">
                   <Badge variant="outline" className="text-xs">
-                    {result.provider === 'gemini' ? '✨ Gemini 2.5 Pro' : '📐 Layout Parsing'}
+                    {OCR_PROVIDERS.find(p => p.id === result.provider)?.icon || '✨'} {OCR_PROVIDERS.find(p => p.id === result.provider)?.name || result.provider}
                   </Badge>
                   <span>•</span>
                   <span>{result.documentType}</span>
@@ -814,7 +866,7 @@ export function OcrUpload({
                 </Button>
                 <Button variant="outline" size="sm" onClick={handleReset}>
                   <Upload className="h-4 w-4 mr-1" />
-                  Nowy plik
+                  Nowe pliki
                 </Button>
               </div>
             </div>
