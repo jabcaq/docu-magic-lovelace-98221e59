@@ -7,7 +7,7 @@ import { FileText, Upload, Search, Settings, Sparkles, ScanText, ExternalLink, U
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import WordTemplater from "@/components/WordTemplater";
-import TestXmlAi from "@/components/TestXmlAi";
+
 import DocxTemplateProcessor from "@/components/DocxTemplateProcessor";
 import { OcrUpload } from "@/components/OcrUpload";
 import { useUserRole } from "@/hooks/use-user-role";
@@ -75,7 +75,7 @@ const Dashboard = () => {
           </div>
         ) : (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className={`grid w-full max-w-4xl mx-auto ${isAdmin ? 'grid-cols-6' : 'grid-cols-2'}`}>
+            <TabsList className={`grid w-full max-w-4xl mx-auto ${isAdmin ? 'grid-cols-5' : 'grid-cols-2'}`}>
               {isAdmin && (
                 <TabsTrigger value="generator" className="gap-2">
                   <Sparkles className="h-4 w-4" />
@@ -99,10 +99,6 @@ const Dashboard = () => {
                   <TabsTrigger value="test" className="gap-2">
                     <Settings className="h-4 w-4" />
                     Test
-                  </TabsTrigger>
-                  <TabsTrigger value="xml-ai" className="gap-2">
-                    <FileText className="h-4 w-4" />
-                    XML + AI
                   </TabsTrigger>
                 </>
               )}
@@ -177,9 +173,6 @@ const Dashboard = () => {
                 </Card>
               </TabsContent>
 
-              <TabsContent value="xml-ai" className="space-y-6">
-                <TestXmlAi />
-              </TabsContent>
             </>
           )}
         </Tabs>
