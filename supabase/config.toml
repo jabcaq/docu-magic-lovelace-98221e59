@@ -82,3 +82,5 @@ verify_jwt = true
 [functions.ocr-layout-parsing]
 verify_jwt = true
 
+[functions.ocr-preliminary]
+verify_jwt = true
