@@ -3,12 +3,11 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Upload, Search, Settings, ScanText, ExternalLink, Users, LogOut } from "lucide-react";
+import { FileText, Upload, Search, Settings, ScanText, ExternalLink, Users, LogOut, BarChart3 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import WordTemplater from "@/components/WordTemplater";
-
-
+import AiUsageStats from "@/components/AiUsageStats";
 import { OcrUpload } from "@/components/OcrUpload";
 import { useUserRole } from "@/hooks/use-user-role";
 
@@ -75,7 +74,7 @@ const Dashboard = () => {
           </div>
         ) : (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className={`grid w-full max-w-4xl mx-auto ${isAdmin ? 'grid-cols-3' : 'grid-cols-2'}`}>
+            <TabsList className={`grid w-full max-w-4xl mx-auto ${isAdmin ? 'grid-cols-4' : 'grid-cols-2'}`}>
               <TabsTrigger value="templater" className="gap-2">
                 <FileText className="h-4 w-4" />
                 Templater
@@ -85,10 +84,16 @@ const Dashboard = () => {
                 OCR
               </TabsTrigger>
               {isAdmin && (
-                <TabsTrigger value="search" className="gap-2">
-                  <Search className="h-4 w-4" />
-                  Search
-                </TabsTrigger>
+                <>
+                  <TabsTrigger value="ai-stats" className="gap-2">
+                    <BarChart3 className="h-4 w-4" />
+                    Statystyki AI
+                  </TabsTrigger>
+                  <TabsTrigger value="search" className="gap-2">
+                    <Search className="h-4 w-4" />
+                    Search
+                  </TabsTrigger>
+                </>
               )}
             </TabsList>
 
@@ -122,6 +127,10 @@ const Dashboard = () => {
 
           {isAdmin && (
             <>
+              <TabsContent value="ai-stats" className="space-y-6">
+                <AiUsageStats />
+              </TabsContent>
+
               <TabsContent value="search" className="space-y-6">
                 <Card className="p-8 text-center">
                   <div className="max-w-md mx-auto space-y-4">
@@ -138,8 +147,6 @@ const Dashboard = () => {
                   </div>
                 </Card>
               </TabsContent>
-
-
             </>
           )}
         </Tabs>
