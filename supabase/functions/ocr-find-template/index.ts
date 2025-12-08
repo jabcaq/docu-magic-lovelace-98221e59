@@ -43,17 +43,32 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const openRouterApiKey = Deno.env.get("OPEN_ROUTER_API_KEY");
+    
+    // Get user from JWT token
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      throw new Error("Authorization header is required");
+    }
+    
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+    
+    const { data: { user }, error: userError } = await supabaseAuth.auth.getUser();
+    if (userError || !user) {
+      throw new Error("Invalid or expired token");
+    }
+    const userId = user.id;
+    console.log("User authenticated:", userId);
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { preliminaryData, userId, ocrDocumentId, verifyWithLlm = true } = await req.json();
+    const { preliminaryData, ocrDocumentId, verifyWithLlm = true } = await req.json();
 
     if (!preliminaryData) {
       throw new Error("preliminaryData is required");
-    }
-    if (!userId) {
-      throw new Error("userId is required");
     }
 
     const data = preliminaryData as PreliminaryData;
