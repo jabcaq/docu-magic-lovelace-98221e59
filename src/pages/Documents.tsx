@@ -149,8 +149,8 @@ const Documents = () => {
         description: `Znaleziono ${data.fieldsCreated} pól danych`,
       });
 
-      // Navigate to verify page to see the results
-      navigate(`/verify/${docId}`);
+      // Navigate to preview page to see the results
+      navigate(`/preview/${docId}`);
     } catch (error) {
       console.error('Error extracting PDF data:', error);
       toast({
@@ -314,7 +314,7 @@ const Documents = () => {
             <Card
               key={doc.id}
               className="p-6 cursor-pointer hover:shadow-lg transition-all hover:scale-105 relative group"
-              onClick={() => navigate(`/verify/${doc.id}`)}
+              onClick={() => navigate(`/preview/${doc.id}`)}
             >
               <div className="space-y-4">
                 <div className="flex items-start justify-between">
