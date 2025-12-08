@@ -75,13 +75,13 @@ Deno.serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "http://host.docker.internal:54321";
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+    const openRouterApiKey = Deno.env.get("OPEN_ROUTER_API_KEY");
 
-    if (!supabaseKey || !lovableApiKey) {
+    if (!supabaseKey || !openRouterApiKey) {
       console.error("Missing configuration:", { 
         hasSupabaseUrl: !!supabaseUrl, 
         hasSupabaseKey: !!supabaseKey, 
-        hasLovableApiKey: !!lovableApiKey 
+        hasOpenRouterApiKey: !!openRouterApiKey 
       });
       throw new Error("Configuration missing");
     }
@@ -97,7 +97,7 @@ Deno.serve(async (req) => {
 
     // Return success immediately to avoid timeout
     // The actual processing happens in the background
-    processDocument(documentId, supabase, lovableApiKey).catch(err => 
+    processDocument(documentId, supabase, openRouterApiKey).catch(err => 
       console.error("Background process failed:", err)
     );
 
@@ -119,7 +119,7 @@ Deno.serve(async (req) => {
   }
 });
 
-async function processDocument(documentId: string, supabase: any, lovableApiKey: string) {
+async function processDocument(documentId: string, supabase: any, openRouterApiKey: string) {
   try {
     console.log(`[Background] Starting processing for ${documentId}`);
     
@@ -180,9 +180,9 @@ async function processDocument(documentId: string, supabase: any, lovableApiKey:
     const batches = prepareBatches(paragraphs);
     console.log(`[Background] ${paragraphs.length} paragraphs, ${batches.length} batches`);
 
-    // KROK 6: Przetwarzanie LLM
-    console.log(`[Background] Starting LLM processing...`);
-    const changes = await processBatchesWithLLM(batches, lovableApiKey);
+    // KROK 6: Przetwarzanie LLM via OpenRouter
+    console.log(`[Background] Starting LLM processing via OpenRouter...`);
+    const changes = await processBatchesWithLLM(batches, openRouterApiKey);
     console.log(`[Background] LLM processing complete - Found ${changes.length} changes`);
 
     // KROK 7: Zastosuj zmiany do XML
@@ -410,13 +410,15 @@ async function processBatchesWithLLM(batches: BatchPayload[], apiKey: string): P
 }
 
 async function processSingleBatch(batch: BatchPayload, apiKey: string, batchIndex: number): Promise<RunChange[]> {
-  console.log(`[Background] Sending batch ${batchIndex + 1} to Lovable AI with apiKey length: ${apiKey?.length}`);
+  console.log(`[Background] Sending batch ${batchIndex + 1} to OpenRouter with apiKey length: ${apiKey?.length}`);
   
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${apiKey.trim()}`,
       "Content-Type": "application/json",
+      "HTTP-Referer": "https://lovable.dev",
+      "X-Title": "Word Templater Pipeline",
     },
     body: JSON.stringify({
       model: MODEL,
@@ -431,13 +433,13 @@ async function processSingleBatch(batch: BatchPayload, apiKey: string, batchInde
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error(`[Background] LLM Error Details (Batch ${batchIndex + 1}):`, {
+    console.error(`[Background] OpenRouter Error Details (Batch ${batchIndex + 1}):`, {
       status: response.status,
       statusText: response.statusText,
       headers: Object.fromEntries(response.headers.entries()),
       body: errorText
     });
-    throw new Error(`LLM request failed (${response.status}): ${errorText}`);
+    throw new Error(`OpenRouter request failed (${response.status}): ${errorText}`);
   }
 
   const data = await response.json();
