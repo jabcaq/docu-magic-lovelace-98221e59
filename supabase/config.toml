@@ -84,3 +84,6 @@ verify_jwt = true
 
 [functions.ocr-preliminary]
 verify_jwt = true
+
+[functions.ocr-match-database]
+verify_jwt = true

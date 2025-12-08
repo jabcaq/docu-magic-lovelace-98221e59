@@ -394,6 +394,40 @@ export type Database = {
         }
         Returns: boolean
       }
+      search_clients_fuzzy: {
+        Args: {
+          max_results?: number
+          p_user_id: string
+          search_term: string
+          similarity_threshold?: number
+        }
+        Returns: {
+          address: string
+          country: string
+          eori: string
+          id: string
+          name: string
+          normalized_name: string
+          similarity_score: number
+        }[]
+      }
+      search_offices_fuzzy: {
+        Args: {
+          max_results?: number
+          p_user_id: string
+          search_term: string
+          similarity_threshold?: number
+        }
+        Returns: {
+          address: string
+          country: string
+          id: string
+          name: string
+          normalized_name: string
+          office_type: string
+          similarity_score: number
+        }[]
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
     }
