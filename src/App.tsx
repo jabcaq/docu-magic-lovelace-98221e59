@@ -6,7 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import Documents from "./pages/Documents";
-import VerifyDocument from "./pages/VerifyDocument";
+import DocumentPreview from "./pages/DocumentPreview";
 import TestRuns from "./pages/TestRuns";
 import OcrAnalysis from "./pages/OcrAnalysis";
 import Auth from "./pages/Auth";
@@ -42,10 +42,10 @@ const App = () => (
             }
           />
           <Route
-            path="/verify/:id"
+            path="/preview/:id"
             element={
               <ProtectedRoute>
-                <VerifyDocument />
+                <DocumentPreview />
               </ProtectedRoute>
             }
           />
