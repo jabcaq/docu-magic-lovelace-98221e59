@@ -29,9 +29,9 @@ serve(async (req) => {
   }
 
   try {
-    const openRouterApiKey = Deno.env.get("OPEN_ROUTER_API_KEY");
+    const openRouterApiKey = Deno.env.get("OPENROUTER_API_KEY");
     if (!openRouterApiKey) {
-      throw new Error("OPEN_ROUTER_API_KEY is not configured");
+      throw new Error("OPENROUTER_API_KEY is not configured");
     }
 
     const { imageBase64, storagePath, ocrDocumentId } = await req.json();
