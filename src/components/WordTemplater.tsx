@@ -529,6 +529,46 @@ const WordTemplater = ({ userRole }: WordTemplaterProps = {}) => {
     }
   };
 
+  const handleSaveTemplaterAsTemplate = async () => {
+    if (!documentId || !templaterResult) {
+      toast({
+        title: "Błąd",
+        description: "Brak dokumentu do zapisania jako szablon",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("create-template", {
+        body: {
+          documentId,
+          templateName: file?.name?.replace(/\.docx$/i, "") || "Szablon",
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "✅ Szablon zapisany w bazie!",
+        description: `Szablon "${data.template.name}" został zapisany z ${data.template.tagCount} tagami`,
+      });
+
+    } catch (error) {
+      console.error("Save templater template error:", error);
+      toast({
+        title: "Błąd",
+        description: error instanceof Error ? error.message : "Nie udało się zapisać szablonu",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleTagChange = (runId: string, newTag: string) => {
     setExtractedRuns(prev => 
       prev.map(run => 
@@ -719,14 +759,25 @@ const WordTemplater = ({ userRole }: WordTemplaterProps = {}) => {
                   : `Zastosowano ${templaterResult.stats.changesApplied} zmian w ${templaterResult.stats.paragraphs} paragrafach`}
               </p>
             </div>
-            <Button
-              onClick={handleDownloadTemplaterDoc}
-              className="gap-2"
-              disabled={!templaterResult.templateBase64 && !templaterResult.storagePath}
-            >
-              <Download className="h-4 w-4" />
-              Pobierz DOCX
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleDownloadTemplaterDoc}
+                variant="outline"
+                className="gap-2"
+                disabled={!templaterResult.templateBase64 && !templaterResult.storagePath}
+              >
+                <Download className="h-4 w-4" />
+                Pobierz DOCX
+              </Button>
+              <Button
+                onClick={handleSaveTemplaterAsTemplate}
+                className="gap-2"
+                disabled={isProcessing || !documentId}
+              >
+                <FileText className="h-4 w-4" />
+                {isProcessing ? "Zapisuję..." : "Zapisz jako szablon"}
+              </Button>
+            </div>
           </div>
 
           <div className="grid gap-3 md:grid-cols-4">
@@ -786,7 +837,7 @@ const WordTemplater = ({ userRole }: WordTemplaterProps = {}) => {
                   <div key={change.id} className="flex flex-col gap-1 p-3 md:flex-row md:items-center md:justify-between">
                     <span className="text-xs font-mono text-muted-foreground">{change.id}</span>
                     <div className="text-sm md:text-right">
-                      <p className="text-muted-foreground line-clamp-1">„{change.originalText || "—"}”</p>
+                      <p className="text-muted-foreground line-clamp-1">„{change.originalText || "—"}"</p>
                       <p className="font-semibold line-clamp-1">→ {change.newText || "(puste)"}</p>
                     </div>
                   </div>
