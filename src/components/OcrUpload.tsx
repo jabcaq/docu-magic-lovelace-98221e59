@@ -280,6 +280,31 @@ function TemplateSuggestions({ result, onSelectTemplate }: TemplateSuggestionsPr
             <Badge variant="secondary" className="text-xs">
               {suggestions.length}
             </Badge>
+            <div className="group relative">
+              <div className="flex items-center gap-1 text-xs text-muted-foreground cursor-help border-b border-dashed border-muted-foreground/50">
+                <span>?</span>
+              </div>
+              <div className="absolute left-0 top-full mt-2 z-50 w-64 p-3 bg-popover text-popover-foreground rounded-lg shadow-lg border opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
+                <p className="font-medium text-xs mb-2">Punktacja dopasowania:</p>
+                <ul className="text-xs space-y-1 text-muted-foreground">
+                  <li className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    <span>30+ pkt = bardzo dobre dopasowanie</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                    <span>15-29 pkt = częściowe dopasowanie</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-muted-foreground"></span>
+                    <span>&lt;15 pkt = słabe dopasowanie</span>
+                  </li>
+                </ul>
+                <p className="text-[10px] mt-2 text-muted-foreground/70">
+                  Punkty przyznawane za: VIN (+25), typ dokumentu (+25), tagi (+15), przykłady historyczne (+25)
+                </p>
+              </div>
+            </div>
           </div>
           <div className="flex items-center gap-1">
             <Button variant="ghost" size="sm" onClick={loadAllTemplates} disabled={loadingAll}>
