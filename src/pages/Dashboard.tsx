@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Upload, Search, Settings, ScanText, ExternalLink, Users, LogOut, BarChart3 } from "lucide-react";
+import { FileText, Upload, Search, Settings, ScanText, Users, LogOut, BarChart3 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import WordTemplater from "@/components/WordTemplater";
@@ -115,12 +115,6 @@ const Dashboard = () => {
                   </p>
                 </div>
               </div>
-              <Button variant="outline" asChild>
-                <Link to="/ocr">
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Otwórz pełny widok
-                </Link>
-              </Button>
             </div>
             <OcrUpload saveToDatabase={true} />
           </TabsContent>
