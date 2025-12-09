@@ -60,10 +60,10 @@ Deno.serve(async (req) => {
         throw new Error("Template or document not found");
       }
 
-      // Use processed file if available
-      const processingResult = document.processing_result as any;
-      storagePath = processingResult?.storagePath || document.storage_path;
+      // For documents, use original file (with real data), not processed template
+      storagePath = document.storage_path;
       name = document.name;
+      const processingResult = document.processing_result as any;
       tagMetadata = processingResult?.replacements || [];
     }
 
