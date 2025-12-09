@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { BarChart3, TrendingUp, Coins, RefreshCw } from "lucide-react";
+import { BarChart3, TrendingUp, Coins, RefreshCw, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface DocumentUsage {
@@ -20,6 +20,8 @@ interface DocumentUsage {
     stats?: {
       changesApplied: number;
       paragraphs: number;
+      processingTimeSec?: number;
+      processingTimeMs?: number;
     };
   } | null;
 }
@@ -30,8 +32,10 @@ interface AggregatedStats {
   totalPromptTokens: number;
   totalCompletionTokens: number;
   totalCostPLN: number;
+  totalProcessingTimeSec: number;
   averageTokensPerDoc: number;
   averageCostPerDoc: number;
+  averageProcessingTimeSec: number;
   modelBreakdown: Record<string, { count: number; tokens: number; cost: number }>;
 }
 
@@ -66,13 +70,16 @@ const AiUsageStats = () => {
         totalPromptTokens: 0,
         totalCompletionTokens: 0,
         totalCostPLN: 0,
+        totalProcessingTimeSec: 0,
         averageTokensPerDoc: 0,
         averageCostPerDoc: 0,
+        averageProcessingTimeSec: 0,
         modelBreakdown: {},
       };
 
       docsWithUsage.forEach((doc) => {
         const usage = doc.processing_result?.usage;
+        const stats = doc.processing_result?.stats;
         if (usage) {
           aggregated.totalTokens += usage.totalTokens;
           aggregated.totalPromptTokens += usage.promptTokens;
@@ -87,6 +94,9 @@ const AiUsageStats = () => {
           aggregated.modelBreakdown[model].tokens += usage.totalTokens;
           aggregated.modelBreakdown[model].cost += usage.costPLN;
         }
+        if (stats?.processingTimeSec) {
+          aggregated.totalProcessingTimeSec += stats.processingTimeSec;
+        }
       });
 
       if (docsWithUsage.length > 0) {
@@ -95,6 +105,9 @@ const AiUsageStats = () => {
         );
         aggregated.averageCostPerDoc =
           aggregated.totalCostPLN / docsWithUsage.length;
+        aggregated.averageProcessingTimeSec = Math.round(
+          (aggregated.totalProcessingTimeSec / docsWithUsage.length) * 10
+        ) / 10;
       }
 
       setStats(aggregated);
@@ -145,7 +158,7 @@ const AiUsageStats = () => {
 
       {/* Summary Cards */}
       {stats && (
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-5">
           <Card className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-primary/10">
@@ -203,6 +216,23 @@ const AiUsageStats = () => {
                     maximumFractionDigits: 4,
                   })}{" "}
                   PLN
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-cyan-500/10">
+                <Clock className="h-5 w-5 text-cyan-500" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Śr. czas/dok.</p>
+                <p className="text-2xl font-bold">
+                  {stats.averageProcessingTimeSec > 0 
+                    ? `${stats.averageProcessingTimeSec}s`
+                    : "—"
+                  }
                 </p>
               </div>
             </div>
@@ -284,6 +314,7 @@ const AiUsageStats = () => {
           <div className="max-h-[400px] overflow-y-auto divide-y rounded-lg border">
             {documents.slice(0, 20).map((doc) => {
               const usage = doc.processing_result?.usage;
+              const stats = doc.processing_result?.stats;
               return (
                 <div
                   key={doc.id}
@@ -295,20 +326,30 @@ const AiUsageStats = () => {
                       {new Date(doc.created_at).toLocaleString("pl-PL")}
                     </p>
                   </div>
-                  {usage && (
-                    <div className="text-right ml-4 shrink-0">
-                      <p className="text-sm font-mono">
-                        {usage.totalTokens.toLocaleString("pl-PL")} tok
-                      </p>
-                      <p className="text-xs text-primary">
-                        {usage.costPLN.toLocaleString("pl-PL", {
-                          minimumFractionDigits: 4,
-                          maximumFractionDigits: 4,
-                        })}{" "}
-                        PLN
-                      </p>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-4 ml-4 shrink-0">
+                    {stats?.processingTimeSec && (
+                      <div className="text-right">
+                        <p className="text-sm font-mono flex items-center gap-1 text-cyan-600">
+                          <Clock className="h-3 w-3" />
+                          {stats.processingTimeSec}s
+                        </p>
+                      </div>
+                    )}
+                    {usage && (
+                      <div className="text-right">
+                        <p className="text-sm font-mono">
+                          {usage.totalTokens.toLocaleString("pl-PL")} tok
+                        </p>
+                        <p className="text-xs text-primary">
+                          {usage.costPLN.toLocaleString("pl-PL", {
+                            minimumFractionDigits: 4,
+                            maximumFractionDigits: 4,
+                          })}{" "}
+                          PLN
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })}

@@ -128,6 +128,8 @@ Deno.serve(async (req) => {
 });
 
 async function processDocument(documentId: string, supabase: any, openRouterApiKey: string) {
+  const startTime = Date.now();
+  
   try {
     console.log(`[Background] Starting processing for ${documentId}`);
     
@@ -223,6 +225,9 @@ async function processDocument(documentId: string, supabase: any, openRouterApiK
     console.log(`[Background] Upload complete - OK`);
     
     // KROK 9: Logowanie rozmiarów danych przed zapisem
+    const processingTimeMs = Date.now() - startTime;
+    const processingTimeSec = Math.round(processingTimeMs / 100) / 10; // Round to 1 decimal
+    
     const processingResult = {
       templateBase64: null, // Deprecated
       storagePath: storagePath,
@@ -231,7 +236,9 @@ async function processDocument(documentId: string, supabase: any, openRouterApiK
         paragraphs: paragraphs.length,
         runs: paragraphs.reduce((acc: any, p: any) => acc + p.runs.length, 0),
         batches: batches.length,
-        changesApplied: appliedCount
+        changesApplied: appliedCount,
+        processingTimeMs: processingTimeMs,
+        processingTimeSec: processingTimeSec
       },
       usage: {
         model: usage.model,
