@@ -30,24 +30,47 @@ Deno.serve(async (req) => {
       throw new Error("Unauthorized");
     }
 
-    const { templateId } = await req.json();
-    console.log("Rendering template:", templateId);
+    const { templateId, type } = await req.json();
+    console.log("Rendering item:", templateId, "type:", type);
 
-    // Get template data
-    const { data: template, error: templateError } = await supabase
+    let storagePath: string;
+    let name: string;
+    let tagMetadata: any = null;
+
+    // Try to find in templates first, then documents
+    const { data: template } = await supabase
       .from("templates")
       .select("id, name, storage_path, tag_metadata")
       .eq("id", templateId)
-      .eq("user_id", user.id)
       .single();
 
-    if (templateError) throw templateError;
-    if (!template) throw new Error("Template not found");
+    if (template) {
+      storagePath = template.storage_path;
+      name = template.name;
+      tagMetadata = template.tag_metadata;
+    } else {
+      // Try documents table
+      const { data: document, error: docError } = await supabase
+        .from("documents")
+        .select("id, name, storage_path, processing_result")
+        .eq("id", templateId)
+        .single();
+
+      if (docError || !document) {
+        throw new Error("Template or document not found");
+      }
+
+      // Use processed file if available
+      const processingResult = document.processing_result as any;
+      storagePath = processingResult?.storagePath || document.storage_path;
+      name = document.name;
+      tagMetadata = processingResult?.replacements || [];
+    }
 
     // Download DOCX file from storage
     const { data: fileData, error: downloadError } = await supabase.storage
       .from("documents")
-      .download(template.storage_path);
+      .download(storagePath);
 
     if (downloadError) throw downloadError;
 
@@ -60,8 +83,8 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         html,
-        name: template.name,
-        tagCount: getTagCount(template.tag_metadata),
+        name: name,
+        tagCount: getTagCount(tagMetadata),
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
