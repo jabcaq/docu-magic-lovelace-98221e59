@@ -8,7 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Download, X, FileText, Loader2, AlertCircle, ZoomIn, ZoomOut } from "lucide-react";
+import { Download, FileText, Loader2, AlertCircle, ZoomIn, ZoomOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -30,6 +30,7 @@ export function TemplatePreviewModal({ isOpen, onClose, template }: TemplatePrev
   const [error, setError] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [zoom, setZoom] = useState(100);
+  const [variableCount, setVariableCount] = useState(0);
 
   useEffect(() => {
     if (isOpen && template) {
@@ -38,6 +39,7 @@ export function TemplatePreviewModal({ isOpen, onClose, template }: TemplatePrev
     } else {
       setHtml(null);
       setError(null);
+      setVariableCount(0);
     }
   }, [isOpen, template?.id]);
 
@@ -56,6 +58,10 @@ export function TemplatePreviewModal({ isOpen, onClose, template }: TemplatePrev
       if (data.error) throw new Error(data.error);
 
       setHtml(data.html);
+      
+      // Count variables from rendered HTML
+      const varMatches = (data.html || "").match(/\{\{[^}]+\}\}/g);
+      setVariableCount(varMatches ? varMatches.length : 0);
     } catch (err) {
       console.error("Error loading preview:", err);
       setError(err instanceof Error ? err.message : "Nie udało się załadować podglądu");
@@ -155,7 +161,7 @@ export function TemplatePreviewModal({ isOpen, onClose, template }: TemplatePrev
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-[95vw] w-full md:max-w-5xl h-[90vh] flex flex-col p-0 gap-0">
+      <DialogContent className="max-w-[95vw] w-full md:max-w-5xl h-[90vh] flex flex-col p-0 gap-0 [&>button]:hidden">
         {/* Header */}
         <DialogHeader className="px-4 md:px-6 py-3 md:py-4 border-b shrink-0 bg-card">
           <div className="flex items-center justify-between gap-2">
@@ -169,7 +175,7 @@ export function TemplatePreviewModal({ isOpen, onClose, template }: TemplatePrev
                 </DialogTitle>
                 <div className="flex items-center gap-2 mt-0.5 md:mt-1">
                   <Badge variant="secondary" className="text-xs">
-                    {template?.tagCount || 0} zmiennych
+                    {variableCount} zmiennych
                   </Badge>
                 </div>
               </div>
@@ -186,25 +192,19 @@ export function TemplatePreviewModal({ isOpen, onClose, template }: TemplatePrev
               </Button>
             </div>
 
-            <div className="flex items-center gap-1 md:gap-2 shrink-0">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleDownload}
-                disabled={isDownloading}
-                className="hidden md:flex"
-              >
-                {isDownloading ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Download className="h-4 w-4 mr-2" />
-                )}
-                Pobierz
-              </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownload}
+              disabled={isDownloading}
+            >
+              {isDownloading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4 mr-2" />
+              )}
+              Pobierz
+            </Button>
           </div>
         </DialogHeader>
 
@@ -256,18 +256,9 @@ export function TemplatePreviewModal({ isOpen, onClose, template }: TemplatePrev
             </Button>
           </div>
           
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={onClose}>
-              Zamknij
-            </Button>
-            <Button size="sm" onClick={handleDownload} disabled={isDownloading}>
-              {isDownloading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="h-4 w-4" />
-              )}
-            </Button>
-          </div>
+          <Button variant="outline" size="sm" onClick={onClose}>
+            Zamknij
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
