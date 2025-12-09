@@ -26,6 +26,114 @@ interface MatchedField {
   matchType: 'exact' | 'similar' | 'ai_matched';
 }
 
+interface AiMatchResult {
+  templateTag: string;
+  ocrTag: string | null;
+  ocrValue: string | null;
+  reasoning: string;
+}
+
+async function matchFieldsWithAI(
+  templateTags: string[], 
+  tagMetadata: TemplateTagMetadata,
+  ocrFields: OcrField[]
+): Promise<AiMatchResult[]> {
+  const openRouterApiKey = Deno.env.get("OPENROUTER_API_KEY");
+  
+  if (!openRouterApiKey) {
+    console.log("OPENROUTER_API_KEY not set, falling back to basic matching");
+    return [];
+  }
+
+  console.log("Using AI to match OCR fields to template tags...");
+  
+  // Build prompt with template tags and OCR fields
+  const templateTagsDescription = templateTags.map(tag => {
+    const description = tagMetadata[tag] || tag;
+    return `- {{${tag}}}: ${description}`;
+  }).join('\n');
+
+  const ocrFieldsDescription = ocrFields.map(field => {
+    return `- tag: "${field.tag}", label: "${field.label}", value: "${field.value}", category: "${field.category}", confidence: "${field.confidence}"`;
+  }).join('\n');
+
+  const systemPrompt = `Jesteś ekspertem od dopasowywania pól z dokumentów OCR do zmiennych w szablonach dokumentów.
+Twoje zadanie to przeanalizować listę zmiennych szablonu i pól wyekstrahowanych z OCR, a następnie dopasować je semantycznie.
+
+Zasady dopasowania:
+1. Dopasuj pola OCR do zmiennych szablonu na podstawie znaczenia, nie tylko nazwy
+2. Np. "vin" z OCR może pasować do "VIN", "VIN_Number", "numer_vin" itp.
+3. "importer_name" może pasować do "Nadawca", "Nazwa_firmy", "Importer" itp.
+4. Uwzględnij kontekst - np. "data_faktury" to data wystawienia, nie termin płatności
+5. Jeśli nie ma dobrego dopasowania dla zmiennej, zwróć null
+6. Każde pole OCR może być użyte tylko raz`;
+
+  const userPrompt = `Dopasuj pola OCR do zmiennych szablonu.
+
+ZMIENNE SZABLONU:
+${templateTagsDescription}
+
+POLA OCR:
+${ocrFieldsDescription}
+
+Zwróć JSON w formacie:
+{
+  "matches": [
+    {
+      "templateTag": "nazwa_zmiennej_szablonu",
+      "ocrTag": "tag_z_ocr_lub_null",
+      "ocrValue": "wartość_z_ocr_lub_null",
+      "reasoning": "krótkie wyjaśnienie dopasowania"
+    }
+  ]
+}
+
+Dla KAŻDEJ zmiennej szablonu musisz zwrócić wpis - nawet jeśli nie ma dopasowania (wtedy ocrTag i ocrValue = null).`;
+
+  try {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${openRouterApiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://lovable.dev",
+        "X-Title": "OCR Template Matcher",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ],
+        temperature: 0.1,
+        response_format: { type: "json_object" }
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("OpenRouter API error:", response.status, errorText);
+      return [];
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+    
+    if (!content) {
+      console.error("No content in AI response");
+      return [];
+    }
+
+    console.log("AI matching response received, length:", content.length);
+    
+    const parsed = JSON.parse(content);
+    return parsed.matches || [];
+  } catch (error) {
+    console.error("Error in AI matching:", error);
+    return [];
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -73,42 +181,64 @@ Deno.serve(async (req) => {
     const tagMetadata: TemplateTagMetadata = template.tag_metadata || {};
     const templateTags = Object.keys(tagMetadata);
 
-    console.log("Template tags:", templateTags);
+    console.log("Template tags:", templateTags.length);
 
-    // Match OCR fields to template tags
+    // Use AI to match fields
+    const aiMatches = await matchFieldsWithAI(templateTags, tagMetadata, ocrFields as OcrField[]);
+    console.log("AI matches:", aiMatches.length);
+
+    // Build matched fields from AI results
     const matchedFields: MatchedField[] = [];
     const unmatchedTags: string[] = [];
 
-    for (const templateTag of templateTags) {
-      // Try exact match first
-      let matchedOcrField = (ocrFields as OcrField[]).find(
-        f => f.tag.toLowerCase() === templateTag.toLowerCase()
-      );
-
-      // If no exact match, try similar names
-      if (!matchedOcrField) {
-        matchedOcrField = (ocrFields as OcrField[]).find(f => {
-          const normalizedTemplateTag = normalizeTag(templateTag);
-          const normalizedOcrTag = normalizeTag(f.tag);
-          return normalizedTemplateTag === normalizedOcrTag ||
-            normalizedTemplateTag.includes(normalizedOcrTag) ||
-            normalizedOcrTag.includes(normalizedTemplateTag);
-        });
+    if (aiMatches.length > 0) {
+      // Use AI matches
+      for (const match of aiMatches) {
+        if (match.ocrTag && match.ocrValue) {
+          const ocrField = (ocrFields as OcrField[]).find(f => f.tag === match.ocrTag);
+          matchedFields.push({
+            templateTag: match.templateTag,
+            ocrTag: match.ocrTag,
+            ocrValue: match.ocrValue,
+            ocrLabel: ocrField?.label || match.ocrTag,
+            confidence: ocrField?.confidence || 'medium',
+            matchType: 'ai_matched',
+          });
+        } else {
+          unmatchedTags.push(match.templateTag);
+        }
       }
+    } else {
+      // Fallback to basic matching
+      for (const templateTag of templateTags) {
+        let matchedOcrField = (ocrFields as OcrField[]).find(
+          f => f.tag.toLowerCase() === templateTag.toLowerCase()
+        );
 
-      if (matchedOcrField) {
-        matchedFields.push({
-          templateTag,
-          ocrTag: matchedOcrField.tag,
-          ocrValue: matchedOcrField.value,
-          ocrLabel: matchedOcrField.label,
-          confidence: matchedOcrField.confidence,
-          matchType: matchedOcrField.tag.toLowerCase() === templateTag.toLowerCase() 
-            ? 'exact' 
-            : 'similar',
-        });
-      } else {
-        unmatchedTags.push(templateTag);
+        if (!matchedOcrField) {
+          matchedOcrField = (ocrFields as OcrField[]).find(f => {
+            const normalizedTemplateTag = normalizeTag(templateTag);
+            const normalizedOcrTag = normalizeTag(f.tag);
+            return normalizedTemplateTag === normalizedOcrTag ||
+              normalizedTemplateTag.includes(normalizedOcrTag) ||
+              normalizedOcrTag.includes(normalizedTemplateTag);
+          });
+        }
+
+        if (matchedOcrField) {
+          matchedFields.push({
+            templateTag,
+            ocrTag: matchedOcrField.tag,
+            ocrValue: matchedOcrField.value,
+            ocrLabel: matchedOcrField.label,
+            confidence: matchedOcrField.confidence,
+            matchType: matchedOcrField.tag.toLowerCase() === templateTag.toLowerCase() 
+              ? 'exact' 
+              : 'similar',
+          });
+        } else {
+          unmatchedTags.push(templateTag);
+        }
       }
     }
 
@@ -144,15 +274,10 @@ Deno.serve(async (req) => {
       const tagPattern = `{{${field.templateTag}}}`;
       
       if (modifiedXml.includes(tagPattern)) {
-        // Replace the tag with highlighted value
         modifiedXml = replaceTagWithHighlightedValue(modifiedXml, tagPattern, field.ocrValue);
         replacements.push({ tag: field.templateTag, value: field.ocrValue });
       } else {
         // Tag might be split across runs - try to find and replace
-        const escaped = escapeRegExp(tagPattern);
-        const splitPattern = new RegExp(escaped.split('').join('[^<]*'), 'g');
-        
-        // Also try simple pattern matching
         const simpleTagRegex = new RegExp(`\\{\\{\\s*${escapeRegExp(field.templateTag)}\\s*\\}\\}`, 'gi');
         if (simpleTagRegex.test(modifiedXml)) {
           modifiedXml = modifiedXml.replace(simpleTagRegex, () => {
@@ -177,8 +302,25 @@ Deno.serve(async (req) => {
       )
     );
 
+    // Save filled document to storage for preview
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '_');
+    const storagePath = `filled/${user.id}/${timestamp}_${template.name.replace(/[^a-zA-Z0-9_-]/g, '_')}.docx`;
+    
+    const { error: uploadError } = await supabase.storage
+      .from("documents")
+      .upload(storagePath, new Uint8Array(newDocxBuffer), {
+        contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error("Failed to save filled document:", uploadError);
+      // Don't fail the whole operation, just log it
+    } else {
+      console.log("Filled document saved to:", storagePath);
+    }
+
     // Create filename
-    const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const filename = `wypelniony_${template.name.replace(/[^a-zA-Z0-9_-]/g, '_')}_${timestamp}.docx`;
 
     console.log("Generated filled document:", filename, "size:", newDocxBuffer.byteLength);
@@ -188,11 +330,14 @@ Deno.serve(async (req) => {
         success: true,
         base64: base64Docx,
         filename,
+        storagePath,
+        templateName: template.name,
         stats: {
           totalTemplateTags: templateTags.length,
           matchedFields: matchedFields.length,
           unmatchedTags: unmatchedTags.length,
           replacementsMade: replacements.length,
+          aiMatchingUsed: aiMatches.length > 0,
         },
         matchedFields,
         unmatchedTags,
@@ -221,7 +366,7 @@ function normalizeTag(tag: string): string {
     .replace(/-/g, '')
     .replace(/\s+/g, '')
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, ""); // Remove diacritics
+    .replace(/[\u0300-\u036f]/g, "");
 }
 
 function escapeRegExp(string: string): string {
@@ -238,17 +383,11 @@ function escapeXml(text: string): string {
 }
 
 function replaceTagWithHighlightedValue(xml: string, tag: string, value: string): string {
-  // Replace the tag wherever it appears with a highlighted run
   const highlightedRun = createHighlightedRun(value);
   return xml.split(tag).join(highlightedRun);
 }
 
 function createHighlightedRun(value: string): string {
-  // Create an OpenXML run with yellow highlighting
-  // Yellow highlight color in Word is "yellow" or RGB value
   const escapedValue = escapeXml(value);
-  
-  // Just return the value with inline highlighting markup
-  // The highlighting will be applied when this text is rendered
   return `</w:t></w:r><w:r><w:rPr><w:highlight w:val="yellow"/></w:rPr><w:t xml:space="preserve">${escapedValue}</w:t></w:r><w:r><w:t xml:space="preserve">`;
 }
