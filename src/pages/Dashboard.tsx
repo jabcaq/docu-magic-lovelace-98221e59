@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, Upload, Search, Settings, ScanText, Users, LogOut, BarChart3 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,7 +9,7 @@ import WordTemplater from "@/components/WordTemplater";
 import AiUsageStats from "@/components/AiUsageStats";
 import { OcrUpload } from "@/components/OcrUpload";
 import { useUserRole } from "@/hooks/use-user-role";
-
+import { TemplateSearch } from "@/components/TemplateSearch";
 const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -126,20 +125,18 @@ const Dashboard = () => {
               </TabsContent>
 
               <TabsContent value="search" className="space-y-6">
-                <Card className="p-8 text-center">
-                  <div className="max-w-md mx-auto space-y-4">
-                    <div className="h-16 w-16 rounded-full bg-accent/10 flex items-center justify-center mx-auto">
-                      <Search className="h-8 w-8 text-accent" />
-                    </div>
-                    <h3 className="text-xl font-semibold">Template Search</h3>
-                    <p className="text-muted-foreground">
-                      Semantic search across all your Word templates powered by AI
-                    </p>
-                    <Button className="mt-4" disabled>
-                      Coming Soon
-                    </Button>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 rounded-lg bg-gradient-to-br from-primary to-accent">
+                    <Search className="h-5 w-5 text-primary-foreground" />
                   </div>
-                </Card>
+                  <div>
+                    <h2 className="text-xl font-bold">Wyszukiwanie szablonów</h2>
+                    <p className="text-sm text-muted-foreground">
+                      Semantyczne wyszukiwanie dokumentów i szablonów z AI
+                    </p>
+                  </div>
+                </div>
+                <TemplateSearch />
               </TabsContent>
             </>
           )}
