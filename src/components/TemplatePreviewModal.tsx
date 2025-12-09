@@ -104,53 +104,53 @@ export function TemplatePreviewModal({ isOpen, onClose, template }: TemplatePrev
   const handleZoomIn = () => setZoom((z) => Math.min(z + 25, 200));
   const handleZoomOut = () => setZoom((z) => Math.max(z - 25, 50));
 
-  // CSS for A4 document styling
+  // CSS for A4 document styling - matching Word appearance
   const documentStyles = `
     .document-page {
       background: white;
       width: 210mm;
       min-height: 297mm;
-      padding: 20mm 25mm;
+      padding: 15mm 20mm;
       margin: 20px auto;
       box-shadow: 0 4px 20px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05);
-      font-family: 'Times New Roman', 'Calibri', serif;
-      font-size: 11pt;
-      line-height: 1.5;
+      font-family: 'Calibri', 'Arial', sans-serif;
+      font-size: 10pt;
+      line-height: 1.3;
       color: #000;
       transform-origin: top center;
     }
     .document-page p {
-      margin: 0 0 8pt 0;
-      text-align: justify;
+      margin: 0 0 6pt 0;
+      text-align: left;
     }
     .document-page table {
       width: 100%;
       border-collapse: collapse;
-      margin: 10pt 0;
+      margin: 6pt 0;
+      font-size: 9pt;
     }
     .document-page td, .document-page th {
-      border: 1px solid #999;
-      padding: 4pt 6pt;
+      border: 1px solid #000;
+      padding: 3pt 5pt;
       text-align: left;
-      font-size: 10pt;
+      vertical-align: top;
     }
     .document-page th {
-      background: #f5f5f5;
+      background: #f0f0f0;
       font-weight: bold;
     }
-    .template-variable { 
+    .document-page .var { 
       background-color: #FEF3C7; 
       border: 1px solid #F59E0B; 
-      padding: 1px 6px; 
-      border-radius: 3px; 
-      font-weight: 600; 
+      padding: 0 4px; 
+      border-radius: 2px; 
+      font-weight: 500; 
       font-family: 'Courier New', monospace;
-      font-size: 0.9em;
+      font-size: 0.85em;
       color: #92400E;
+      text-decoration: underline;
+      text-decoration-color: #F59E0B;
     }
-    .bold { font-weight: bold; }
-    .italic { font-style: italic; }
-    .underline { text-decoration: underline; }
   `;
 
   return (

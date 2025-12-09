@@ -51,9 +51,9 @@ Deno.serve(async (req) => {
 
     if (downloadError) throw downloadError;
 
-    // Convert DOCX to HTML using mammoth-like approach
+    // Convert DOCX to HTML
     const arrayBuffer = await fileData.arrayBuffer();
-    const html = await convertDocxToHtml(new Uint8Array(arrayBuffer), template.tag_metadata);
+    const html = await convertDocxToHtml(new Uint8Array(arrayBuffer));
 
     console.log("Generated HTML length:", html.length);
 
@@ -89,8 +89,7 @@ function getTagCount(tagMetadata: any): number {
   return 0;
 }
 
-async function convertDocxToHtml(docxData: Uint8Array, tagMetadata: any): Promise<string> {
-  // Use JSZip to extract document.xml from DOCX
+async function convertDocxToHtml(docxData: Uint8Array): Promise<string> {
   const JSZip = (await import("https://esm.sh/jszip@3.10.1")).default;
   
   const zip = await JSZip.loadAsync(docxData);
@@ -100,71 +99,149 @@ async function convertDocxToHtml(docxData: Uint8Array, tagMetadata: any): Promis
     throw new Error("Could not extract document.xml from DOCX");
   }
 
-  // Parse XML and extract text with formatting
-  const paragraphs = extractParagraphsFromXml(documentXml);
+  // Parse and render the document
+  const bodyContent = parseDocumentBody(documentXml);
   
-  // Build HTML
-  const styles = `
-    <style>
-      .template-preview { font-family: 'Calibri', 'Arial', sans-serif; line-height: 1.6; padding: 20px; }
-      .template-preview p { margin: 8px 0; text-align: justify; word-wrap: break-word; }
-      .template-variable { 
-        background-color: hsl(48 96% 89%); 
-        border: 1px solid hsl(45 93% 47%); 
-        padding: 1px 6px; 
-        border-radius: 4px; 
-        font-weight: 500; 
-        font-family: 'Courier New', monospace;
-        font-size: 0.9em;
-        color: hsl(28 73% 26%);
-      }
-      .bold { font-weight: bold; }
-      .italic { font-style: italic; }
-      .underline { text-decoration: underline; }
-    </style>
-  `;
+  return bodyContent;
+}
 
-  let html = styles + '<div class="template-preview">';
+function parseDocumentBody(xml: string): string {
+  // Extract body content
+  const bodyMatch = xml.match(/<w:body>([\s\S]*)<\/w:body>/);
+  if (!bodyMatch) return "<p>Nie można odczytać dokumentu</p>";
   
-  for (const para of paragraphs) {
-    if (para.trim()) {
-      // Highlight {{variables}}
-      const highlighted = para.replace(
-        /\{\{([^}]+)\}\}/g,
-        '<span class="template-variable">{{$1}}</span>'
-      );
-      html += `<p>${escapeHtml(para).replace(/\{\{([^}]+)\}\}/g, '<span class="template-variable">{{$1}}</span>')}</p>`;
+  const bodyXml = bodyMatch[1];
+  let html = "";
+  
+  // Process elements in order (tables and paragraphs)
+  const elements = extractElements(bodyXml);
+  
+  for (const element of elements) {
+    if (element.type === "table") {
+      html += renderTable(element.content);
+    } else if (element.type === "paragraph") {
+      const text = extractParagraphText(element.content);
+      if (text.trim()) {
+        html += `<p>${highlightVariables(escapeHtml(text))}</p>`;
+      }
     }
   }
   
-  html += '</div>';
   return html;
 }
 
-function extractParagraphsFromXml(xml: string): string[] {
-  const paragraphs: string[] = [];
+interface DocElement {
+  type: "table" | "paragraph";
+  content: string;
+  index: number;
+}
+
+function extractElements(bodyXml: string): DocElement[] {
+  const elements: DocElement[] = [];
   
-  // Match all w:p elements (paragraphs)
-  const paragraphMatches = xml.matchAll(/<w:p[^>]*>([\s\S]*?)<\/w:p>/g);
+  // Find all tables
+  const tableRegex = /<w:tbl>([\s\S]*?)<\/w:tbl>/g;
+  let tableMatch: RegExpExecArray | null;
+  while ((tableMatch = tableRegex.exec(bodyXml)) !== null) {
+    elements.push({
+      type: "table",
+      content: tableMatch[0],
+      index: tableMatch.index
+    });
+  }
   
-  for (const pMatch of paragraphMatches) {
-    const paragraphXml = pMatch[1];
-    const texts: string[] = [];
+  // Find all paragraphs (not inside tables)
+  const paragraphRegex = /<w:p[^>]*>([\s\S]*?)<\/w:p>/g;
+  let pMatch: RegExpExecArray | null;
+  while ((pMatch = paragraphRegex.exec(bodyXml)) !== null) {
+    const pIndex = pMatch.index;
+    // Check if this paragraph is inside a table
+    const isInTable = elements.some(el => 
+      el.type === "table" && 
+      pIndex > el.index && 
+      pIndex < el.index + el.content.length
+    );
     
-    // Extract text from w:t elements
-    const textMatches = paragraphXml.matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g);
-    for (const tMatch of textMatches) {
-      if (tMatch[1]) {
-        texts.push(tMatch[1]);
-      }
-    }
-    
-    if (texts.length > 0) {
-      paragraphs.push(texts.join(''));
+    if (!isInTable) {
+      elements.push({
+        type: "paragraph",
+        content: pMatch[0],
+        index: pIndex
+      });
     }
   }
   
-  return paragraphs;
+  // Sort by position in document
+  elements.sort((a, b) => a.index - b.index);
+  
+  return elements;
+}
+
+function renderTable(tableXml: string): string {
+  const rows: string[] = [];
+  
+  // Extract rows
+  const rowRegex = /<w:tr[^>]*>([\s\S]*?)<\/w:tr>/g;
+  let rowMatch;
+  
+  while ((rowMatch = rowRegex.exec(tableXml)) !== null) {
+    const rowXml = rowMatch[1];
+    const cells: string[] = [];
+    
+    // Extract cells
+    const cellRegex = /<w:tc[^>]*>([\s\S]*?)<\/w:tc>/g;
+    let cellMatch;
+    
+    while ((cellMatch = cellRegex.exec(rowXml)) !== null) {
+      const cellXml = cellMatch[1];
+      
+      // Get cell properties (colspan, width, etc.)
+      const gridSpanMatch = cellXml.match(/<w:gridSpan\s+w:val="(\d+)"/);
+      const colspan = gridSpanMatch ? parseInt(gridSpanMatch[1]) : 1;
+      
+      // Get cell text
+      const cellParagraphs: string[] = [];
+      const pRegex = /<w:p[^>]*>([\s\S]*?)<\/w:p>/g;
+      let pMatch;
+      
+      while ((pMatch = pRegex.exec(cellXml)) !== null) {
+        const text = extractParagraphText(pMatch[0]);
+        if (text.trim()) {
+          cellParagraphs.push(highlightVariables(escapeHtml(text)));
+        }
+      }
+      
+      const colspanAttr = colspan > 1 ? ` colspan="${colspan}"` : "";
+      cells.push(`<td${colspanAttr}>${cellParagraphs.join("<br>")}</td>`);
+    }
+    
+    rows.push(`<tr>${cells.join("")}</tr>`);
+  }
+  
+  return `<table>${rows.join("")}</table>`;
+}
+
+function extractParagraphText(paragraphXml: string): string {
+  const texts: string[] = [];
+  
+  // Extract text from w:t elements
+  const textRegex = /<w:t[^>]*>([^<]*)<\/w:t>/g;
+  let match;
+  
+  while ((match = textRegex.exec(paragraphXml)) !== null) {
+    if (match[1]) {
+      texts.push(match[1]);
+    }
+  }
+  
+  return texts.join("");
+}
+
+function highlightVariables(text: string): string {
+  return text.replace(
+    /\{\{([^}]+)\}\}/g,
+    '<span class="var">{{$1}}</span>'
+  );
 }
 
 function escapeHtml(text: string): string {
