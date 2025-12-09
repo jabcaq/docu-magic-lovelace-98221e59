@@ -8,7 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Download, X, FileText, Loader2, AlertCircle } from "lucide-react";
+import { Download, X, FileText, Loader2, AlertCircle, ZoomIn, ZoomOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -29,10 +29,12 @@ export function TemplatePreviewModal({ isOpen, onClose, template }: TemplatePrev
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [zoom, setZoom] = useState(100);
 
   useEffect(() => {
     if (isOpen && template) {
       loadPreview();
+      setZoom(100);
     } else {
       setHtml(null);
       setError(null);
@@ -99,33 +101,98 @@ export function TemplatePreviewModal({ isOpen, onClose, template }: TemplatePrev
     }
   };
 
+  const handleZoomIn = () => setZoom((z) => Math.min(z + 25, 200));
+  const handleZoomOut = () => setZoom((z) => Math.max(z - 25, 50));
+
+  // CSS for A4 document styling
+  const documentStyles = `
+    .document-page {
+      background: white;
+      width: 210mm;
+      min-height: 297mm;
+      padding: 20mm 25mm;
+      margin: 20px auto;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05);
+      font-family: 'Times New Roman', 'Calibri', serif;
+      font-size: 11pt;
+      line-height: 1.5;
+      color: #000;
+      transform-origin: top center;
+    }
+    .document-page p {
+      margin: 0 0 8pt 0;
+      text-align: justify;
+    }
+    .document-page table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10pt 0;
+    }
+    .document-page td, .document-page th {
+      border: 1px solid #999;
+      padding: 4pt 6pt;
+      text-align: left;
+      font-size: 10pt;
+    }
+    .document-page th {
+      background: #f5f5f5;
+      font-weight: bold;
+    }
+    .template-variable { 
+      background-color: #FEF3C7; 
+      border: 1px solid #F59E0B; 
+      padding: 1px 6px; 
+      border-radius: 3px; 
+      font-weight: 600; 
+      font-family: 'Courier New', monospace;
+      font-size: 0.9em;
+      color: #92400E;
+    }
+    .bold { font-weight: bold; }
+    .italic { font-style: italic; }
+    .underline { text-decoration: underline; }
+  `;
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-0 gap-0">
+      <DialogContent className="max-w-[95vw] w-full md:max-w-5xl h-[90vh] flex flex-col p-0 gap-0">
         {/* Header */}
-        <DialogHeader className="px-6 py-4 border-b shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                <FileText className="h-5 w-5 text-primary" />
+        <DialogHeader className="px-4 md:px-6 py-3 md:py-4 border-b shrink-0 bg-card">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
+              <div className="h-8 w-8 md:h-10 md:w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <FileText className="h-4 w-4 md:h-5 md:w-5 text-primary" />
               </div>
-              <div className="min-w-0">
-                <DialogTitle className="text-lg font-semibold truncate">
+              <div className="min-w-0 flex-1">
+                <DialogTitle className="text-sm md:text-lg font-semibold truncate">
                   {template?.name || "Podgląd szablonu"}
                 </DialogTitle>
-                <div className="flex items-center gap-2 mt-1">
+                <div className="flex items-center gap-2 mt-0.5 md:mt-1">
                   <Badge variant="secondary" className="text-xs">
                     {template?.tagCount || 0} zmiennych
                   </Badge>
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            
+            {/* Zoom controls */}
+            <div className="hidden md:flex items-center gap-1 border rounded-lg px-2 py-1 bg-muted/50">
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleZoomOut} disabled={zoom <= 50}>
+                <ZoomOut className="h-3.5 w-3.5" />
+              </Button>
+              <span className="text-xs font-medium w-10 text-center">{zoom}%</span>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleZoomIn} disabled={zoom >= 200}>
+                <ZoomIn className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+
+            <div className="flex items-center gap-1 md:gap-2 shrink-0">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleDownload}
                 disabled={isDownloading}
+                className="hidden md:flex"
               >
                 {isDownloading ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -134,19 +201,19 @@ export function TemplatePreviewModal({ isOpen, onClose, template }: TemplatePrev
                 )}
                 Pobierz
               </Button>
-              <Button variant="ghost" size="icon" onClick={onClose}>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
           </div>
         </DialogHeader>
 
-        {/* Content */}
-        <div className="flex-1 overflow-hidden">
+        {/* Content - Document Preview */}
+        <div className="flex-1 overflow-hidden bg-muted/30">
           {isLoading ? (
             <div className="h-full flex flex-col items-center justify-center gap-3">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground">Generowanie podglądu...</p>
+              <p className="text-sm text-muted-foreground">Generowanie podglądu dokumentu...</p>
             </div>
           ) : error ? (
             <div className="h-full flex flex-col items-center justify-center gap-3 p-6">
@@ -158,10 +225,16 @@ export function TemplatePreviewModal({ isOpen, onClose, template }: TemplatePrev
             </div>
           ) : html ? (
             <ScrollArea className="h-full">
-              <div
-                className="p-6"
-                dangerouslySetInnerHTML={{ __html: html }}
-              />
+              <style dangerouslySetInnerHTML={{ __html: documentStyles }} />
+              <div 
+                className="py-6 px-4"
+                style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}
+              >
+                <div 
+                  className="document-page"
+                  dangerouslySetInnerHTML={{ __html: html }}
+                />
+              </div>
             </ScrollArea>
           ) : (
             <div className="h-full flex items-center justify-center">
@@ -171,18 +244,30 @@ export function TemplatePreviewModal({ isOpen, onClose, template }: TemplatePrev
         </div>
 
         {/* Footer - mobile friendly */}
-        <div className="px-6 py-4 border-t shrink-0 flex justify-end gap-2 sm:hidden">
-          <Button variant="outline" onClick={onClose} className="flex-1">
-            Zamknij
-          </Button>
-          <Button onClick={handleDownload} disabled={isDownloading} className="flex-1">
-            {isDownloading ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Download className="h-4 w-4 mr-2" />
-            )}
-            Pobierz
-          </Button>
+        <div className="px-4 py-3 border-t shrink-0 bg-card flex justify-between items-center gap-2 md:hidden">
+          {/* Mobile zoom */}
+          <div className="flex items-center gap-1 border rounded-lg px-2 py-1 bg-muted/50">
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleZoomOut} disabled={zoom <= 50}>
+              <ZoomOut className="h-3.5 w-3.5" />
+            </Button>
+            <span className="text-xs font-medium w-8 text-center">{zoom}%</span>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleZoomIn} disabled={zoom >= 200}>
+              <ZoomIn className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+          
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={onClose}>
+              Zamknij
+            </Button>
+            <Button size="sm" onClick={handleDownload} disabled={isDownloading}>
+              {isDownloading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
