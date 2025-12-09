@@ -25,7 +25,10 @@ import {
   LayoutGrid,
   Check,
   FileSearch,
-  ExternalLink
+  ExternalLink,
+  Eye,
+  ZoomIn,
+  ZoomOut
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -36,6 +39,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { 
   useOcrAnalysis, 
@@ -69,11 +73,14 @@ interface FillTemplateResult {
   success: boolean;
   base64: string;
   filename: string;
+  storagePath?: string;
+  templateName?: string;
   stats: {
     totalTemplateTags: number;
     matchedFields: number;
     unmatchedTags: number;
     replacementsMade: number;
+    aiMatchingUsed?: boolean;
   };
   matchedFields: Array<{
     templateTag: string;
@@ -90,9 +97,10 @@ interface TemplateSuggestionsProps {
   result: OcrAnalysisResult;
   onSelectTemplate?: (template: TemplateSuggestion) => void;
   onFillComplete?: (fillResult: FillTemplateResult) => void;
+  onShowPreview?: (previewData: { storagePath: string; filename: string; base64: string; stats: FillTemplateResult['stats']; matchedFields: FillTemplateResult['matchedFields'] }) => void;
 }
 
-function TemplateSuggestions({ result, onSelectTemplate, onFillComplete }: TemplateSuggestionsProps) {
+function TemplateSuggestions({ result, onSelectTemplate, onFillComplete, onShowPreview }: TemplateSuggestionsProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<TemplateSuggestion[]>([]);
@@ -107,7 +115,7 @@ function TemplateSuggestions({ result, onSelectTemplate, onFillComplete }: Templ
     try {
       toast({
         title: 'Wypełnianie szablonu...',
-        description: `Porównuję dane OCR z szablonem "${template.name}"`,
+        description: `AI analizuje i dopasowuje pola do "${template.name}"`,
       });
 
       const { data, error } = await supabase.functions.invoke('ocr-fill-template', {
@@ -123,28 +131,22 @@ function TemplateSuggestions({ result, onSelectTemplate, onFillComplete }: Templ
         throw new Error(data.error || 'Nie udało się wypełnić szablonu');
       }
 
-      // Download the filled document
-      const binaryString = atob(data.base64);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      const blob = new Blob([bytes], { 
-        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
-      });
-      
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = data.filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      const aiInfo = data.stats.aiMatchingUsed 
+        ? ' (dopasowanie AI)' 
+        : ' (dopasowanie podstawowe)';
 
       toast({
-        title: 'Szablon wypełniony!',
-        description: `Dopasowano ${data.stats.matchedFields} z ${data.stats.totalTemplateTags} pól. Podstawione dane zaznaczone na żółto.`,
+        title: 'Szablon wypełniony!' + aiInfo,
+        description: `Dopasowano ${data.stats.matchedFields} z ${data.stats.totalTemplateTags} pól.`,
+      });
+
+      // Show preview instead of auto-download
+      onShowPreview?.({
+        storagePath: data.storagePath || '',
+        filename: data.filename,
+        base64: data.base64,
+        stats: data.stats,
+        matchedFields: data.matchedFields,
       });
 
       onSelectTemplate?.(template);
@@ -462,6 +464,259 @@ function TemplateSuggestions({ result, onSelectTemplate, onFillComplete }: Templ
   );
 }
 
+// Modal podglądu wypełnionego szablonu
+interface FilledDocumentPreviewProps {
+  isOpen: boolean;
+  onClose: () => void;
+  previewData: {
+    storagePath: string;
+    filename: string;
+    base64: string;
+    stats: FillTemplateResult['stats'];
+    matchedFields: FillTemplateResult['matchedFields'];
+  } | null;
+}
+
+function FilledDocumentPreview({ isOpen, onClose, previewData }: FilledDocumentPreviewProps) {
+  const { toast } = useToast();
+  const [html, setHtml] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [zoom, setZoom] = useState(100);
+  const [showMatchDetails, setShowMatchDetails] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && previewData?.base64) {
+      renderDocxToHtml(previewData.base64);
+    } else {
+      setHtml(null);
+    }
+  }, [isOpen, previewData?.base64]);
+
+  const renderDocxToHtml = async (base64: string) => {
+    setIsLoading(true);
+    try {
+      // Use render-template function with the base64 content
+      const { data, error } = await supabase.functions.invoke('render-template', {
+        body: { 
+          templateId: previewData?.storagePath,
+          type: 'filled',
+          base64Content: base64 
+        }
+      });
+
+      if (error) throw error;
+      if (data.html) {
+        setHtml(data.html);
+      } else {
+        // Fallback: convert base64 to blob URL for iframe
+        setHtml(null);
+      }
+    } catch (err) {
+      console.error('Error rendering preview:', err);
+      // If render fails, we'll show download option
+      setHtml(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDownload = () => {
+    if (!previewData) return;
+    
+    const binaryString = atob(previewData.base64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    const blob = new Blob([bytes], { 
+      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
+    });
+    
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = previewData.filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: 'Pobrano',
+      description: 'Wypełniony dokument został pobrany',
+    });
+  };
+
+  const handleZoomIn = () => setZoom((z) => Math.min(z + 25, 200));
+  const handleZoomOut = () => setZoom((z) => Math.max(z - 25, 50));
+
+  const documentStyles = `
+    .filled-document-page {
+      background: white;
+      width: 210mm;
+      min-height: 297mm;
+      padding: 15mm 20mm;
+      margin: 20px auto;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05);
+      font-family: 'Calibri', 'Arial', sans-serif;
+      font-size: 10pt;
+      line-height: 1.3;
+      color: #000;
+    }
+    .filled-document-page p { margin: 0 0 6pt 0; text-align: left; }
+    .filled-document-page table { width: 100%; border-collapse: collapse; margin: 6pt 0; font-size: 9pt; }
+    .filled-document-page td, .filled-document-page th { border: 1px solid #000; padding: 3pt 5pt; text-align: left; vertical-align: top; }
+    .filled-document-page th { background: #f0f0f0; font-weight: bold; }
+    .filled-document-page .highlight { background-color: #FEF9C3; }
+  `;
+
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-[95vw] w-full md:max-w-5xl h-[90vh] flex flex-col p-0 gap-0 [&>button]:hidden">
+        <DialogHeader className="px-4 md:px-6 py-3 md:py-4 border-b shrink-0 bg-card">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
+              <div className="h-8 w-8 md:h-10 md:w-10 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5 text-emerald-500" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <DialogTitle className="text-sm md:text-lg font-semibold truncate">
+                  {previewData?.filename || "Wypełniony dokument"}
+                </DialogTitle>
+                <div className="flex items-center gap-2 mt-0.5 md:mt-1 flex-wrap">
+                  {previewData?.stats && (
+                    <>
+                      <Badge variant="secondary" className="text-xs bg-emerald-500/10 text-emerald-600">
+                        {previewData.stats.matchedFields}/{previewData.stats.totalTemplateTags} dopasowanych
+                      </Badge>
+                      {previewData.stats.aiMatchingUsed && (
+                        <Badge variant="outline" className="text-xs border-violet-500/30 text-violet-600">
+                          <Sparkles className="h-3 w-3 mr-1" />
+                          AI
+                        </Badge>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            <div className="hidden md:flex items-center gap-1 border rounded-lg px-2 py-1 bg-muted/50">
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleZoomOut} disabled={zoom <= 50}>
+                <ZoomOut className="h-3.5 w-3.5" />
+              </Button>
+              <span className="text-xs font-medium w-10 text-center">{zoom}%</span>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleZoomIn} disabled={zoom >= 200}>
+                <ZoomIn className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+
+            <Button variant="default" size="sm" onClick={handleDownload}>
+              <Download className="h-4 w-4 mr-2" />
+              Pobierz
+            </Button>
+          </div>
+        </DialogHeader>
+
+        <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
+          {/* Document preview */}
+          <div className="flex-1 overflow-hidden bg-muted/30">
+            {isLoading ? (
+              <div className="h-full flex flex-col items-center justify-center gap-3">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="text-sm text-muted-foreground">Generowanie podglądu...</p>
+              </div>
+            ) : html ? (
+              <ScrollArea className="h-full">
+                <style dangerouslySetInnerHTML={{ __html: documentStyles }} />
+                <div 
+                  className="py-6 px-4"
+                  style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}
+                >
+                  <div 
+                    className="filled-document-page"
+                    dangerouslySetInnerHTML={{ __html: html }}
+                  />
+                </div>
+              </ScrollArea>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center gap-4 p-6">
+                <div className="p-6 rounded-full bg-emerald-500/10">
+                  <CheckCircle2 className="h-12 w-12 text-emerald-500" />
+                </div>
+                <div className="text-center">
+                  <h3 className="font-semibold text-lg">Dokument gotowy do pobrania</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Wypełniono {previewData?.stats.matchedFields || 0} z {previewData?.stats.totalTemplateTags || 0} pól
+                  </p>
+                  {previewData?.stats.unmatchedTags > 0 && (
+                    <p className="text-xs text-amber-600 mt-2">
+                      {previewData.stats.unmatchedTags} pól pozostało niewypełnionych
+                    </p>
+                  )}
+                </div>
+                <Button size="lg" onClick={handleDownload}>
+                  <Download className="h-5 w-5 mr-2" />
+                  Pobierz dokument
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Match details sidebar */}
+          {previewData?.matchedFields && previewData.matchedFields.length > 0 && (
+            <div className="w-full md:w-80 border-t md:border-t-0 md:border-l shrink-0 bg-card">
+              <Collapsible open={showMatchDetails} onOpenChange={setShowMatchDetails}>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" className="w-full justify-between px-4 py-3 rounded-none border-b">
+                    <span className="font-medium text-sm">Dopasowane pola ({previewData.matchedFields.length})</span>
+                    {showMatchDetails ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <ScrollArea className="h-[300px] md:h-[calc(100vh-250px)]">
+                    <div className="p-3 space-y-2">
+                      {previewData.matchedFields.map((field, idx) => (
+                        <div key={idx} className="p-2 rounded-lg bg-muted/50 text-xs">
+                          <div className="flex items-center justify-between gap-2">
+                            <code className="text-violet-600 font-medium">{`{{${field.templateTag}}}`}</code>
+                            <Badge variant="outline" className="text-[10px]">
+                              {field.matchType === 'ai_matched' ? 'AI' : field.matchType}
+                            </Badge>
+                          </div>
+                          <div className="mt-1 text-muted-foreground truncate" title={field.ocrValue}>
+                            → {field.ocrValue}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </CollapsibleContent>
+              </Collapsible>
+            </div>
+          )}
+        </div>
+
+        {/* Footer - mobile */}
+        <div className="px-4 py-3 border-t shrink-0 bg-card flex justify-between items-center gap-2 md:hidden">
+          <div className="flex items-center gap-1 border rounded-lg px-2 py-1 bg-muted/50">
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleZoomOut} disabled={zoom <= 50}>
+              <ZoomOut className="h-3.5 w-3.5" />
+            </Button>
+            <span className="text-xs font-medium w-8 text-center">{zoom}%</span>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleZoomIn} disabled={zoom >= 200}>
+              <ZoomIn className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+          <Button variant="outline" size="sm" onClick={onClose}>
+            Zamknij
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   vehicle: Car,
   person: User,
@@ -773,6 +1028,13 @@ export function OcrUpload({
   }, [result, toast]);
 
   const groupedFields = result ? getFieldsByCategory(result.extractedFields) : {};
+  const [filledDocPreview, setFilledDocPreview] = useState<{
+    storagePath: string;
+    filename: string;
+    base64: string;
+    stats: FillTemplateResult['stats'];
+    matchedFields: FillTemplateResult['matchedFields'];
+  } | null>(null);
   const providerInfo = OCR_PROVIDERS.find(p => p.id === currentProvider);
 
   return (
@@ -1004,11 +1266,14 @@ export function OcrUpload({
               onSelectTemplate={(template) => {
                 toast({
                   title: 'Szablon wybrany',
-                  description: `Wypełniono i pobrano: ${template.name}`,
+                  description: `Wypełniono: ${template.name}`,
                 });
               }}
               onFillComplete={(fillResult) => {
                 console.log('Template fill complete:', fillResult.stats);
+              }}
+              onShowPreview={(previewData) => {
+                setFilledDocPreview(previewData);
               }}
             />
             
@@ -1038,6 +1303,13 @@ export function OcrUpload({
           </CardContent>
         </Card>
       )}
+
+      {/* Modal podglądu wypełnionego dokumentu */}
+      <FilledDocumentPreview
+        isOpen={!!filledDocPreview}
+        onClose={() => setFilledDocPreview(null)}
+        previewData={filledDocPreview}
+      />
     </div>
   );
 }
