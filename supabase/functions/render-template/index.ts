@@ -150,9 +150,9 @@ function parseDocumentBody(xml: string): string {
     if (element.type === "table") {
       html += renderTable(element.content);
     } else if (element.type === "paragraph") {
-      const text = extractParagraphText(element.content);
-      if (text.trim()) {
-        html += `<p>${highlightVariables(escapeHtml(text))}</p>`;
+      const paragraphHtml = renderParagraphWithHighlights(element.content);
+      if (paragraphHtml.trim()) {
+        html += `<p>${paragraphHtml}</p>`;
       }
     }
   }
@@ -229,15 +229,15 @@ function renderTable(tableXml: string): string {
       const gridSpanMatch = cellXml.match(/<w:gridSpan\s+w:val="(\d+)"/);
       const colspan = gridSpanMatch ? parseInt(gridSpanMatch[1]) : 1;
       
-      // Get cell text
+      // Get cell text with highlighting
       const cellParagraphs: string[] = [];
       const pRegex = /<w:p[^>]*>([\s\S]*?)<\/w:p>/g;
       let pMatch;
       
       while ((pMatch = pRegex.exec(cellXml)) !== null) {
-        const text = extractParagraphText(pMatch[0]);
-        if (text.trim()) {
-          cellParagraphs.push(highlightVariables(escapeHtml(text)));
+        const paragraphHtml = renderParagraphWithHighlights(pMatch[0]);
+        if (paragraphHtml.trim()) {
+          cellParagraphs.push(paragraphHtml);
         }
       }
       
@@ -251,20 +251,66 @@ function renderTable(tableXml: string): string {
   return `<table>${rows.join("")}</table>`;
 }
 
-function extractParagraphText(paragraphXml: string): string {
-  const texts: string[] = [];
+interface TextSegment {
+  text: string;
+  highlighted: boolean;
+}
+
+function extractParagraphTextWithHighlights(paragraphXml: string): TextSegment[] {
+  const segments: TextSegment[] = [];
   
-  // Extract text from w:t elements
-  const textRegex = /<w:t[^>]*>([^<]*)<\/w:t>/g;
-  let match;
+  // Extract runs with their formatting
+  const runRegex = /<w:r[^>]*>([\s\S]*?)<\/w:r>/g;
+  let runMatch;
   
-  while ((match = textRegex.exec(paragraphXml)) !== null) {
-    if (match[1]) {
-      texts.push(match[1]);
+  while ((runMatch = runRegex.exec(paragraphXml)) !== null) {
+    const runContent = runMatch[1];
+    
+    // Check if this run has yellow highlight
+    const hasHighlight = /<w:highlight\s+w:val="yellow"/.test(runContent);
+    
+    // Extract text from w:t elements within this run
+    const textRegex = /<w:t[^>]*>([^<]*)<\/w:t>/g;
+    let textMatch;
+    
+    while ((textMatch = textRegex.exec(runContent)) !== null) {
+      if (textMatch[1]) {
+        segments.push({
+          text: textMatch[1],
+          highlighted: hasHighlight
+        });
+      }
     }
   }
   
-  return texts.join("");
+  return segments;
+}
+
+function extractParagraphText(paragraphXml: string): string {
+  const segments = extractParagraphTextWithHighlights(paragraphXml);
+  return segments.map(s => s.text).join("");
+}
+
+function renderParagraphWithHighlights(paragraphXml: string): string {
+  const segments = extractParagraphTextWithHighlights(paragraphXml);
+  
+  if (segments.length === 0) {
+    return "";
+  }
+  
+  let html = "";
+  for (const segment of segments) {
+    const escapedText = escapeHtml(segment.text);
+    const highlightedText = highlightVariables(escapedText);
+    
+    if (segment.highlighted) {
+      html += `<span class="filled">${highlightedText}</span>`;
+    } else {
+      html += highlightedText;
+    }
+  }
+  
+  return html;
 }
 
 function highlightVariables(text: string): string {

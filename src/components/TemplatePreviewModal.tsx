@@ -157,6 +157,11 @@ export function TemplatePreviewModal({ isOpen, onClose, template }: TemplatePrev
       text-decoration: underline;
       text-decoration-color: #F59E0B;
     }
+    .document-page .filled {
+      background-color: #FEF08A;
+      padding: 0 2px;
+      border-radius: 1px;
+    }
   `;
 
   return (
