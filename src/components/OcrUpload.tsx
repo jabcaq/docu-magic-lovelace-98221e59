@@ -52,6 +52,7 @@ import {
 } from '@/hooks/use-ocr-analysis';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import { OcrPersistentState } from '@/hooks/use-ocr-state';
 
 interface OcrUploadProps {
   onAnalysisComplete?: (result: OcrAnalysisResult) => void;
@@ -59,6 +60,17 @@ interface OcrUploadProps {
   saveToDatabase?: boolean;
   defaultProvider?: OcrProvider;
   className?: string;
+  persistentState?: {
+    result: OcrAnalysisResult | null;
+    selectedFiles: File[];
+    currentProvider: OcrProvider;
+    filledDocPreview: OcrPersistentState['filledDocPreview'];
+    setResult: (result: OcrAnalysisResult | null) => void;
+    setSelectedFiles: (files: File[]) => void;
+    setCurrentProvider: (provider: OcrProvider) => void;
+    setFilledDocPreview: (preview: OcrPersistentState['filledDocPreview']) => void;
+    resetState: () => void;
+  };
 }
 
 interface TemplateSuggestion {
@@ -891,12 +903,28 @@ export function OcrUpload({
   onProviderChange,
   saveToDatabase = true,
   defaultProvider = 'gemini',
-  className 
+  className,
+  persistentState
 }: OcrUploadProps) {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  
+  // Local state for when persistentState is not provided
+  const [localSelectedFiles, setLocalSelectedFiles] = useState<File[]>([]);
+  const [localFilledDocPreview, setLocalFilledDocPreview] = useState<{
+    storagePath: string;
+    filename: string;
+    base64: string;
+    stats: FillTemplateResult['stats'];
+    matchedFields: FillTemplateResult['matchedFields'];
+  } | null>(null);
+  
+  // Use persistent state if provided, otherwise use local state
+  const selectedFiles = persistentState?.selectedFiles ?? localSelectedFiles;
+  const setSelectedFiles = persistentState?.setSelectedFiles ?? setLocalSelectedFiles;
+  const filledDocPreview = persistentState?.filledDocPreview ?? localFilledDocPreview;
+  const setFilledDocPreview = persistentState?.setFilledDocPreview ?? setLocalFilledDocPreview;
   
   const {
     isAnalyzing,
@@ -904,42 +932,49 @@ export function OcrUpload({
     progressMessage,
     realtimeProgress,
     multiFileProgress,
-    result,
+    result: hookResult,
     error,
-    currentProvider,
+    currentProvider: hookProvider,
     analyzeFile,
     analyzeMultipleFiles,
     getFieldsByCategory,
-    changeProvider,
-    reset,
+    changeProvider: hookChangeProvider,
+    reset: hookReset,
   } = useOcrAnalysis({
-    provider: defaultProvider,
+    provider: persistentState?.currentProvider ?? defaultProvider,
     saveToDatabase,
-    onSuccess: (result) => {
-      const providerInfo = OCR_PROVIDERS.find(p => p.id === result.provider);
-      const filesInfo = result.filesAnalyzed && result.filesAnalyzed > 1 
-        ? ` (${result.filesAnalyzed} plików)` 
+    onSuccess: (analysisResult) => {
+      const providerInfo = OCR_PROVIDERS.find(p => p.id === analysisResult.provider);
+      const filesInfo = analysisResult.filesAnalyzed && analysisResult.filesAnalyzed > 1 
+        ? ` (${analysisResult.filesAnalyzed} plików)` 
         : '';
       toast({
         title: 'Analiza zakończona!',
-        description: `${providerInfo?.name || result.provider} wykrył ${result.fieldsCount} pól${filesInfo}`,
+        description: `${providerInfo?.name || analysisResult.provider} wykrył ${analysisResult.fieldsCount} pól${filesInfo}`,
       });
-      onAnalysisComplete?.(result);
+      // Sync result to persistent state if provided
+      persistentState?.setResult(analysisResult);
+      onAnalysisComplete?.(analysisResult);
     },
-    onError: (error) => {
+    onError: (err) => {
       toast({
         variant: 'destructive',
         title: 'Błąd analizy',
-        description: error.message,
+        description: err.message,
       });
     },
   });
 
+  // Use persistent result if available (survives tab switches), otherwise use hook result
+  const result = persistentState?.result ?? hookResult;
+  const currentProvider = persistentState?.currentProvider ?? hookProvider;
+
   // Notify parent when provider changes
   const handleProviderChange = useCallback((provider: OcrProvider) => {
-    changeProvider(provider);
+    hookChangeProvider(provider);
+    persistentState?.setCurrentProvider(provider);
     onProviderChange?.(provider);
-  }, [changeProvider, onProviderChange]);
+  }, [hookChangeProvider, persistentState, onProviderChange]);
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -958,24 +993,24 @@ export function OcrUpload({
     
     const files = Array.from(e.dataTransfer.files);
     if (files.length > 0) {
-      setSelectedFiles(prev => [...prev, ...files]);
+      setSelectedFiles([...selectedFiles, ...files]);
     }
-  }, []);
+  }, [selectedFiles, setSelectedFiles]);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length > 0) {
-      setSelectedFiles(prev => [...prev, ...files]);
+      setSelectedFiles([...selectedFiles, ...files]);
     }
     // Reset input to allow selecting the same file again
     if (e.target) {
       e.target.value = '';
     }
-  }, []);
+  }, [selectedFiles, setSelectedFiles]);
 
   const removeFile = useCallback((index: number) => {
-    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
-  }, []);
+    setSelectedFiles(selectedFiles.filter((_, i) => i !== index));
+  }, [selectedFiles, setSelectedFiles]);
 
   const handleAnalyze = useCallback(async () => {
     if (selectedFiles.length === 0) return;
@@ -993,11 +1028,12 @@ export function OcrUpload({
 
   const handleReset = useCallback(() => {
     setSelectedFiles([]);
-    reset();
+    hookReset();
+    persistentState?.resetState();
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-  }, [reset]);
+  }, [hookReset, persistentState, setSelectedFiles]);
 
   const exportResults = useCallback(() => {
     if (!result) return;
@@ -1030,13 +1066,6 @@ export function OcrUpload({
   }, [result, toast]);
 
   const groupedFields = result ? getFieldsByCategory(result.extractedFields) : {};
-  const [filledDocPreview, setFilledDocPreview] = useState<{
-    storagePath: string;
-    filename: string;
-    base64: string;
-    stats: FillTemplateResult['stats'];
-    matchedFields: FillTemplateResult['matchedFields'];
-  } | null>(null);
   const providerInfo = OCR_PROVIDERS.find(p => p.id === currentProvider);
 
   return (
@@ -1270,7 +1299,7 @@ export function OcrUpload({
                   <CategorySection 
                     key={category} 
                     category={category} 
-                    fields={fields} 
+                    fields={fields as OcrField[]} 
                   />
                 ))}
                 
