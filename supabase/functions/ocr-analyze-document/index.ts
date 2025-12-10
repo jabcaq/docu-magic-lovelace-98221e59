@@ -293,6 +293,25 @@ Deno.serve(async (req) => {
 
     console.log('Calling Gemini 2.5 Pro for OCR analysis via OpenRouter...');
     
+    // Use AbortController for timeout (90 seconds)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 90000);
+
+    // Warn if file is very large
+    const isLargeFile = fileBuffer.byteLength > 5 * 1024 * 1024;
+    if (isLargeFile) {
+      console.warn(`Large file detected: ${(fileBuffer.byteLength / 1024 / 1024).toFixed(2)}MB - processing may be slow`);
+    }
+
+    // For very large PDFs, use faster model
+    let effectiveModel = selectedModel;
+    if (isLargeFile && selectedModel.includes('pro')) {
+      console.log('Switching to faster model for large file');
+      effectiveModel = 'google/gemini-2.5-flash';
+    }
+
+    console.log(`Using model: ${effectiveModel}`);
+
     const aiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -302,7 +321,7 @@ Deno.serve(async (req) => {
         'X-Title': 'DocuMagic OCR Pipeline',
       },
       body: JSON.stringify({
-        model: selectedModel,
+        model: effectiveModel,
         messages: [
           {
             role: 'system',
@@ -347,10 +366,13 @@ FORMAT ODPOWIEDZI:
             content: contentForAi
           }
         ],
-        max_tokens: 16000,
+        max_tokens: 8000,
         temperature: 0.1
       }),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
