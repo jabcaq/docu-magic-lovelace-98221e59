@@ -10,11 +10,15 @@ import AiUsageStats from "@/components/AiUsageStats";
 import { OcrUpload } from "@/components/OcrUpload";
 import { useUserRole } from "@/hooks/use-user-role";
 import { TemplateSearch } from "@/components/TemplateSearch";
+import { useOcrState } from "@/hooks/use-ocr-state";
 const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { role, loading, isAdmin } = useUserRole();
   const [activeTab, setActiveTab] = useState("templater");
+  
+  // Persistent OCR state - survives tab switches
+  const ocrState = useOcrState('gemini');
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -115,7 +119,10 @@ const Dashboard = () => {
                 </div>
               </div>
             </div>
-            <OcrUpload saveToDatabase={true} />
+            <OcrUpload 
+              saveToDatabase={true}
+              persistentState={ocrState}
+            />
           </TabsContent>
 
           {isAdmin && (
