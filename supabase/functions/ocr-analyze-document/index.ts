@@ -250,10 +250,42 @@ Deno.serve(async (req) => {
       console.log('Analyzing PDF structure...');
       const fileSizeMB = fileBuffer.byteLength / (1024 * 1024);
       
+      // Generate unique session ID for progress tracking
+      const progressSessionId = crypto.randomUUID();
+      console.log(`Progress session ID: ${progressSessionId}`);
+      
+      // Helper function to broadcast progress
+      const broadcastProgress = async (step: string, current: number, total: number, details?: string) => {
+        try {
+          const channel = supabase.channel(`ocr-progress-${user.id}`);
+          await channel.send({
+            type: 'broadcast',
+            event: 'ocr_progress',
+            payload: {
+              sessionId: progressSessionId,
+              step,
+              current,
+              total,
+              percentage: Math.round((current / total) * 100),
+              details,
+              timestamp: new Date().toISOString()
+            }
+          });
+          // Clean up channel after sending
+          supabase.removeChannel(channel);
+        } catch (err) {
+          console.log('Progress broadcast skipped:', err);
+        }
+      };
+      
       try {
+        await broadcastProgress('parsing', 0, 100, 'Analizowanie struktury PDF...');
+        
         const pdfDoc = await PDFDocument.load(fileBuffer, { ignoreEncryption: true });
         pageCount = pdfDoc.getPageCount();
         console.log(`PDF has ${pageCount} pages, size: ${fileSizeMB.toFixed(2)}MB`);
+        
+        await broadcastProgress('parsing', 10, 100, `Wykryto ${pageCount} stron`);
         
         // For large PDFs or multi-page, process page by page
         if (pageCount > 1 || fileSizeMB > 2) {
@@ -265,6 +297,8 @@ Deno.serve(async (req) => {
           const pageContents: any[] = [];
           
           for (let i = 0; i < maxPages; i++) {
+            await broadcastProgress('extracting', i + 1, maxPages, `Ekstrakcja strony ${i + 1} z ${maxPages}...`);
+            
             const singlePageDoc = await PDFDocument.create();
             const [copiedPage] = await singlePageDoc.copyPages(pdfDoc, [i]);
             singlePageDoc.addPage(copiedPage);
@@ -281,6 +315,8 @@ Deno.serve(async (req) => {
               }
             });
           }
+          
+          await broadcastProgress('analyzing', 0, 100, 'Wysyłanie do AI...');
           
           contentForAi = [
             {
