@@ -28,7 +28,8 @@ import {
   ExternalLink,
   Eye,
   ZoomIn,
-  ZoomOut
+  ZoomOut,
+  History
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -40,6 +41,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { 
   useOcrAnalysis, 
@@ -53,6 +55,7 @@ import {
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { OcrPersistentState } from '@/hooks/use-ocr-state';
+import { OcrHistory } from '@/components/OcrHistory';
 
 interface OcrUploadProps {
   onAnalysisComplete?: (result: OcrAnalysisResult) => void;
@@ -1067,9 +1070,32 @@ export function OcrUpload({
 
   const groupedFields = result ? getFieldsByCategory(result.extractedFields) : {};
   const providerInfo = OCR_PROVIDERS.find(p => p.id === currentProvider);
+  const [activeTab, setActiveTab] = useState<'upload' | 'history'>('upload');
+
+  // Handler for loading results from history
+  const handleLoadFromHistory = useCallback((historyResult: OcrAnalysisResult) => {
+    // Set result via persistent state if available, otherwise via hook
+    if (persistentState) {
+      persistentState.setResult(historyResult);
+    }
+    setActiveTab('upload');
+  }, [persistentState]);
 
   return (
     <div className={cn('space-y-6', className)}>
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'upload' | 'history')} className="space-y-4">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="upload" className="gap-2">
+            <Upload className="h-4 w-4" />
+            Nowa analiza
+          </TabsTrigger>
+          <TabsTrigger value="history" className="gap-2">
+            <History className="h-4 w-4" />
+            Historia
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="upload" className="space-y-6">
       {/* Strefa uploadu */}
       {!result && (
         <Card className="overflow-hidden">
@@ -1356,6 +1382,12 @@ export function OcrUpload({
           </CardContent>
         </Card>
       )}
+        </TabsContent>
+
+        <TabsContent value="history">
+          <OcrHistory onLoadResult={handleLoadFromHistory} />
+        </TabsContent>
+      </Tabs>
 
       {/* Modal podglądu wypełnionego dokumentu */}
       <FilledDocumentPreview
