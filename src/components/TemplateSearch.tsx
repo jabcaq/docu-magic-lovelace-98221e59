@@ -1,10 +1,11 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { Search, FileText, FileCheck, Loader2, Download, Eye, ArrowRight } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { TemplatePreviewModal } from './TemplatePreviewModal';
@@ -22,6 +23,8 @@ interface SearchResult {
   createdAt: string;
 }
 
+type FilterType = 'all' | 'template' | 'document';
+
 export function TemplateSearch() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -29,7 +32,14 @@ export function TemplateSearch() {
   const [hasSearched, setHasSearched] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<{ id: string; name: string; storagePath: string; tagCount: number } | null>(null);
   const [convertingId, setConvertingId] = useState<string | null>(null);
+  const [filterType, setFilterType] = useState<FilterType>('all');
   const { toast } = useToast();
+
+  const filteredResults = useMemo(() => {
+    if (filterType === 'all') return results;
+    if (filterType === 'template') return results.filter(r => r.hasTemplate);
+    return results.filter(r => !r.hasTemplate);
+  }, [results, filterType]);
 
   const handleSearch = useCallback(async () => {
     if (query.trim().length < 2) {
@@ -190,6 +200,26 @@ export function TemplateSearch() {
         </Button>
       </div>
 
+      {/* Filter Toggle */}
+      {hasSearched && results.length > 0 && (
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-muted-foreground">Filtruj:</span>
+          <ToggleGroup type="single" value={filterType} onValueChange={(v) => v && setFilterType(v as FilterType)}>
+            <ToggleGroupItem value="all" aria-label="Wszystkie">
+              Wszystkie ({results.length})
+            </ToggleGroupItem>
+            <ToggleGroupItem value="template" aria-label="Szablony">
+              <FileCheck className="h-4 w-4 mr-1" />
+              Szablony ({results.filter(r => r.hasTemplate).length})
+            </ToggleGroupItem>
+            <ToggleGroupItem value="document" aria-label="Dokumenty">
+              <FileText className="h-4 w-4 mr-1" />
+              Dokumenty ({results.filter(r => !r.hasTemplate).length})
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+      )}
+
       {/* Search Tips */}
       {!hasSearched && (
         <Card className="border-dashed">
@@ -211,13 +241,13 @@ export function TemplateSearch() {
       {/* Results */}
       {hasSearched && !isSearching && (
         <div className="space-y-3">
-          {results.length > 0 && (
+          {filteredResults.length > 0 && filterType !== 'all' && (
             <p className="text-sm text-muted-foreground">
-              Znaleziono {results.length} {results.length === 1 ? 'wynik' : results.length < 5 ? 'wyniki' : 'wyników'}
+              Wyświetlono {filteredResults.length} z {results.length} wyników
             </p>
           )}
 
-          {results.map((result) => (
+          {filteredResults.map((result) => (
             <Card key={result.id} className="hover:bg-accent/50 transition-colors">
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-4">
@@ -291,6 +321,15 @@ export function TemplateSearch() {
               </CardContent>
             </Card>
           ))}
+
+          {filteredResults.length === 0 && results.length > 0 && (
+            <Card className="border-dashed">
+              <CardContent className="py-8 text-center text-muted-foreground">
+                <p>Brak wyników dla wybranego filtra</p>
+                <p className="text-sm mt-1">Zmień filtr lub spróbuj innych słów kluczowych</p>
+              </CardContent>
+            </Card>
+          )}
 
           {results.length === 0 && (
             <Card className="border-dashed">
