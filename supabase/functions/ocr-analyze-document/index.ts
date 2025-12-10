@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import JSZip from "https://esm.sh/jszip@3.10.1";
+import { PDFDocument } from "https://esm.sh/pdf-lib@1.17.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -241,10 +242,92 @@ Deno.serve(async (req) => {
 
     // Przygotuj zawartość dla Gemini
     let contentForAi: any[];
+    let pageCount = 1;
+    let processingMode = 'single';
     
-    if (isImageFile(mimeType) || isPdfFile(mimeType)) {
-      // Dla obrazów i PDF - użyj vision
-      console.log('Converting file to base64...');
+    if (isPdfFile(mimeType)) {
+      // Check PDF size and page count
+      console.log('Analyzing PDF structure...');
+      const fileSizeMB = fileBuffer.byteLength / (1024 * 1024);
+      
+      try {
+        const pdfDoc = await PDFDocument.load(fileBuffer, { ignoreEncryption: true });
+        pageCount = pdfDoc.getPageCount();
+        console.log(`PDF has ${pageCount} pages, size: ${fileSizeMB.toFixed(2)}MB`);
+        
+        // For large PDFs or multi-page, process page by page
+        if (pageCount > 1 || fileSizeMB > 2) {
+          processingMode = 'multi-page';
+          console.log(`Using multi-page processing mode for ${pageCount} pages`);
+          
+          // Process only first 5 pages for speed (most important info is usually at the start)
+          const maxPages = Math.min(pageCount, 5);
+          const pageContents: any[] = [];
+          
+          for (let i = 0; i < maxPages; i++) {
+            const singlePageDoc = await PDFDocument.create();
+            const [copiedPage] = await singlePageDoc.copyPages(pdfDoc, [i]);
+            singlePageDoc.addPage(copiedPage);
+            
+            const pageBytes = await singlePageDoc.save();
+            const pageArrayBuffer = new Uint8Array(pageBytes).buffer as ArrayBuffer;
+            const pageBase64 = arrayBufferToBase64(pageArrayBuffer);
+            console.log(`Page ${i + 1} base64 length: ${pageBase64.length}`);
+            
+            pageContents.push({
+              type: 'image_url',
+              image_url: {
+                url: `data:application/pdf;base64,${pageBase64}`
+              }
+            });
+          }
+          
+          contentForAi = [
+            {
+              type: 'text',
+              text: `Przeanalizuj dokładnie te ${maxPages} stron dokumentu (z ${pageCount} całkowitych) i wyciągnij WSZYSTKIE widoczne dane. Zwróć wynik w formacie JSON.`
+            },
+            ...pageContents
+          ];
+        } else {
+          // Small single-page PDF - process directly
+          console.log('Small PDF - processing directly');
+          const base64 = arrayBufferToBase64(fileBuffer);
+          console.log(`Base64 length: ${base64.length}`);
+          
+          contentForAi = [
+            {
+              type: 'text',
+              text: 'Przeanalizuj dokładnie ten dokument i wyciągnij WSZYSTKIE widoczne dane. Zwróć wynik w formacie JSON.'
+            },
+            {
+              type: 'image_url',
+              image_url: {
+                url: `data:${mimeType};base64,${base64}`
+              }
+            }
+          ];
+        }
+      } catch (pdfError) {
+        console.error('PDF parsing error, falling back to direct processing:', pdfError);
+        // Fallback to direct processing
+        const base64 = arrayBufferToBase64(fileBuffer);
+        contentForAi = [
+          {
+            type: 'text',
+            text: 'Przeanalizuj dokładnie ten dokument i wyciągnij WSZYSTKIE widoczne dane. Zwróć wynik w formacie JSON.'
+          },
+          {
+            type: 'image_url',
+            image_url: {
+              url: `data:${mimeType};base64,${base64}`
+            }
+          }
+        ];
+      }
+    } else if (isImageFile(mimeType)) {
+      // Dla obrazów - użyj vision bezpośrednio
+      console.log('Converting image to base64...');
       const base64 = arrayBufferToBase64(fileBuffer);
       console.log(`Base64 length: ${base64.length}`);
       
@@ -274,6 +357,9 @@ Deno.serve(async (req) => {
     } else {
       throw new Error(`Unsupported file type: ${mimeType}`);
     }
+    
+    console.log(`Processing mode: ${processingMode}, pages: ${pageCount}`);
+
 
     // Przygotuj listę kategorii zmiennych do promptu
     const variableCategories = Object.entries(DOCUMENT_VARIABLES)
