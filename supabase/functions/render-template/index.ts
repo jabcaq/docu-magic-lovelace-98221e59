@@ -37,34 +37,41 @@ Deno.serve(async (req) => {
     let name: string;
     let tagMetadata: any = null;
 
-    // Try to find in templates first, then documents
-    const { data: template } = await supabase
-      .from("templates")
-      .select("id, name, storage_path, tag_metadata")
-      .eq("id", templateId)
-      .single();
-
-    if (template) {
-      storagePath = template.storage_path;
-      name = template.name;
-      tagMetadata = template.tag_metadata;
+    // Handle "filled" type - templateId is actually a storage path
+    if (type === "filled") {
+      storagePath = templateId;
+      name = templateId.split("/").pop() || "Wypełniony dokument";
+      tagMetadata = [];
+      console.log("Rendering filled document from path:", storagePath);
     } else {
-      // Try documents table
-      const { data: document, error: docError } = await supabase
-        .from("documents")
-        .select("id, name, storage_path, processing_result")
+      // Try to find in templates first, then documents
+      const { data: template } = await supabase
+        .from("templates")
+        .select("id, name, storage_path, tag_metadata")
         .eq("id", templateId)
-        .single();
+        .maybeSingle();
 
-      if (docError || !document) {
-        throw new Error("Template or document not found");
+      if (template) {
+        storagePath = template.storage_path;
+        name = template.name;
+        tagMetadata = template.tag_metadata;
+      } else {
+        // Try documents table
+        const { data: document } = await supabase
+          .from("documents")
+          .select("id, name, storage_path, processing_result")
+          .eq("id", templateId)
+          .maybeSingle();
+
+        if (!document) {
+          throw new Error("Template or document not found");
+        }
+
+        storagePath = document.storage_path;
+        name = document.name;
+        const processingResult = document.processing_result as any;
+        tagMetadata = processingResult?.replacements || [];
       }
-
-      // For documents, use original file (with real data), not processed template
-      storagePath = document.storage_path;
-      name = document.name;
-      const processingResult = document.processing_result as any;
-      tagMetadata = processingResult?.replacements || [];
     }
 
     // Download DOCX file from storage
