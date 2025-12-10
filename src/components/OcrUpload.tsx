@@ -46,6 +46,7 @@ import {
   OcrField, 
   OcrAnalysisResult,
   OcrProvider,
+  OcrRealtimeProgress,
   OCR_PROVIDERS,
   FIELD_CATEGORIES 
 } from '@/hooks/use-ocr-analysis';
@@ -901,6 +902,7 @@ export function OcrUpload({
     isAnalyzing,
     progress,
     progressMessage,
+    realtimeProgress,
     multiFileProgress,
     result,
     error,
@@ -1166,6 +1168,28 @@ export function OcrUpload({
                     <span className="truncate max-w-[200px]">{multiFileProgress.currentFileName}</span>
                   </div>
                 )}
+                
+                {/* Realtime PDF progress */}
+                {realtimeProgress && (
+                  <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-medium text-primary">
+                        {realtimeProgress.step === 'parsing' && '📄 Parsowanie PDF'}
+                        {realtimeProgress.step === 'extracting' && `📑 Ekstrakcja stron (${realtimeProgress.current}/${realtimeProgress.total})`}
+                        {realtimeProgress.step === 'analyzing' && '🧠 Analiza AI'}
+                        {realtimeProgress.step === 'complete' && '✅ Zakończono'}
+                      </span>
+                      <Badge variant="outline" className="text-xs">
+                        {realtimeProgress.percentage}%
+                      </Badge>
+                    </div>
+                    {realtimeProgress.details && (
+                      <p className="text-xs text-muted-foreground">{realtimeProgress.details}</p>
+                    )}
+                    <Progress value={realtimeProgress.percentage} className="h-1.5" />
+                  </div>
+                )}
+                
                 <div className="flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin text-primary" />
                   <span className="text-sm text-muted-foreground">{progressMessage}</span>

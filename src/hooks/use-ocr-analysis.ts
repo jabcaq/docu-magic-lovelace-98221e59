@@ -73,11 +73,21 @@ export interface MultiFileProgress {
   overallProgress: number;
 }
 
+export interface OcrRealtimeProgress {
+  step: 'parsing' | 'extracting' | 'analyzing' | 'complete';
+  current: number;
+  total: number;
+  percentage: number;
+  details?: string;
+  timestamp: string;
+}
+
 export interface UseOcrAnalysisOptions {
   provider?: OcrProvider;
   saveToDatabase?: boolean;
   onProgress?: (progress: number, message: string) => void;
   onMultiFileProgress?: (progress: MultiFileProgress) => void;
+  onRealtimeProgress?: (progress: OcrRealtimeProgress) => void;
   onSuccess?: (result: OcrAnalysisResult) => void;
   onError?: (error: Error) => void;
 }
@@ -86,6 +96,7 @@ export function useOcrAnalysis(options: UseOcrAnalysisOptions = {}) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressMessage, setProgressMessage] = useState('');
+  const [realtimeProgress, setRealtimeProgress] = useState<OcrRealtimeProgress | null>(null);
   const [multiFileProgress, setMultiFileProgress] = useState<MultiFileProgress | null>(null);
   const [result, setResult] = useState<OcrAnalysisResult | null>(null);
   const [error, setError] = useState<Error | null>(null);
@@ -168,6 +179,28 @@ export function useOcrAnalysis(options: UseOcrAnalysisOptions = {}) {
         throw new Error('Nie jesteś zalogowany');
       }
 
+      // Subscribe to realtime progress updates
+      const userId = session.user.id;
+      const progressChannel = supabase.channel(`ocr-progress-${userId}`);
+      
+      progressChannel
+        .on('broadcast', { event: 'ocr_progress' }, (payload) => {
+          const progressData = payload.payload as OcrRealtimeProgress;
+          console.log('Realtime OCR progress:', progressData);
+          setRealtimeProgress(progressData);
+          options.onRealtimeProgress?.(progressData);
+          
+          // Update main progress based on realtime data
+          if (progressData.step === 'parsing') {
+            updateProgress(30 + (progressData.percentage * 0.1), progressData.details || 'Parsowanie PDF...');
+          } else if (progressData.step === 'extracting') {
+            updateProgress(40 + (progressData.percentage * 0.3), progressData.details || `Ekstrakcja strony ${progressData.current}/${progressData.total}...`);
+          } else if (progressData.step === 'analyzing') {
+            updateProgress(70, progressData.details || 'Analiza AI...');
+          }
+        })
+        .subscribe();
+
       updateProgress(30, `Analizowanie dokumentu przez ${getProviderName(selectedProvider)}...`);
 
       // Przygotuj FormData
@@ -196,6 +229,9 @@ export function useOcrAnalysis(options: UseOcrAnalysisOptions = {}) {
 
       updateProgress(80, 'Przetwarzanie wyników...');
 
+      // Cleanup realtime channel
+      supabase.removeChannel(progressChannel);
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `Błąd serwera: ${response.status}`);
@@ -208,6 +244,7 @@ export function useOcrAnalysis(options: UseOcrAnalysisOptions = {}) {
       }
 
       updateProgress(100, 'Analiza zakończona!');
+      setRealtimeProgress(null);
       setResult(data);
       options.onSuccess?.(data);
 
@@ -219,6 +256,7 @@ export function useOcrAnalysis(options: UseOcrAnalysisOptions = {}) {
       throw error;
     } finally {
       setIsAnalyzing(false);
+      setRealtimeProgress(null);
     }
   }, [currentProvider, options, updateProgress, getEndpoint, getProviderName]);
 
@@ -490,6 +528,7 @@ export function useOcrAnalysis(options: UseOcrAnalysisOptions = {}) {
     isAnalyzing,
     progress,
     progressMessage,
+    realtimeProgress,
     multiFileProgress,
     result,
     error,
