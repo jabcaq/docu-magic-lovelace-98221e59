@@ -326,9 +326,10 @@ function applyChangesToXmlWithHighlight(
 // ============= AI Matching Function =============
 
 async function matchFieldsWithAI(
-  templateTags: string[], 
+  templateTags: string[],
   tagMetadata: TemplateTagMetadata,
-  ocrFields: OcrField[]
+  ocrFields: OcrField[],
+  historicalExamples: Array<{ tag_value_map: Record<string, string> }> = []
 ): Promise<AiMatchResult[]> {
   const openRouterApiKey = Deno.env.get("OPENROUTER_API_KEY");
   
@@ -338,6 +339,7 @@ async function matchFieldsWithAI(
   }
 
   console.log("Using AI to match OCR fields to template tags...");
+  console.log("Historical examples available:", historicalExamples.length);
   
   const templateTagsDescription = templateTags.map(tag => {
     const description = tagMetadata[tag] || tag;
@@ -348,6 +350,25 @@ async function matchFieldsWithAI(
     return `- tag: "${field.tag}", label: "${field.label}", value: "${field.value}", category: "${field.category}", confidence: "${field.confidence}"`;
   }).join('\n');
 
+  // Build historical examples context
+  let historicalContext = "";
+  if (historicalExamples.length > 0) {
+    const examplesText = historicalExamples.slice(0, 5).map((ex, idx) => {
+      const entries = Object.entries(ex.tag_value_map || {})
+        .slice(0, 10)
+        .map(([tag, value]) => `  {{${tag}}} → "${value}"`)
+        .join('\n');
+      return `Przykład ${idx + 1}:\n${entries}`;
+    }).join('\n\n');
+    
+    historicalContext = `
+
+HISTORYCZNE PRZYKŁADY DOPASOWAŃ DLA TEGO SZABLONU:
+${examplesText}
+
+Wykorzystaj te przykłady jako wskazówkę - podobne wartości OCR powinny być dopasowane do tych samych tagów co wcześniej.`;
+  }
+
   const systemPrompt = `Jesteś ekspertem od dopasowywania pól z dokumentów OCR do zmiennych w szablonach dokumentów.
 Twoje zadanie to przeanalizować listę zmiennych szablonu i pól wyekstrahowanych z OCR, a następnie dopasować je semantycznie.
 
@@ -357,7 +378,8 @@ Zasady dopasowania:
 3. "importer_name" może pasować do "Nadawca", "Nazwa_firmy", "Importer" itp.
 4. Uwzględnij kontekst - np. "data_faktury" to data wystawienia, nie termin płatności
 5. Jeśli nie ma dobrego dopasowania dla zmiennej, zwróć null
-6. Każde pole OCR może być użyte tylko raz`;
+6. Każde pole OCR może być użyte tylko raz
+7. Jeśli podano historyczne przykłady, ucz się z nich - podobne typy wartości powinny być mapowane do tych samych zmiennych`;
 
   const userPrompt = `Dopasuj pola OCR do zmiennych szablonu.
 
@@ -365,7 +387,7 @@ ZMIENNE SZABLONU:
 ${templateTagsDescription}
 
 POLA OCR:
-${ocrFieldsDescription}
+${ocrFieldsDescription}${historicalContext}
 
 Zwróć JSON w formacie:
 {
@@ -488,8 +510,23 @@ Deno.serve(async (req) => {
 
     console.log("Template tags:", templateTags.length);
 
-    // Use AI to match fields
-    const aiMatches = await matchFieldsWithAI(templateTags, tagMetadata, ocrFields as OcrField[]);
+    // Fetch historical examples for this template (feedback loop)
+    const { data: historicalExamples } = await supabase
+      .from("template_examples")
+      .select("tag_value_map")
+      .eq("template_id", templateId)
+      .order("created_at", { ascending: false })
+      .limit(5);
+    
+    console.log("Historical examples found:", historicalExamples?.length || 0);
+
+    // Use AI to match fields with historical context
+    const aiMatches = await matchFieldsWithAI(
+      templateTags, 
+      tagMetadata, 
+      ocrFields as OcrField[],
+      historicalExamples || []
+    );
     console.log("AI matches:", aiMatches.length);
 
     // Build matched fields from AI results
