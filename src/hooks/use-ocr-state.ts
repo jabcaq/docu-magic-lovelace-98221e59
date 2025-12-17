@@ -24,6 +24,7 @@ export interface OcrPersistentState {
       confidence: string;
       matchType: string;
     }>;
+    unmatchedTags: string[];
   } | null;
 }
 

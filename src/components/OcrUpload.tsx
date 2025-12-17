@@ -113,7 +113,7 @@ interface TemplateSuggestionsProps {
   result: OcrAnalysisResult;
   onSelectTemplate?: (template: TemplateSuggestion) => void;
   onFillComplete?: (fillResult: FillTemplateResult) => void;
-  onShowPreview?: (previewData: { storagePath: string; filename: string; base64: string; stats: FillTemplateResult['stats']; matchedFields: FillTemplateResult['matchedFields'] }) => void;
+  onShowPreview?: (previewData: { storagePath: string; filename: string; base64: string; stats: FillTemplateResult['stats']; matchedFields: FillTemplateResult['matchedFields']; unmatchedTags: string[] }) => void;
 }
 
 function TemplateSuggestions({ result, onSelectTemplate, onFillComplete, onShowPreview }: TemplateSuggestionsProps) {
@@ -163,6 +163,7 @@ function TemplateSuggestions({ result, onSelectTemplate, onFillComplete, onShowP
         base64: data.base64,
         stats: data.stats,
         matchedFields: data.matchedFields,
+        unmatchedTags: data.unmatchedTags || [],
       });
 
       onSelectTemplate?.(template);
@@ -490,6 +491,7 @@ interface FilledDocumentPreviewProps {
     base64: string;
     stats: FillTemplateResult['stats'];
     matchedFields: FillTemplateResult['matchedFields'];
+    unmatchedTags: string[];
   } | null;
 }
 
@@ -680,35 +682,64 @@ function FilledDocumentPreview({ isOpen, onClose, previewData }: FilledDocumentP
           </div>
 
           {/* Match details sidebar */}
-          {previewData?.matchedFields && previewData.matchedFields.length > 0 && (
+          {previewData && (previewData.matchedFields?.length > 0 || previewData.unmatchedTags?.length > 0) && (
             <div className="w-full md:w-80 border-t md:border-t-0 md:border-l shrink-0 bg-card">
-              <Collapsible open={showMatchDetails} onOpenChange={setShowMatchDetails}>
-                <CollapsibleTrigger asChild>
-                  <Button variant="ghost" className="w-full justify-between px-4 py-3 rounded-none border-b">
-                    <span className="font-medium text-sm">Dopasowane pola ({previewData.matchedFields.length})</span>
-                    {showMatchDetails ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <ScrollArea className="h-[300px] md:h-[calc(100vh-250px)]">
-                    <div className="p-3 space-y-2">
-                      {previewData.matchedFields.map((field, idx) => (
-                        <div key={idx} className="p-2 rounded-lg bg-muted/50 text-xs">
-                          <div className="flex items-center justify-between gap-2">
-                            <code className="text-violet-600 font-medium">{`{{${field.templateTag}}}`}</code>
-                            <Badge variant="outline" className="text-[10px]">
-                              {field.matchType === 'ai_matched' ? 'AI' : field.matchType}
-                            </Badge>
+              {/* Dopasowane pola */}
+              {previewData.matchedFields && previewData.matchedFields.length > 0 && (
+                <Collapsible open={showMatchDetails} onOpenChange={setShowMatchDetails}>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" className="w-full justify-between px-4 py-3 rounded-none border-b">
+                      <span className="font-medium text-sm">Dopasowane pola ({previewData.matchedFields.length})</span>
+                      {showMatchDetails ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <ScrollArea className="max-h-[200px] md:max-h-[calc(50vh-150px)]">
+                      <div className="p-3 space-y-2">
+                        {previewData.matchedFields.map((field, idx) => (
+                          <div key={idx} className="p-2 rounded-lg bg-muted/50 text-xs">
+                            <div className="flex items-center justify-between gap-2">
+                              <code className="text-violet-600 font-medium">{`{{${field.templateTag}}}`}</code>
+                              <Badge variant="outline" className="text-[10px]">
+                                {field.matchType === 'ai_matched' ? 'AI' : field.matchType}
+                              </Badge>
+                            </div>
+                            <div className="mt-1 text-muted-foreground truncate" title={field.ocrValue}>
+                              → {field.ocrValue}
+                            </div>
                           </div>
-                          <div className="mt-1 text-muted-foreground truncate" title={field.ocrValue}>
-                            → {field.ocrValue}
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
+
+              {/* Niedopasowane pola */}
+              {previewData.unmatchedTags && previewData.unmatchedTags.length > 0 && (
+                <Collapsible defaultOpen={false}>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" className="w-full justify-between px-4 py-3 rounded-none border-b text-amber-600 hover:text-amber-700">
+                      <span className="font-medium text-sm">Niedopasowane ({previewData.unmatchedTags.length})</span>
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <ScrollArea className="max-h-[200px] md:max-h-[calc(50vh-150px)]">
+                      <div className="p-3 space-y-2">
+                        {previewData.unmatchedTags.map((tag, idx) => (
+                          <div key={idx} className="p-2 rounded-lg bg-amber-500/10 text-xs">
+                            <code className="text-amber-700 font-medium">{`{{${tag}}}`}</code>
+                            <div className="mt-1 text-muted-foreground text-[10px]">
+                              Brak dopasowania w OCR
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  </ScrollArea>
-                </CollapsibleContent>
-              </Collapsible>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
             </div>
           )}
         </div>
@@ -921,6 +952,7 @@ export function OcrUpload({
     base64: string;
     stats: FillTemplateResult['stats'];
     matchedFields: FillTemplateResult['matchedFields'];
+    unmatchedTags: string[];
   } | null>(null);
   
   // Use persistent state if provided, otherwise use local state
