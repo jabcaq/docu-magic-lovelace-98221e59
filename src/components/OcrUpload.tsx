@@ -781,7 +781,7 @@ function FilledDocumentPreview({ isOpen, onClose, previewData, onRefillWithManua
                     </Button>
                   </CollapsibleTrigger>
                   <CollapsibleContent>
-                    <ScrollArea className="max-h-[250px] md:max-h-[calc(50vh-150px)]">
+                    <div className="h-[300px] md:h-[350px] overflow-y-auto">
                       <div className="p-3 space-y-3">
                         {previewData.unmatchedTags.map((tag, idx) => (
                           <div key={idx} className="space-y-1.5">
@@ -801,7 +801,7 @@ function FilledDocumentPreview({ isOpen, onClose, previewData, onRefillWithManua
                           </div>
                         ))}
                       </div>
-                    </ScrollArea>
+                    </div>
                     
                     {/* Przycisk zastosowania */}
                     {onRefillWithManualFields && (
