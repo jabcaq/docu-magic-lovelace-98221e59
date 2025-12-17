@@ -507,11 +507,40 @@ function FilledDocumentPreview({ isOpen, onClose, previewData, onRefillWithManua
   const [showMatchDetails, setShowMatchDetails] = useState(false);
   const [manualFields, setManualFields] = useState<Record<string, string>>({});
   const [isRefilling, setIsRefilling] = useState(false);
+  const [feedbackSaved, setFeedbackSaved] = useState(false);
 
-  // Reset manual fields when modal opens with new data
+  // Save feedback to template_examples for learning
+  const saveFeedback = async (manualCorrections: Record<string, string> = {}) => {
+    if (!previewData?.templateId || feedbackSaved) return;
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('ocr-save-feedback', {
+        body: {
+          templateId: previewData.templateId,
+          matchedFields: previewData.matchedFields || [],
+          manualCorrections,
+        }
+      });
+
+      if (error) {
+        console.error('Error saving feedback:', error);
+        return;
+      }
+
+      if (data?.saved) {
+        setFeedbackSaved(true);
+        console.log('Feedback saved successfully:', data.fieldsCount, 'fields');
+      }
+    } catch (err) {
+      console.error('Failed to save feedback:', err);
+    }
+  };
+
+  // Reset state when modal opens with new data
   useEffect(() => {
     if (isOpen) {
       setManualFields({});
+      setFeedbackSaved(false);
     }
   }, [isOpen, previewData?.filename]);
 
@@ -551,8 +580,11 @@ function FilledDocumentPreview({ isOpen, onClose, previewData, onRefillWithManua
     }
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!previewData) return;
+    
+    // Save feedback when downloading (user accepted the result)
+    await saveFeedback(manualFields);
     
     const binaryString = atob(previewData.base64);
     const bytes = new Uint8Array(binaryString.length);
@@ -574,7 +606,7 @@ function FilledDocumentPreview({ isOpen, onClose, previewData, onRefillWithManua
 
     toast({
       title: 'Pobrano',
-      description: 'Wypełniony dokument został pobrany',
+      description: feedbackSaved ? 'Dokument pobrany, dane zapisane do nauki systemu' : 'Wypełniony dokument został pobrany',
     });
   };
 
@@ -600,9 +632,13 @@ function FilledDocumentPreview({ isOpen, onClose, previewData, onRefillWithManua
     setIsRefilling(true);
     try {
       await onRefillWithManualFields(filledFields);
+      
+      // Save feedback with manual corrections
+      await saveFeedback(filledFields);
+      
       toast({
         title: 'Zaktualizowano',
-        description: `Dodano ${Object.keys(filledFields).length} ręcznych pól`,
+        description: `Dodano ${Object.keys(filledFields).length} ręcznych pól${feedbackSaved ? ' i zapisano do nauki systemu' : ''}`,
       });
     } catch (err) {
       toast({
