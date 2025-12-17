@@ -25,6 +25,7 @@ export interface OcrPersistentState {
       matchType: string;
     }>;
     unmatchedTags: string[];
+    templateId: string;
   } | null;
 }
 

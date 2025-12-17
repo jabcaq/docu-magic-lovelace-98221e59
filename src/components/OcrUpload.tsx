@@ -40,6 +40,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
@@ -113,7 +114,7 @@ interface TemplateSuggestionsProps {
   result: OcrAnalysisResult;
   onSelectTemplate?: (template: TemplateSuggestion) => void;
   onFillComplete?: (fillResult: FillTemplateResult) => void;
-  onShowPreview?: (previewData: { storagePath: string; filename: string; base64: string; stats: FillTemplateResult['stats']; matchedFields: FillTemplateResult['matchedFields']; unmatchedTags: string[] }) => void;
+  onShowPreview?: (previewData: { storagePath: string; filename: string; base64: string; stats: FillTemplateResult['stats']; matchedFields: FillTemplateResult['matchedFields']; unmatchedTags: string[]; templateId: string }) => void;
 }
 
 function TemplateSuggestions({ result, onSelectTemplate, onFillComplete, onShowPreview }: TemplateSuggestionsProps) {
@@ -164,6 +165,7 @@ function TemplateSuggestions({ result, onSelectTemplate, onFillComplete, onShowP
         stats: data.stats,
         matchedFields: data.matchedFields,
         unmatchedTags: data.unmatchedTags || [],
+        templateId: template.id,
       });
 
       onSelectTemplate?.(template);
@@ -492,15 +494,26 @@ interface FilledDocumentPreviewProps {
     stats: FillTemplateResult['stats'];
     matchedFields: FillTemplateResult['matchedFields'];
     unmatchedTags: string[];
+    templateId?: string;
   } | null;
+  onRefillWithManualFields?: (manualFields: Record<string, string>) => Promise<void>;
 }
 
-function FilledDocumentPreview({ isOpen, onClose, previewData }: FilledDocumentPreviewProps) {
+function FilledDocumentPreview({ isOpen, onClose, previewData, onRefillWithManualFields }: FilledDocumentPreviewProps) {
   const { toast } = useToast();
   const [html, setHtml] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [zoom, setZoom] = useState(100);
   const [showMatchDetails, setShowMatchDetails] = useState(false);
+  const [manualFields, setManualFields] = useState<Record<string, string>>({});
+  const [isRefilling, setIsRefilling] = useState(false);
+
+  // Reset manual fields when modal opens with new data
+  useEffect(() => {
+    if (isOpen) {
+      setManualFields({});
+    }
+  }, [isOpen, previewData?.filename]);
 
   useEffect(() => {
     if (isOpen && previewData?.base64) {
@@ -567,6 +580,42 @@ function FilledDocumentPreview({ isOpen, onClose, previewData }: FilledDocumentP
 
   const handleZoomIn = () => setZoom((z) => Math.min(z + 25, 200));
   const handleZoomOut = () => setZoom((z) => Math.max(z - 25, 50));
+
+  const handleApplyManualFields = async () => {
+    const filledFields = Object.fromEntries(
+      Object.entries(manualFields).filter(([_, value]) => value.trim() !== '')
+    );
+    
+    if (Object.keys(filledFields).length === 0) {
+      toast({
+        title: 'Brak zmian',
+        description: 'Wprowadź wartości dla przynajmniej jednego pola',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!onRefillWithManualFields) return;
+    
+    setIsRefilling(true);
+    try {
+      await onRefillWithManualFields(filledFields);
+      toast({
+        title: 'Zaktualizowano',
+        description: `Dodano ${Object.keys(filledFields).length} ręcznych pól`,
+      });
+    } catch (err) {
+      toast({
+        title: 'Błąd',
+        description: 'Nie udało się zaktualizować dokumentu',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsRefilling(false);
+    }
+  };
+
+  const filledManualCount = Object.values(manualFields).filter(v => v.trim() !== '').length;
 
   const documentStyles = `
     .filled-document-page {
@@ -715,28 +764,68 @@ function FilledDocumentPreview({ isOpen, onClose, previewData }: FilledDocumentP
                 </Collapsible>
               )}
 
-              {/* Niedopasowane pola */}
+              {/* Niedopasowane pola - z możliwością ręcznego wypełnienia */}
               {previewData.unmatchedTags && previewData.unmatchedTags.length > 0 && (
-                <Collapsible defaultOpen={false}>
+                <Collapsible defaultOpen={true}>
                   <CollapsibleTrigger asChild>
                     <Button variant="ghost" className="w-full justify-between px-4 py-3 rounded-none border-b text-amber-600 hover:text-amber-700">
-                      <span className="font-medium text-sm">Niedopasowane ({previewData.unmatchedTags.length})</span>
+                      <span className="font-medium text-sm">
+                        Niedopasowane ({previewData.unmatchedTags.length})
+                        {filledManualCount > 0 && (
+                          <Badge variant="secondary" className="ml-2 text-[10px] bg-emerald-500/10 text-emerald-600">
+                            {filledManualCount} wypełnione
+                          </Badge>
+                        )}
+                      </span>
                       <ChevronDown className="h-4 w-4" />
                     </Button>
                   </CollapsibleTrigger>
                   <CollapsibleContent>
-                    <ScrollArea className="max-h-[200px] md:max-h-[calc(50vh-150px)]">
-                      <div className="p-3 space-y-2">
+                    <ScrollArea className="max-h-[250px] md:max-h-[calc(50vh-150px)]">
+                      <div className="p-3 space-y-3">
                         {previewData.unmatchedTags.map((tag, idx) => (
-                          <div key={idx} className="p-2 rounded-lg bg-amber-500/10 text-xs">
-                            <code className="text-amber-700 font-medium">{`{{${tag}}}`}</code>
-                            <div className="mt-1 text-muted-foreground text-[10px]">
-                              Brak dopasowania w OCR
-                            </div>
+                          <div key={idx} className="space-y-1.5">
+                            <Label htmlFor={`manual-${tag}`} className="text-xs">
+                              <code className="text-amber-700 font-medium">{`{{${tag}}}`}</code>
+                            </Label>
+                            <Input
+                              id={`manual-${tag}`}
+                              placeholder="Wpisz wartość..."
+                              value={manualFields[tag] || ''}
+                              onChange={(e) => setManualFields(prev => ({
+                                ...prev,
+                                [tag]: e.target.value
+                              }))}
+                              className="h-8 text-xs"
+                            />
                           </div>
                         ))}
                       </div>
                     </ScrollArea>
+                    
+                    {/* Przycisk zastosowania */}
+                    {onRefillWithManualFields && (
+                      <div className="p-3 border-t">
+                        <Button
+                          size="sm"
+                          className="w-full"
+                          onClick={handleApplyManualFields}
+                          disabled={isRefilling || filledManualCount === 0}
+                        >
+                          {isRefilling ? (
+                            <>
+                              <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                              Aktualizowanie...
+                            </>
+                          ) : (
+                            <>
+                              <Check className="h-3 w-3 mr-2" />
+                              Zastosuj {filledManualCount > 0 ? `(${filledManualCount})` : ''}
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    )}
                   </CollapsibleContent>
                 </Collapsible>
               )}
@@ -953,6 +1042,7 @@ export function OcrUpload({
     stats: FillTemplateResult['stats'];
     matchedFields: FillTemplateResult['matchedFields'];
     unmatchedTags: string[];
+    templateId: string;
   } | null>(null);
   
   // Use persistent state if provided, otherwise use local state
@@ -1426,6 +1516,40 @@ export function OcrUpload({
         isOpen={!!filledDocPreview}
         onClose={() => setFilledDocPreview(null)}
         previewData={filledDocPreview}
+        onRefillWithManualFields={async (manualFields) => {
+          if (!filledDocPreview?.templateId || !result) return;
+          
+          // Combine OCR fields with manual fields
+          const manualOcrFields = Object.entries(manualFields).map(([tag, value]) => ({
+            tag,
+            label: tag,
+            value,
+            category: 'manual',
+            confidence: 'high' as const,
+          }));
+          
+          const combinedFields = [...result.extractedFields, ...manualOcrFields];
+          
+          const { data, error } = await supabase.functions.invoke('ocr-fill-template', {
+            body: {
+              templateId: filledDocPreview.templateId,
+              ocrFields: combinedFields,
+            }
+          });
+          
+          if (error) throw error;
+          if (!data.success) throw new Error(data.error);
+          
+          setFilledDocPreview({
+            storagePath: data.storagePath || '',
+            filename: data.filename,
+            base64: data.base64,
+            stats: data.stats,
+            matchedFields: data.matchedFields,
+            unmatchedTags: data.unmatchedTags || [],
+            templateId: filledDocPreview.templateId,
+          });
+        }}
       />
     </div>
   );
