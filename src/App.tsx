@@ -12,6 +12,7 @@ import OcrAnalysis from "./pages/OcrAnalysis";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import UserManagement from "./pages/UserManagement";
+import AdminExport from "./pages/AdminExport";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -70,6 +71,14 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <UserManagement />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/export-data"
+            element={
+              <ProtectedRoute>
+                <AdminExport />
               </ProtectedRoute>
             }
           />
