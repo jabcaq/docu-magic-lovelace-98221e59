@@ -508,6 +508,7 @@ function FilledDocumentPreview({ isOpen, onClose, previewData, onRefillWithManua
   const [manualFields, setManualFields] = useState<Record<string, string>>({});
   const [isRefilling, setIsRefilling] = useState(false);
   const [feedbackSaved, setFeedbackSaved] = useState(false);
+  const inputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
 
   // Save feedback to template_examples for learning
   const saveFeedback = async (manualCorrections: Record<string, string> = {}) => {
@@ -541,6 +542,7 @@ function FilledDocumentPreview({ isOpen, onClose, previewData, onRefillWithManua
     if (isOpen) {
       setManualFields({});
       setFeedbackSaved(false);
+      inputRefs.current.clear();
     }
   }, [isOpen, previewData?.filename]);
 
@@ -551,6 +553,21 @@ function FilledDocumentPreview({ isOpen, onClose, previewData, onRefillWithManua
       setHtml(null);
     }
   }, [isOpen, previewData?.base64]);
+
+  // Focus first unmatched field input when modal opens
+  useEffect(() => {
+    if (isOpen && previewData?.unmatchedTags && previewData.unmatchedTags.length > 0) {
+      // Small delay to ensure inputs are rendered
+      const timer = setTimeout(() => {
+        const firstTag = previewData.unmatchedTags[0];
+        const firstInput = inputRefs.current.get(firstTag);
+        if (firstInput) {
+          firstInput.focus();
+        }
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, previewData?.unmatchedTags]);
 
   const renderDocxToHtml = async (base64: string) => {
     setIsLoading(true);
@@ -612,6 +629,55 @@ function FilledDocumentPreview({ isOpen, onClose, previewData, onRefillWithManua
 
   const handleZoomIn = () => setZoom((z) => Math.min(z + 25, 200));
   const handleZoomOut = () => setZoom((z) => Math.max(z - 25, 50));
+
+  // Navigate to next input field
+  const focusNextField = (currentTag: string) => {
+    if (!previewData?.unmatchedTags) return;
+    const currentIndex = previewData.unmatchedTags.indexOf(currentTag);
+    if (currentIndex === -1 || currentIndex >= previewData.unmatchedTags.length - 1) return;
+    
+    const nextTag = previewData.unmatchedTags[currentIndex + 1];
+    const nextInput = inputRefs.current.get(nextTag);
+    if (nextInput) {
+      nextInput.focus();
+    }
+  };
+
+  // Navigate to previous input field
+  const focusPrevField = (currentTag: string) => {
+    if (!previewData?.unmatchedTags) return;
+    const currentIndex = previewData.unmatchedTags.indexOf(currentTag);
+    if (currentIndex <= 0) return;
+    
+    const prevTag = previewData.unmatchedTags[currentIndex - 1];
+    const prevInput = inputRefs.current.get(prevTag);
+    if (prevInput) {
+      prevInput.focus();
+    }
+  };
+
+  // Handle keyboard navigation
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, tag: string) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      focusNextField(tag);
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      focusNextField(tag);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      focusPrevField(tag);
+    }
+  };
+
+  // Register input ref
+  const setInputRef = (tag: string) => (el: HTMLInputElement | null) => {
+    if (el) {
+      inputRefs.current.set(tag, el);
+    } else {
+      inputRefs.current.delete(tag);
+    }
+  };
 
   const handleApplyManualFields = async () => {
     const filledFields = Object.fromEntries(
@@ -819,12 +885,24 @@ function FilledDocumentPreview({ isOpen, onClose, previewData, onRefillWithManua
                   <CollapsibleContent>
                     <div className="h-[300px] md:h-[350px] overflow-y-auto">
                       <div className="p-3 space-y-3">
+                        <div className="text-xs text-muted-foreground mb-2 flex items-center gap-1.5">
+                          <kbd className="px-1.5 py-0.5 rounded bg-muted border text-[10px]">Tab</kbd>
+                          <span>lub</span>
+                          <kbd className="px-1.5 py-0.5 rounded bg-muted border text-[10px]">Enter</kbd>
+                          <span>= następne pole,</span>
+                          <kbd className="px-1.5 py-0.5 rounded bg-muted border text-[10px]">↑↓</kbd>
+                          <span>= nawigacja</span>
+                        </div>
                         {previewData.unmatchedTags.map((tag, idx) => (
                           <div key={idx} className="space-y-1.5">
-                            <Label htmlFor={`manual-${tag}`} className="text-xs">
+                            <Label htmlFor={`manual-${tag}`} className="text-xs flex items-center gap-2">
                               <code className="text-amber-700 font-medium">{`{{${tag}}}`}</code>
+                              <span className="text-muted-foreground text-[10px]">
+                                ({idx + 1}/{previewData.unmatchedTags.length})
+                              </span>
                             </Label>
                             <Input
+                              ref={setInputRef(tag)}
                               id={`manual-${tag}`}
                               placeholder="Wpisz wartość..."
                               value={manualFields[tag] || ''}
@@ -832,6 +910,8 @@ function FilledDocumentPreview({ isOpen, onClose, previewData, onRefillWithManua
                                 ...prev,
                                 [tag]: e.target.value
                               }))}
+                              onKeyDown={(e) => handleInputKeyDown(e, tag)}
+                              tabIndex={idx + 1}
                               className="h-8 text-xs"
                             />
                           </div>
