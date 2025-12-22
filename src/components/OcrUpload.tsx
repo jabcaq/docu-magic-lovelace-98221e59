@@ -722,20 +722,37 @@ function FilledDocumentPreview({ isOpen, onClose, previewData, onRefillWithManua
 
   const filledManualCount = Object.values(manualFields).filter(v => v.trim() !== '').length;
 
-  // Process HTML to highlight the active field tag
+  // Process HTML to highlight the active field tag and show real-time values
   const processedHtml = useMemo(() => {
-    if (!html || !activeFieldTag) return html;
+    if (!html) return html;
     
-    // Escape special regex characters in the tag name
-    const escapedTag = activeFieldTag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    let result = html;
     
-    // Replace the {{tag}} with a highlighted version
-    const tagPattern = new RegExp(`\\{\\{${escapedTag}\\}\\}`, 'gi');
-    return html.replace(
-      tagPattern, 
-      `<span class="active-field-highlight" data-field="${activeFieldTag}">{{${activeFieldTag}}}</span>`
-    );
-  }, [html, activeFieldTag]);
+    // First, replace all filled manual fields with their values (real-time preview)
+    Object.entries(manualFields).forEach(([tag, value]) => {
+      if (value.trim()) {
+        const escapedTag = tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const tagPattern = new RegExp(`\\{\\{${escapedTag}\\}\\}`, 'gi');
+        const displayValue = value.replace(/</g, '&lt;').replace(/>/g, '&gt;'); // Escape HTML
+        result = result.replace(
+          tagPattern,
+          `<span class="realtime-value" data-field="${tag}">${displayValue}</span>`
+        );
+      }
+    });
+    
+    // Then, highlight the active field if it hasn't been filled yet
+    if (activeFieldTag && (!manualFields[activeFieldTag] || !manualFields[activeFieldTag].trim())) {
+      const escapedTag = activeFieldTag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const tagPattern = new RegExp(`\\{\\{${escapedTag}\\}\\}`, 'gi');
+      result = result.replace(
+        tagPattern, 
+        `<span class="active-field-highlight" data-field="${activeFieldTag}">{{${activeFieldTag}}}</span>`
+      );
+    }
+    
+    return result;
+  }, [html, activeFieldTag, manualFields]);
 
   // Auto-scroll to highlighted field in document
   useEffect(() => {
@@ -772,6 +789,14 @@ function FilledDocumentPreview({ isOpen, onClose, previewData, onRefillWithManua
       border-radius: 3px;
       animation: pulse-highlight 1.5s ease-in-out infinite;
       box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.3);
+    }
+    .filled-document-page .realtime-value {
+      background-color: #22c55e;
+      color: white;
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-weight: 500;
+      transition: all 0.2s ease;
     }
     @keyframes pulse-highlight {
       0%, 100% { box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.3); }
