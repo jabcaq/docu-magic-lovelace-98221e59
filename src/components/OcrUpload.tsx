@@ -1,4 +1,4 @@
-import { useCallback, useState, useRef, useEffect } from 'react';
+import { useCallback, useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Upload, 
   FileImage, 
@@ -508,7 +508,9 @@ function FilledDocumentPreview({ isOpen, onClose, previewData, onRefillWithManua
   const [manualFields, setManualFields] = useState<Record<string, string>>({});
   const [isRefilling, setIsRefilling] = useState(false);
   const [feedbackSaved, setFeedbackSaved] = useState(false);
+  const [activeFieldTag, setActiveFieldTag] = useState<string | null>(null);
   const inputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
+  const documentContainerRef = useRef<HTMLDivElement>(null);
 
   // Save feedback to template_examples for learning
   const saveFeedback = async (manualCorrections: Record<string, string> = {}) => {
@@ -542,6 +544,7 @@ function FilledDocumentPreview({ isOpen, onClose, previewData, onRefillWithManua
     if (isOpen) {
       setManualFields({});
       setFeedbackSaved(false);
+      setActiveFieldTag(null);
       inputRefs.current.clear();
     }
   }, [isOpen, previewData?.filename]);
@@ -719,6 +722,31 @@ function FilledDocumentPreview({ isOpen, onClose, previewData, onRefillWithManua
 
   const filledManualCount = Object.values(manualFields).filter(v => v.trim() !== '').length;
 
+  // Process HTML to highlight the active field tag
+  const processedHtml = useMemo(() => {
+    if (!html || !activeFieldTag) return html;
+    
+    // Escape special regex characters in the tag name
+    const escapedTag = activeFieldTag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    
+    // Replace the {{tag}} with a highlighted version
+    const tagPattern = new RegExp(`\\{\\{${escapedTag}\\}\\}`, 'gi');
+    return html.replace(
+      tagPattern, 
+      `<span class="active-field-highlight" data-field="${activeFieldTag}">{{${activeFieldTag}}}</span>`
+    );
+  }, [html, activeFieldTag]);
+
+  // Auto-scroll to highlighted field in document
+  useEffect(() => {
+    if (activeFieldTag && documentContainerRef.current) {
+      const highlightedElement = documentContainerRef.current.querySelector('.active-field-highlight');
+      if (highlightedElement) {
+        highlightedElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  }, [activeFieldTag]);
+
   const documentStyles = `
     .filled-document-page {
       background: white;
@@ -737,6 +765,18 @@ function FilledDocumentPreview({ isOpen, onClose, previewData, onRefillWithManua
     .filled-document-page td, .filled-document-page th { border: 1px solid #000; padding: 3pt 5pt; text-align: left; vertical-align: top; }
     .filled-document-page th { background: #f0f0f0; font-weight: bold; }
     .filled-document-page .highlight { background-color: #FEF9C3; }
+    .filled-document-page .active-field-highlight {
+      background-color: #f97316;
+      color: white;
+      padding: 2px 4px;
+      border-radius: 3px;
+      animation: pulse-highlight 1.5s ease-in-out infinite;
+      box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.3);
+    }
+    @keyframes pulse-highlight {
+      0%, 100% { box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.3); }
+      50% { box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.5); }
+    }
   `;
 
   return (
@@ -799,12 +839,13 @@ function FilledDocumentPreview({ isOpen, onClose, previewData, onRefillWithManua
               <ScrollArea className="h-full">
                 <style dangerouslySetInnerHTML={{ __html: documentStyles }} />
                 <div 
+                  ref={documentContainerRef}
                   className="py-6 px-4"
                   style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}
                 >
                   <div 
                     className="filled-document-page"
-                    dangerouslySetInnerHTML={{ __html: html }}
+                    dangerouslySetInnerHTML={{ __html: processedHtml || html }}
                   />
                 </div>
               </ScrollArea>
@@ -896,7 +937,10 @@ function FilledDocumentPreview({ isOpen, onClose, previewData, onRefillWithManua
                         {previewData.unmatchedTags.map((tag, idx) => (
                           <div key={idx} className="space-y-1.5">
                             <Label htmlFor={`manual-${tag}`} className="text-xs flex items-center gap-2">
-                              <code className="text-amber-700 font-medium">{`{{${tag}}}`}</code>
+                              <code className={cn(
+                                "font-medium transition-colors",
+                                activeFieldTag === tag ? "text-orange-600 bg-orange-100 px-1 rounded" : "text-amber-700"
+                              )}>{`{{${tag}}}`}</code>
                               <span className="text-muted-foreground text-[10px]">
                                 ({idx + 1}/{previewData.unmatchedTags.length})
                               </span>
@@ -910,9 +954,14 @@ function FilledDocumentPreview({ isOpen, onClose, previewData, onRefillWithManua
                                 ...prev,
                                 [tag]: e.target.value
                               }))}
+                              onFocus={() => setActiveFieldTag(tag)}
+                              onBlur={() => setActiveFieldTag(null)}
                               onKeyDown={(e) => handleInputKeyDown(e, tag)}
                               tabIndex={idx + 1}
-                              className="h-8 text-xs"
+                              className={cn(
+                                "h-8 text-xs transition-all",
+                                activeFieldTag === tag && "ring-2 ring-orange-500 border-orange-500"
+                              )}
                             />
                           </div>
                         ))}
