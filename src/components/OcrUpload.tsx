@@ -854,7 +854,7 @@ function FilledDocumentPreview({ isOpen, onClose, previewData, onRefillWithManua
 
         <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
           {/* Document preview */}
-          <div className="flex-1 overflow-hidden bg-muted/30">
+          <div className="flex-1 overflow-hidden bg-muted/50">
             {isLoading ? (
               <div className="h-full flex flex-col items-center justify-center gap-3">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -865,7 +865,7 @@ function FilledDocumentPreview({ isOpen, onClose, previewData, onRefillWithManua
                 <style dangerouslySetInnerHTML={{ __html: documentStyles }} />
                 <div 
                   ref={documentContainerRef}
-                  className="py-6 px-4"
+                  className="flex justify-center py-6 px-6"
                   style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}
                 >
                   <div 
