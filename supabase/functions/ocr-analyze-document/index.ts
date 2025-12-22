@@ -706,6 +706,34 @@ FORMAT ODPOWIEDZI:
           
           ocrResult.documentId = document.id;
         }
+
+        // Zapisz również do ocr_documents dla historii OCR
+        const { data: ocrDocument, error: ocrDocError } = await supabase
+          .from('ocr_documents')
+          .insert({
+            user_id: user.id,
+            original_file_path: filePath,
+            original_file_name: fileName,
+            extracted_fields: ocrResult.extractedFields || [],
+          preliminary_ocr_data: {
+              documentType: ocrResult.documentType,
+              provider: selectedModel || 'gemini-2.5-pro',
+              summary: ocrResult.summary,
+              fieldsCount: ocrResult.extractedFields?.length || 0,
+              documentLanguage: ocrResult.documentLanguage
+            },
+            status: 'completed',
+            confidence_score: ocrResult.extractedFields?.reduce((acc: number, f: any) => {
+              const conf = f.confidence === 'high' ? 1 : f.confidence === 'medium' ? 0.7 : 0.4;
+              return acc + conf;
+            }, 0) / (ocrResult.extractedFields?.length || 1)
+          })
+          .select()
+          .single();
+
+        if (!ocrDocError && ocrDocument) {
+          ocrResult.ocrDocumentId = ocrDocument.id;
+        }
       }
     }
 
