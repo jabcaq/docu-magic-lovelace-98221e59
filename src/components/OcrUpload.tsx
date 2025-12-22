@@ -765,20 +765,27 @@ function FilledDocumentPreview({ isOpen, onClose, previewData, onRefillWithManua
   }, [activeFieldTag]);
 
   const documentStyles = `
+    .document-preview-container {
+      display: flex;
+      justify-content: center;
+      padding: 24px;
+      min-height: 100%;
+    }
     .filled-document-page {
       background: white;
-      width: 210mm;
-      min-height: 297mm;
-      padding: 15mm 20mm;
-      margin: 20px auto;
+      width: 100%;
+      max-width: 650px;
+      min-height: auto;
+      padding: 40px 48px;
+      margin: 0 auto;
       box-shadow: 0 4px 20px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05);
       font-family: 'Calibri', 'Arial', sans-serif;
-      font-size: 10pt;
-      line-height: 1.3;
+      font-size: 11pt;
+      line-height: 1.4;
       color: #000;
     }
     .filled-document-page p { margin: 0 0 6pt 0; text-align: left; }
-    .filled-document-page table { width: 100%; border-collapse: collapse; margin: 6pt 0; font-size: 9pt; }
+    .filled-document-page table { width: 100%; border-collapse: collapse; margin: 6pt 0; font-size: 10pt; }
     .filled-document-page td, .filled-document-page th { border: 1px solid #000; padding: 3pt 5pt; text-align: left; vertical-align: top; }
     .filled-document-page th { background: #f0f0f0; font-weight: bold; }
     .filled-document-page .highlight { background-color: #FEF9C3; }
@@ -865,7 +872,7 @@ function FilledDocumentPreview({ isOpen, onClose, previewData, onRefillWithManua
                 <style dangerouslySetInnerHTML={{ __html: documentStyles }} />
                 <div 
                   ref={documentContainerRef}
-                  className="flex justify-center py-6 px-6"
+                  className="document-preview-container"
                   style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}
                 >
                   <div 
