@@ -813,7 +813,7 @@ function FilledDocumentPreview({ isOpen, onClose, previewData, onRefillWithManua
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-[95vw] w-full md:max-w-5xl h-[90vh] flex flex-col p-0 gap-0 [&>button]:hidden">
+      <DialogContent className="max-w-[98vw] w-full md:max-w-7xl h-[95vh] flex flex-col p-0 gap-0 [&>button]:hidden">
         <DialogHeader className="px-4 md:px-6 py-3 md:py-4 border-b shrink-0 bg-card">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
